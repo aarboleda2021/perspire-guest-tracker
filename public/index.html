@@ -1156,7 +1156,7 @@ function renderChanges(){
   const fil=document.getElementById('chg-filter').value;
   const open=changes.filter(c=>c.status!=='closed');
   const urgent=changes.filter(c=>c.status!=='closed'&&billUrgency(c.billDate)==='urgent');
-  const followup=changes.filter(c=>c.status!=='closed'&&c.needsFollowup);
+  const followup=changes.filter(c=>needsFollowupNow(c));
 
   let banners='';
   if(urgent.length)banners+=`<div class="urgbanner"><div class="urgicon">⚠</div><div class="urgtxt"><strong>${urgent.length} urgent — process before bill date or closure.</strong><br>${urgent.map(c=>`${c.guestName} (${c.type}, bill ${fmtDate(c.billDate)})`).join(' · ')}</div></div>`;
@@ -1173,14 +1173,14 @@ function renderChanges(){
   let list=changes;
   if(fil==='open')list=changes.filter(c=>c.status!=='closed');
   else if(fil==='urgent')list=changes.filter(c=>c.status!=='closed'&&billUrgency(c.billDate)==='urgent');
-  else if(fil==='followup')list=changes.filter(c=>c.status!=='closed'&&c.needsFollowup);
+  else if(fil==='followup')list=changes.filter(c=>needsFollowupNow(c));
   else if(fil==='termination')list=changes.filter(c=>c.type==='termination'&&c.status!=='closed');
   else if(fil==='suspension')list=changes.filter(c=>c.type==='suspension'&&c.status!=='closed');
   else if(fil==='downgrade')list=changes.filter(c=>c.type==='downgrade'&&c.status!=='closed');
   else if(fil==='upgrade')list=changes.filter(c=>c.type==='upgrade'&&c.status!=='closed');
 
   list=[...list].sort((a,b)=>{
-    const fol=(x)=>x.needsFollowup&&x.status!=='closed'?0:1;
+    const fol=(x)=>needsFollowupNow(x)?0:1;
     const u={urgent:0,warn:1,normal:2};
     const cls=(x)=>x.status==='closed'?1:0;
     return(cls(a)-cls(b))||((u[billUrgency(a.billDate)]??2)-(u[billUrgency(b.billDate)]??2))||((daysUntil(a.billDate)??999)-(daysUntil(b.billDate)??999))||(fol(a)-fol(b));
@@ -1195,7 +1195,7 @@ function renderChangeCard(c,prefix=''){
   const urg=billUrgency(c.billDate);
   const du=daysUntil(c.billDate);
   const duLbl=du===null?'':du<=0?'Bill date passed':du===1?'⚠ TOMORROW':`${du} days to bill`;
-  const urgCls=c.needsFollowup&&c.status!=='closed'?'isfol':urg==='urgent'&&c.status!=='closed'?'isurg':urg==='warn'&&c.status!=='closed'?'iswarn':'';
+  const urgCls=needsFollowupNow(c)?'isfol':urg==='urgent'&&c.status!=='closed'?'isurg':urg==='warn'&&c.status!=='closed'?'iswarn':'';
   const tmap={termination:'bTERM',suspension:'bSUSP',downgrade:'bDOWN',upgrade:'bUP'};
   const tlbl={termination:'Termination',suspension:'Suspension',downgrade:'Downgrade',upgrade:'Upgrade'};
 
@@ -1235,7 +1235,7 @@ function renderChangeCard(c,prefix=''){
   }
 
   let followScriptHtml='';
-  if(c.needsFollowup&&c.status!=='closed'){
+  if(needsFollowupNow(c)){
     followScriptHtml=`
       <div class="folbanner"><p>↩ <strong>Follow-up needed.</strong> No answer on initial outreach — attempt contact again before bill date (${fmtDate(c.billDate)}).</p></div>
       <div style="margin-top:10px;"><button class="btn btn-g btn-sm" style="border-color:#856404;color:#856404;" onclick="openChangeScript('termination_followup','Follow-up outreach scripts')">View follow-up scripts</button></div>`;
@@ -1285,7 +1285,7 @@ function renderChangeCard(c,prefix=''){
         <span class="badge ${tmap[c.type]||'bot'}">${tlbl[c.type]||c.type}</span>
         <span class="badge ${c.status==='closed'?'bCLOSD':'bOPEN'}">${c.status==='closed'?'Processed':'Open'}</span>
         ${urg==='urgent'&&c.status!=='closed'?`<span class="badge bURG">URGENT</span>`:''}
-        ${c.needsFollowup&&c.status!=='closed'?`<span class="badge bFOL">Follow-up</span>`:''}
+        ${needsFollowupNow(c)?`<span class="badge bFOL">Follow-up</span>`:''}
       </div>
       <svg class="xic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
     </div>
@@ -1482,6 +1482,8 @@ async function removeNurture(id){
 }
 
 // ── ACTIONS ───────────────────────────────────────────────────────────────
+
+function needsFollowupNow(c){return c.needsFollowup&&c.status!=='closed'&&(!c.checklist||!c.checklist[0])&&(!c.outcome||c.outcome==='pending');}
 
 function refreshChanges(){renderChanges();if(currentView==='manager'&&currentMgrTab==='changes')renderMgrChanges();}
 
