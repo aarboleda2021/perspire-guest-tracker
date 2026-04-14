@@ -1651,6 +1651,11 @@ async function submitChange(){
   const curTier=document.getElementById('mc-cur-tier').value;
   const newTier=(type==='downgrade'||type==='upgrade')?document.getElementById('mc-new-tier').value:null;
   const notes=document.getElementById('mc-notes').value.trim();
+  // Duplicate check (skip if editing an existing record)
+  if(!editingChangeId&&name){
+    const dup=changes.find(c=>c.guestName.toLowerCase()===name.toLowerCase()&&c.status!=='closed');
+    if(dup&&!confirm(`An open ${dup.type} request for "${dup.guestName}" already exists (bill date ${fmtDate(dup.billDate)}). Submit another?`))return;
+  }
   const errs=[];
   if(!name)errs.push('Guest name');
   if(!parseDate(billDate))errs.push('Bill date');
