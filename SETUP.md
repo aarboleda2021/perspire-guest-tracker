@@ -87,6 +87,7 @@ CREATE TABLE nurtures (
   start_date DATE NOT NULL,
   logs JSONB NOT NULL DEFAULT '{}',
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed')),
+  assigned_staff TEXT REFERENCES staff(id) DEFAULT 'mohogany',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

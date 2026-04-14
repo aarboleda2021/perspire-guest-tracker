@@ -17,6 +17,7 @@ module.exports = async function handler(req, res) {
     if (b.startDate !== undefined) updates.start_date = b.startDate;
     if (b.logs !== undefined) updates.logs = b.logs;
     if (b.status !== undefined) updates.status = b.status;
+    if (b.assignedStaff !== undefined) updates.assigned_staff = b.assignedStaff;
 
     const { error } = await supabase.from('nurtures').update(updates).eq('id', id);
     if (error) return res.status(500).json({ error: error.message });

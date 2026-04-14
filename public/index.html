@@ -207,7 +207,7 @@
     .frow{grid-template-columns:1fr;}
     .tpg{grid-template-columns:repeat(2,1fr);}
     .hdr-title{display:none;}
-    .cbdg,.mcbdg{display:none;}
+    .cbdg,.mcbdg{gap:3px;}.badge{font-size:9px;padding:2px 6px;}
   }
 </style>
 </head>
@@ -1399,7 +1399,7 @@ function renderNurtureCard(n){
   return`<div class="ccard ${st==='overdue'?'isod':st==='due-now'?'isdu':''}" id="nur-${n.id}">
     <div class="chdr" onclick="toggleCard('nur-${n.id}')">
       <div class="cav">${initials(n.guestName)}</div>
-      <div class="ci"><div class="cn">${n.guestName}</div><div class="cm">${n.oldTier} → ${n.newTier} · Day ${days} · ${done}/${NURTURE_TPS.length} touchpoints</div></div>
+      <div class="ci"><div class="cn">${n.guestName}</div><div class="cm">${n.oldTier} → ${n.newTier} · Day ${days} · ${done}/${NURTURE_TPS.length} touchpoints · Assigned: ${sName(n.assignedStaff||'mohogany')}</div></div>
       <div class="cbdg">${tBdg}${sBdg}</div>
       <svg class="xic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
     </div>
@@ -1408,6 +1408,7 @@ function renderNurtureCard(n){
       <div class="tpg">${tpHtml}</div>
       <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
         ${n.status==='active'?`<button class="btn btn-g btn-sm" onclick="completeNurture('${n.id}')">Mark complete ✓</button>`:`<button class="btn btn-g btn-sm" onclick="reopenNurture('${n.id}')">Reopen</button>`}
+        <button class="btn btn-g btn-sm" onclick="openReassignNurture('${n.id}')">Reassign</button>
         <button class="btn btn-sm btn-do" onclick="removeNurture('${n.id}')">Remove</button>
       </div>
     </div>
@@ -1474,6 +1475,15 @@ async function reopenNurture(id){
   else{await api('nurtures/'+id,{method:'PUT',body:{status:'active'}});}
   renderMgrNurture();
 }
+let reassignNurtureId=null;
+function openReassignNurture(nid){
+  reassignNurtureId=nid;
+  const n=nurtures.find(x=>x.id===nid);if(!n)return;
+  document.getElementById('rassign-info').textContent=`Reassign ${n.guestName}'s nurture to a different staff member. Currently assigned to ${sName(n.assignedStaff||'mohogany')}.`;
+  document.getElementById('rassign-target').innerHTML=activeStaff().filter(x=>x.id!==(n.assignedStaff||'mohogany')).map(x=>`<option value="${x.id}">${x.name}</option>`).join('');
+  document.getElementById('rassign-modal').classList.add('open');
+}
+
 async function removeNurture(id){
   if(!confirm('Remove this nurture record?'))return;
   if(useLocalStorage){nurtures=nurtures.filter(x=>x.id!==id);lsSave();}
@@ -1615,9 +1625,9 @@ async function submitChange(){
 
   if(editingChangeId){
     const c=changes.find(x=>x.id===editingChangeId);
-    if(c){c.guestName=name;c.type=finalType;c.dateRequested=useLocalStorage?parseDate(dateRequestedStr).toISOString():dateRequestedStr;c.billDate=useLocalStorage?parseDate(billDateStr).toISOString():billDateStr;c.currentTier=curTier;c.newTier=finalNewTier;c.notes=notes;}
+    if(c){c.guestName=name;c.type=finalType;c.dateRequested=useLocalStorage?parseDate(dateRequestedStr).toISOString():dateRequestedStr;c.billDate=useLocalStorage?parseDate(billDateStr).toISOString():billDateStr;c.currentTier=curTier;c.newTier=finalNewTier;c.notes=notes;c.freezeDuration=freezeDuration||c.freezeDuration;c.freezeOtherNote=freezeOtherNote||c.freezeOtherNote;if(outreachOutcome)c.outreachOutcome=outreachOutcome;if(needsFollowup)c.needsFollowup=needsFollowup;}
     if(useLocalStorage){lsSave();}
-    else{await api('changes/'+editingChangeId,{method:'PUT',body:{guestName:name,type:finalType,dateRequested:dateRequestedStr,billDate:billDateStr,currentTier:curTier,newTier:finalNewTier,notes}});await loadChanges();}
+    else{await api('changes/'+editingChangeId,{method:'PUT',body:{guestName:name,type:finalType,dateRequested:dateRequestedStr,billDate:billDateStr,currentTier:curTier,newTier:finalNewTier,notes,freezeDuration:c.freezeDuration,freezeOtherNote:c.freezeOtherNote,outreachOutcome:c.outreachOutcome,needsFollowup:c.needsFollowup}});await loadChanges();}
   } else {
     const rec={id:Date.now().toString(),guestName:name,type:finalType,dateRequested:useLocalStorage?parseDate(dateRequestedStr)?.toISOString()||new Date().toISOString():dateRequestedStr,billDate:useLocalStorage?parseDate(billDateStr).toISOString():billDateStr,currentTier:curTier,newTier:finalNewTier,freezeDuration,freezeOtherNote,notes,status:'open',outcome:'pending',outcomeNotes:'',checklist:{},freezeOverride:false,needsFollowup,outreachOutcome,createdAt:new Date().toISOString()};
     if(useLocalStorage){changes.push(rec);lsSave();}
@@ -1642,7 +1652,7 @@ async function toggleClose(id){
   if(wasOpen&&c.status==='closed'&&(c.type==='downgrade'||c.type==='upgrade')){
     const existing=nurtures.find(n=>n.changeId===c.id);
     if(!existing){
-      const rec={id:Date.now().toString(),changeId:c.id,guestName:c.guestName,type:c.type,oldTier:c.currentTier,newTier:c.newTier||'',startDate:new Date().toISOString().split('T')[0],logs:{},status:'active',createdAt:new Date().toISOString()};
+      const rec={id:Date.now().toString(),changeId:c.id,guestName:c.guestName,type:c.type,oldTier:c.currentTier,newTier:c.newTier||'',startDate:new Date().toISOString().split('T')[0],logs:{},status:'active',assignedStaff:'mohogany',createdAt:new Date().toISOString()};
       if(useLocalStorage){nurtures.push(rec);lsSave();}
       else{await api('nurtures',{method:'POST',body:rec});await loadNurtures();}
     }
@@ -1662,10 +1672,14 @@ async function updateOutcome(id,val){
   else{await api('changes/'+id,{method:'PUT',body:{outcome:val}});}
 }
 async function handleOutcome(id,val){
-  await updateOutcome(id,val);
-  if(val==='saved-downgrade'||val==='saved-freeze'){
-    refreshChanges();
+  const c=changes.find(x=>x.id===id);
+  if(c&&val!=='pending'&&c.needsFollowup){
+    c.needsFollowup=false;
+    if(useLocalStorage){lsSave();}
+    else{await api('changes/'+id,{method:'PUT',body:{needsFollowup:false}});}
   }
+  await updateOutcome(id,val);
+  refreshChanges();
 }
 async function applyOutcomeTier(id){
   const c=changes.find(x=>x.id===id);if(!c)return;
@@ -1709,8 +1723,12 @@ function openEditChange(id){
   document.getElementById('mc-bill-date').value=toInputDate(c.billDate);
   document.getElementById('mc-cur-tier').value=c.currentTier||'IRelax 4x';
   if(c.newTier)document.getElementById('mc-new-tier').value=c.newTier;
-  if(c.freezeDuration){document.getElementById('mc-freeze-dur')&&(document.getElementById('mc-freeze-dur').value=c.freezeDuration);}
+  if(c.freezeDuration){const fd=document.getElementById('mc-freeze-dur');if(fd)fd.value=c.freezeDuration;if(c.freezeDuration==='other'){const fw=document.getElementById('mc-freeze-other-wrap');if(fw)fw.style.display='block';const fo=document.getElementById('mc-freeze-other');if(fo)fo.value=c.freezeOtherNote||'';}}
   document.getElementById('mc-notes').value=c.notes||'';
+  // Pre-check required checkboxes since they were already validated on initial submission
+  ['chk-mb','chk-out','chk-mb-tc','chk-mb-susp'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=true;});
+  // Restore outreach outcome if applicable
+  if(c.outreachOutcome){const oo=document.getElementById('mc-out-outcome');if(oo)oo.value=c.outreachOutcome;}
   f.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
@@ -1803,6 +1821,17 @@ function openReassignSingle(id){
 }
 async function doReassign(){
   const t=document.getElementById('rassign-target').value;
+  // Handle nurture reassignment
+  if(reassignNurtureId){
+    const n=nurtures.find(x=>x.id===reassignNurtureId);
+    if(n){n.assignedStaff=t;
+      if(useLocalStorage){lsSave();}
+      else{await api('nurtures/'+n.id,{method:'PUT',body:{assignedStaff:t}});}
+    }
+    reassignNurtureId=null;
+    closeModal('rassign-modal');renderMgrNurture();return;
+  }
+  // Handle guest reassignment
   const ids=rStaff?guests.filter(c=>c.assignedStaff===rStaff).map(c=>c.id):rClient?[rClient]:[];
   if(useLocalStorage){
     ids.forEach(id=>{const c=guests.find(x=>x.id===id);if(c)c.assignedStaff=t;});
