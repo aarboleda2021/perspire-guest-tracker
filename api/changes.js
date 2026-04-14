@@ -1,0 +1,66 @@
+const { getSupabase, cors } = require('./_supabase');
+
+module.exports = async function handler(req, res) {
+  cors(res);
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
+  const supabase = getSupabase();
+
+  if (req.method === 'GET') {
+    const { data, error } = await supabase
+      .from('changes')
+      .select('*')
+      .order('created_at', { ascending: true });
+    if (error) return res.status(500).json({ error: error.message });
+
+    const result = data.map(c => ({
+      id: c.id,
+      guestName: c.guest_name,
+      type: c.type,
+      dateRequested: c.date_requested,
+      billDate: c.bill_date,
+      currentTier: c.current_tier,
+      newTier: c.new_tier,
+      freezeDuration: c.freeze_duration,
+      freezeOtherNote: c.freeze_other_note,
+      notes: c.notes,
+      status: c.status,
+      outcome: c.outcome,
+      outcomeNotes: c.outcome_notes,
+      freezeOverride: c.freeze_override,
+      needsFollowup: c.needs_followup,
+      outreachOutcome: c.outreach_outcome,
+      checklist: c.checklist || {},
+      createdAt: c.created_at
+    }));
+
+    return res.status(200).json(result);
+  }
+
+  if (req.method === 'POST') {
+    const b = req.body;
+    const { error } = await supabase.from('changes').insert({
+      id: b.id,
+      guest_name: b.guestName,
+      type: b.type,
+      date_requested: b.dateRequested,
+      bill_date: b.billDate,
+      current_tier: b.currentTier,
+      new_tier: b.newTier || null,
+      freeze_duration: b.freezeDuration || null,
+      freeze_other_note: b.freezeOtherNote || null,
+      notes: b.notes || '',
+      status: b.status || 'open',
+      outcome: b.outcome || 'pending',
+      outcome_notes: b.outcomeNotes || '',
+      freeze_override: b.freezeOverride || false,
+      needs_followup: b.needsFollowup || false,
+      outreach_outcome: b.outreachOutcome || null,
+      checklist: b.checklist || {}
+    });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(201).json({ ok: true });
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' });
+};

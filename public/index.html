@@ -1,0 +1,1869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perspire · Guest Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --tc:#B85C38;--tcl:#D4714E;--tcp:#F5EDE8;
+    --dark:#2A2A2A;--mid:#5C5C5C;--muted:#9A9A9A;--border:#E8E0D8;--sand:#FAF7F2;
+    --ok:#3A7D5A;--okp:#EBF5EF;--warn:#C47B1A;--warnp:#FDF3E3;
+    --err:#C0392B;--errp:#FCECEA;--info:#2C6E8A;--infop:#E8F3F7;
+    --pur:#6B4CA8;--purp:#F0EBFA;--urg:#8B0000;--urgp:#FFECEC;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif;background:var(--sand);color:var(--dark);min-height:100vh;font-size:14px;}
+  .hdr{background:var(--tc);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;gap:12px;}
+  .hdr-title{font-family:'DM Serif Display',serif;font-size:16px;color:white;white-space:nowrap;}
+  .hdr-title em{font-style:italic;opacity:.8;}
+  .vtog{display:flex;background:rgba(0,0,0,.2);border-radius:6px;padding:3px;gap:2px;flex-shrink:0;}
+  .vbtn{padding:5px 12px;border:none;background:transparent;color:rgba(255,255,255,.7);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;border-radius:4px;cursor:pointer;white-space:nowrap;}
+  .vbtn.active{background:white;color:var(--tc);}
+  .main{max-width:1100px;margin:0 auto;padding:22px 18px;}
+
+  /* TOOLBAR */
+  .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;}
+  .tlbl{font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
+  select,input[type="text"],input[type="date"]{padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--dark);background:white;cursor:pointer;outline:none;transition:border-color .15s;}
+  select:focus,input:focus{border-color:var(--tc);}
+  .btn{padding:8px 16px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .15s;}
+  .btn-p{background:var(--tc);color:white;} .btn-p:hover{background:var(--tcl);}
+  .btn-g{background:transparent;color:var(--mid);border:1.5px solid var(--border);} .btn-g:hover{border-color:var(--tc);color:var(--tc);}
+  .btn-sm{padding:5px 10px;font-size:12px;}
+  .btn-do{background:transparent;color:var(--err);border:1.5px solid var(--err);}
+
+  /* STATS */
+  .srow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px;}
+  .sc{background:white;border-radius:12px;padding:14px 18px;border:1.5px solid var(--border);}
+  .scl{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;}
+  .scv{font-family:'DM Serif Display',serif;font-size:26px;color:var(--dark);line-height:1;}
+  .scv.d{color:var(--err);} .scv.w{color:var(--warn);} .scv.s{color:var(--ok);} .scv.u{color:var(--urg);}
+
+  /* BADGES */
+  .badge{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap;display:inline-block;}
+  .bm{background:var(--infop);color:var(--info);} .bpk{background:var(--tcp);color:var(--tc);}
+  .bod{background:var(--errp);color:var(--err);} .bdu{background:var(--warnp);color:var(--warn);}
+  .bhlt{background:var(--okp);color:var(--ok);} .bot{background:#EEF2FF;color:#4A5CB8;}
+  .bia{background:#F0F0F0;color:#888;}
+  .bURG{background:var(--urgp);color:var(--urg);font-weight:700;}
+  .bTERM{background:var(--errp);color:var(--err);} .bSUSP{background:var(--warnp);color:var(--warn);}
+  .bDOWN{background:var(--purp);color:var(--pur);} .bUP{background:var(--okp);color:var(--ok);}
+  .bOPEN{background:#EEF2FF;color:#4A5CB8;} .bCLOSD{background:var(--okp);color:var(--ok);}
+  .bFOL{background:#FFF3CD;color:#856404;font-weight:600;}
+
+  /* SECTION */
+  .sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .sec-title{font-family:'DM Serif Display',serif;font-size:18px;}
+  .sec-ct{font-size:12px;color:var(--muted);background:var(--border);padding:3px 10px;border-radius:20px;}
+
+  /* CARDS */
+  .clist,.mclist{display:flex;flex-direction:column;gap:9px;}
+  .ccard,.mccard{background:white;border-radius:12px;border:1.5px solid var(--border);overflow:hidden;}
+  .ccard:hover,.mccard:hover{box-shadow:0 2px 10px rgba(0,0,0,.06);}
+  .ccard.isod{border-color:#F0C4C0;background:#FFFAF9;} .ccard.isdu{border-color:#F5DEB4;background:#FFFDF6;}
+  .mccard.isurg{border:2px solid var(--urg);background:var(--urgp);} .mccard.iswarn{border:2px solid #E8C07A;background:#FFFDF6;}
+  .mccard.isfol{border:2px solid #FFC107;background:#FFFDF0;}
+  .chdr,.mchdr{padding:13px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;user-select:none;}
+  .cav{width:36px;height:36px;border-radius:50%;background:var(--tcp);color:var(--tc);font-weight:600;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .ci{flex:1;min-width:0;} .cn{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cm{font-size:12px;color:var(--muted);margin-top:2px;}
+  .cbdg,.mcbdg{display:flex;align-items:center;gap:5px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;}
+  .xic{width:20px;height:20px;color:var(--muted);transition:transform .2s;flex-shrink:0;}
+  .ccard.expanded .xic,.mccard.expanded .xic{transform:rotate(180deg);}
+  .cbody,.mcbody{display:none;padding:0 16px 16px;border-top:1px solid var(--border);}
+  .ccard.expanded .cbody,.mccard.expanded .mcbody{display:block;}
+
+  /* TP GRID */
+  .tpg{display:grid;grid-template-columns:repeat(auto-fill,minmax(136px,1fr));gap:8px;margin-top:14px;}
+  .tpi{border-radius:10px;padding:11px;border:1.5px solid var(--border);background:var(--sand);}
+  .tpi.completed{background:var(--okp);border-color:#9ECDB5;} .tpi.due-now{background:var(--warnp);border-color:#E8C07A;}
+  .tpi.overdue{background:var(--errp);border-color:#E8A8A3;} .tpi.future{opacity:.45;}
+  .tpn{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:2px;}
+  .tpw{font-size:12px;font-weight:600;margin-bottom:2px;} .tpgl{font-size:11px;color:var(--mid);line-height:1.4;margin-bottom:5px;}
+  .chtag{display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;}
+  .chcall{background:#EEF2FF;color:#4A5CB8;} .chtext{background:var(--tcp);color:var(--tc);} .chre{background:var(--warnp);color:var(--warn);}
+  .tpst{font-size:11px;font-weight:500;}
+  .tpst.done{color:var(--ok);} .tpst.pending{color:var(--warn);} .tpst.late{color:var(--err);} .tpst.fut{color:var(--muted);}
+  .tlbtn{width:100%;margin-top:6px;padding:5px;border-radius:6px;border:1.5px solid var(--tc);background:transparent;color:var(--tc);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;cursor:pointer;}
+  .tlbtn:hover{background:var(--tc);color:white;}
+  .tlbtn.logged{border-color:var(--ok);color:var(--ok);background:var(--okp);cursor:default;}
+  .tlbtn.logged:hover{background:var(--okp);color:var(--ok);}
+  .tpnts{font-size:11px;color:var(--mid);margin-top:4px;font-style:italic;word-break:break-word;}
+  .cadbox{background:var(--infop);border:1.5px solid #B3D4E0;border-radius:10px;padding:11px 14px;margin-top:12px;}
+  .cadbox-t{font-size:11px;font-weight:600;color:var(--info);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;}
+  .cadbox p{font-size:12px;color:#2A5A70;line-height:1.55;}
+
+  /* FORMS */
+  .aform{background:white;border-radius:12px;border:1.5px dashed var(--tc);padding:18px;margin-bottom:18px;display:none;}
+  .aform.open{display:block;}
+  .aft{font-family:'DM Serif Display',serif;font-size:16px;margin-bottom:14px;}
+  .fg{margin-bottom:13px;} .fghidden{display:none;margin-bottom:13px;}
+  .fl{display:block;font-size:12px;font-weight:500;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;}
+  .req{color:var(--err);margin-left:2px;}
+  .fi{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--dark);outline:none;background:white;}
+  .fi:focus{border-color:var(--tc);}
+  textarea.fi{resize:vertical;min-height:68px;}
+  .frow{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+  /* FORM CHECKLIST */
+  .fcs{background:var(--sand);border-radius:10px;border:1.5px solid var(--border);padding:14px 16px;margin-bottom:13px;}
+  .fcs-title{font-size:12px;font-weight:600;color:var(--dark);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em;}
+  .fci{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;}
+  .fci:last-child{margin-bottom:0;}
+  .fchk{width:18px;height:18px;cursor:pointer;flex-shrink:0;margin-top:2px;accent-color:var(--tc);}
+  .fchk-lbl{font-size:13px;color:var(--dark);}
+  .fchk-desc{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.4;}
+
+  /* SCRIPTS IN FORM */
+  .script-box{background:#F8F4FF;border:1.5px solid #C9B8F0;border-radius:10px;padding:14px 16px;margin-top:0;margin-bottom:13px;}
+  .script-box.followup{background:#FFF8E1;border-color:#FFC107;}
+  .script-title{font-size:11px;font-weight:600;color:var(--pur);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;}
+  .script-box.followup .script-title{color:#856404;}
+  .stabs{display:flex;gap:4px;margin-bottom:10px;}
+  .stab{padding:4px 10px;border-radius:5px;font-size:11px;font-weight:500;cursor:pointer;border:1.5px solid var(--border);background:white;color:var(--mid);}
+  .stab.active{background:var(--pur);color:white;border-color:var(--pur);}
+  .script-box.followup .stab.active{background:#856404;border-color:#856404;}
+  .script-content{font-size:12px;color:var(--dark);line-height:1.6;white-space:pre-wrap;}
+
+  /* CARD CHECKLIST */
+  .checklist{margin-top:14px;display:flex;flex-direction:column;gap:6px;}
+  .cli{display:flex;align-items:flex-start;gap:10px;padding:10px 13px;border-radius:8px;background:var(--sand);border:1.5px solid var(--border);}
+  .cli.done{background:var(--okp);border-color:#9ECDB5;}
+  .cli.done .cli-lbl{color:var(--ok);text-decoration:line-through;opacity:.7;}
+  .cli-chk{width:18px;height:18px;border:2px solid var(--border);border-radius:4px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px;background:white;}
+  .cli.done .cli-chk{background:var(--ok);border-color:var(--ok);}
+  .cli-txt{flex:1;} .cli-lbl{font-size:13px;font-weight:500;color:var(--dark);}
+  .cli-desc{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.4;}
+
+  /* FREEZE ADVISORY */
+  .fadv{background:var(--warnp);border:1.5px solid #E8C07A;border-radius:10px;padding:12px 14px;margin-top:10px;}
+  .fadv.is90{background:var(--errp);border-color:#E8A8A3;}
+  .fadv-title{font-size:11px;font-weight:600;color:var(--warn);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
+  .fadv.is90 .fadv-title{color:var(--err);}
+  .fadv p{font-size:12px;color:#6B4A0A;line-height:1.5;}
+  .fadv.is90 p{color:#6B1A0A;}
+  .ovr-row{display:flex;align-items:center;gap:8px;margin-top:8px;}
+  .ovr-chk{width:16px;height:16px;cursor:pointer;accent-color:var(--tc);}
+  .ovr-lbl{font-size:12px;font-weight:500;color:var(--warn);}
+  .fadv.is90 .ovr-lbl{color:var(--err);}
+
+  /* REACTIVATION */
+  .reactiv{background:var(--okp);border:1.5px solid #9ECDB5;border-radius:10px;padding:12px 14px;margin-top:10px;}
+  .reactiv p{font-size:12px;color:#2A5A3A;line-height:1.5;}
+
+  /* FOLLOW-UP BANNER */
+  .folbanner{background:#FFF8E1;border:1.5px solid #FFC107;border-radius:10px;padding:11px 14px;margin-top:10px;}
+  .folbanner p{font-size:12px;color:#6B4D00;line-height:1.5;}
+
+  /* OUTCOME */
+  .out-row{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;}
+  .out-lbl{font-size:12px;font-weight:500;color:var(--mid);}
+  .out-sel{padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--dark);background:white;cursor:pointer;outline:none;}
+  .out-sel:focus{border-color:var(--tc);}
+  .notes-in{flex:1;min-width:160px;padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--dark);background:white;outline:none;}
+  .notes-in:focus{border-color:var(--tc);}
+
+  /* TIER CHANGE BOX */
+  .tier-box{background:var(--purp);border:1.5px solid #C9B8F0;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:12px;color:var(--pur);}
+
+  /* URGENT BANNER */
+  .urgbanner{background:var(--urg);color:white;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:flex-start;gap:10px;}
+  .urgicon{font-size:18px;flex-shrink:0;margin-top:1px;}
+  .urgtxt{font-size:13px;font-weight:500;line-height:1.5;}
+
+  /* MODAL */
+  .modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:20px;}
+  .modal-ov.open{display:flex;}
+  .modal{background:white;border-radius:16px;padding:26px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;}
+  .modal-title{font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:4px;}
+  .modal-sub{font-size:13px;color:var(--muted);margin-bottom:18px;}
+  .modal-actions{display:flex;gap:10px;margin-top:18px;justify-content:flex-end;}
+
+  /* TABS */
+  .tabs{display:flex;gap:4px;margin-bottom:18px;background:white;border:1.5px solid var(--border);border-radius:10px;padding:4px;width:fit-content;}
+  .tab{padding:6px 14px;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--muted);}
+  .tab.active{background:var(--tc);color:white;}
+
+  /* STAFF */
+  .staff-sec{margin-bottom:26px;}
+  .staff-hdr{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:2px solid var(--border);flex-wrap:wrap;}
+  .sav{width:30px;height:30px;border-radius:50%;background:var(--tc);color:white;font-weight:600;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .snlbl{font-weight:600;font-size:15px;} .ssum{font-size:12px;color:var(--muted);margin-left:auto;}
+  .smp{background:white;border-radius:12px;border:1.5px solid var(--border);padding:18px;margin-bottom:22px;}
+  .smpt{font-family:'DM Serif Display',serif;font-size:16px;margin-bottom:12px;}
+  .smlist{display:flex;flex-direction:column;gap:7px;margin-bottom:14px;}
+  .smrow{display:flex;align-items:center;gap:10px;padding:9px 13px;background:var(--sand);border-radius:8px;border:1px solid var(--border);}
+  .smname{flex:1;font-weight:500;font-size:13px;} .smct{font-size:12px;color:var(--muted);}
+
+  .empty{text-align:center;padding:44px 20px;color:var(--muted);}
+  .empty-icon{font-size:28px;margin-bottom:10px;opacity:.3;}
+  .empty p{font-size:13px;line-height:1.7;}
+  .rassign-info{background:var(--tcp);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--tc);margin-bottom:14px;}
+
+  @media(max-width:640px){
+    .srow{grid-template-columns:repeat(2,1fr);}
+    .frow{grid-template-columns:1fr;}
+    .tpg{grid-template-columns:repeat(2,1fr);}
+    .hdr-title{display:none;}
+    .cbdg,.mcbdg{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-title">Perspire <em>Peachtree Corners</em> · Guest Tracker</div>
+  <div class="vtog">
+    <button class="vbtn active" onclick="setView('guests')" id="btn-guests">New Guests</button>
+    <button class="vbtn" onclick="setView('changes')" id="btn-changes">Membership Changes</button>
+    <button class="vbtn" onclick="setView('manager')" id="btn-manager">Manager View</button>
+  </div>
+</div>
+
+<div class="main">
+
+<!-- ══ NEW GUESTS ══════════════════════════════════════════════════════════ -->
+<div id="view-guests">
+  <div class="toolbar">
+    <span class="tlbl">Viewing as</span>
+    <select id="staff-sel" onchange="renderGuests()"></select>
+    <span class="tlbl" style="margin-left:6px;">Filter</span>
+    <select id="filter-sel" onchange="renderGuests()">
+      <option value="all">All clients</option>
+      <option value="overdue">Overdue only</option>
+      <option value="at-risk">At-risk visit status</option>
+      <option value="due-soon">Due this week</option>
+      <option value="between">Between touchpoints</option>
+    </select>
+    <button class="btn btn-p" onclick="toggleAddGuest()">+ Add client</button>
+  </div>
+  <div class="aform" id="add-guest-form">
+    <div class="aft">Add new client</div>
+    <div class="frow">
+      <div class="fg"><label class="fl">Client name<span class="req">*</span></label><input type="text" class="fi" id="ng-name" placeholder="First Last"></div>
+      <div class="fg"><label class="fl">Type<span class="req">*</span></label><select class="fi" id="ng-type" onchange="updateTierOpts()"><option value="member">Member</option><option value="package">Package holder</option></select></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label class="fl">Tier / Package<span class="req">*</span></label><select class="fi" id="ng-tier"></select></div>
+      <div class="fg"><label class="fl">Contract start date<span class="req">*</span></label><input type="date" class="fi" id="ng-date"></div>
+    </div>
+    <div class="fg"><label class="fl">Assigned staff<span class="req">*</span></label><select class="fi" id="ng-staff"></select></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
+      <button class="btn btn-g" onclick="toggleAddGuest()">Cancel</button>
+      <button class="btn btn-p" onclick="addGuest()">Add client</button>
+    </div>
+  </div>
+  <div class="srow" id="guest-stats"></div>
+  <div id="guest-list"></div>
+</div>
+
+<!-- ══ MEMBERSHIP CHANGES ════════════════════════════════════════════════ -->
+<div id="view-changes" style="display:none;">
+  <div class="toolbar">
+    <span class="tlbl">Filter</span>
+    <select id="chg-filter" onchange="renderChanges()">
+      <option value="open">Open only</option>
+      <option value="all">All requests</option>
+      <option value="urgent">Urgent only</option>
+      <option value="followup">Needs follow-up</option>
+      <option value="termination">Terminations</option>
+      <option value="suspension">Suspensions</option>
+      <option value="downgrade">Downgrades</option>
+      <option value="upgrade">Upgrades</option>
+    </select>
+    <button class="btn btn-p" onclick="toggleAddChange()">+ Log request</button>
+  </div>
+
+  <!-- ── ADD / EDIT CHANGE FORM ───────────────────────────────────────── -->
+  <div class="aform" id="add-change-form">
+    <div class="aft" id="chg-form-title">Log membership change request</div>
+
+    <div class="frow">
+      <div class="fg"><label class="fl">Guest name<span class="req">*</span></label><input type="text" class="fi" id="mc-name" placeholder="First Last"></div>
+      <div class="fg"><label class="fl">Request type<span class="req">*</span></label>
+        <select class="fi" id="mc-type" onchange="onTypeChange()">
+          <option value="termination">Termination / Cancellation</option>
+          <option value="suspension">Suspension / Freeze</option>
+          <option value="downgrade">Downgrade</option>
+          <option value="upgrade">Upgrade</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="frow">
+      <div class="fg"><label class="fl">Date requested<span class="req">*</span></label><input type="date" class="fi" id="mc-req-date"></div>
+      <div class="fg"><label class="fl">Bill date<span class="req">*</span></label><input type="date" class="fi" id="mc-bill-date"></div>
+    </div>
+
+    <!-- Current tier (always shown) + New tier (downgrade / upgrade only) -->
+    <div class="frow">
+      <div class="fg"><label class="fl">Current tier<span class="req">*</span></label>
+        <select class="fi" id="mc-cur-tier">
+          <option value="IRelax 4x">IRelax 4x</option>
+          <option value="IRecover 8x">IRecover 8x</option>
+          <option value="IRitual Unlimited">IRitual Unlimited</option>
+        </select>
+      </div>
+      <div class="fg" id="mc-new-tier-wrap" style="display:none;">
+        <label class="fl">New tier<span class="req">*</span></label>
+        <select class="fi" id="mc-new-tier">
+          <option value="IRevive 2x">IRevive 2x</option>
+          <option value="IRelax 4x">IRelax 4x</option>
+          <option value="IRecover 8x">IRecover 8x</option>
+          <option value="IRitual Unlimited">IRitual Unlimited</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Suspension duration (suspension only) -->
+    <div class="fg" id="mc-freeze-wrap" style="display:none;">
+      <label class="fl">Freeze duration<span class="req">*</span></label>
+      <select class="fi" id="mc-freeze-dur" onchange="onFreezeDurChange('mc-freeze-dur','mc-freeze-other-wrap')">
+        <option value="30">30 days</option>
+        <option value="60">60 days</option>
+        <option value="90">90 days (special circumstances only)</option>
+        <option value="other">Other (open-ended / requires approval)</option>
+      </select>
+    </div>
+    <div class="fg" id="mc-freeze-other-wrap" style="display:none;">
+      <label class="fl">Describe the special circumstance</label>
+      <textarea class="fi" id="mc-freeze-other" placeholder="e.g. pregnancy, surgery recovery — open-ended freeze requires Mohogany approval"></textarea>
+    </div>
+
+    <!-- TERMINATION: required steps + outreach outcome + scripts -->
+    <div id="mc-term-section" style="display:none;">
+      <div class="fcs">
+        <div class="fcs-title">Required steps before logging<span class="req">*</span></div>
+        <div class="fci">
+          <input type="checkbox" class="fchk" id="chk-mb">
+          <div><div class="fchk-lbl">Mindbody contact log added</div><div class="fchk-desc">Member's profile → Contact Log → document this request.</div></div>
+        </div>
+        <div class="fci" style="margin-top:6px;">
+          <input type="checkbox" class="fchk" id="chk-out">
+          <div><div class="fchk-lbl">Initial outreach attempted</div><div class="fchk-desc">Call first. Voicemail + follow-up text if no answer. Use the scripts below.</div></div>
+        </div>
+      </div>
+
+      <!-- Scripts in form — initial outreach -->
+      <div style="margin-bottom:13px;"><button class="btn btn-g btn-sm" style="border-color:var(--pur);color:var(--pur);" onclick="openChangeScript('termination','Initial outreach scripts')">View outreach scripts</button></div>
+
+      <!-- Outreach outcome -->
+      <div class="fg">
+        <label class="fl">Outreach outcome<span class="req">*</span></label>
+        <select class="fi" id="mc-out-outcome" onchange="onOutcomeChange()">
+          <option value="">— Select outcome —</option>
+          <option value="continuing">Reached — continuing with cancellation</option>
+          <option value="suspend-instead">Reached — member wants to suspend instead</option>
+          <option value="downgrade-instead">Reached — member wants to downgrade instead</option>
+          <option value="no-answer">No answer — follow-up needed</option>
+        </select>
+      </div>
+
+      <!-- If suspend-instead -->
+      <div class="fg" id="mc-si-wrap" style="display:none;">
+        <label class="fl">Freeze duration<span class="req">*</span></label>
+        <select class="fi" id="mc-si-dur" onchange="onFreezeDurChange('mc-si-dur','mc-si-other-wrap')">
+          <option value="30">30 days</option>
+          <option value="60">60 days</option>
+          <option value="90">90 days (special circumstances only)</option>
+          <option value="other">Other (open-ended / requires approval)</option>
+        </select>
+      </div>
+      <div class="fg" id="mc-si-other-wrap" style="display:none;">
+        <label class="fl">Describe the special circumstance</label>
+        <textarea class="fi" id="mc-si-other" placeholder="e.g. pregnancy, surgery recovery"></textarea>
+      </div>
+
+      <!-- If downgrade-instead -->
+      <div class="fg" id="mc-di-wrap" style="display:none;">
+        <label class="fl">Downgrade to<span class="req">*</span></label>
+        <select class="fi" id="mc-di-tier">
+          <option value="IRevive 2x">IRevive 2x</option>
+          <option value="IRelax 4x">IRelax 4x</option>
+          <option value="IRecover 8x">IRecover 8x</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- DOWNGRADE / UPGRADE: only Mindbody contact log -->
+    <div id="mc-tierchange-section" style="display:none;">
+      <div class="fcs">
+        <div class="fcs-title">Required steps before logging<span class="req">*</span></div>
+        <div class="fci">
+          <input type="checkbox" class="fchk" id="chk-mb-tc">
+          <div><div class="fchk-lbl">Mindbody contact log added</div><div class="fchk-desc">Member's profile → Contact Log → document this tier change request.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUSPENSION: only Mindbody contact log -->
+    <div id="mc-susp-section" style="display:none;">
+      <div class="fcs">
+        <div class="fcs-title">Required step before logging<span class="req">*</span></div>
+        <div class="fci">
+          <input type="checkbox" class="fchk" id="chk-mb-susp">
+          <div><div class="fchk-lbl">Mindbody contact log added</div><div class="fchk-desc">Member's profile → Contact Log → document this freeze request.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fg"><label class="fl">Notes</label><textarea class="fi" id="mc-notes" placeholder="Context, member reason, anything relevant..."></textarea></div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
+      <button class="btn btn-g" onclick="cancelChangeForm()">Cancel</button>
+      <button class="btn btn-p" id="chg-submit-btn" onclick="submitChange()">Log request</button>
+    </div>
+  </div>
+
+  <div id="urgent-banners"></div>
+  <div class="srow" id="chg-stats"></div>
+  <div id="change-list"></div>
+</div>
+
+<!-- ══ MANAGER VIEW ══════════════════════════════════════════════════════ -->
+<div id="view-manager" style="display:none;">
+  <div class="tabs">
+    <button class="tab active" onclick="setMgrTab('overview')" id="tab-ov">New Guests Overview</button>
+    <button class="tab" onclick="setMgrTab('changes')" id="tab-chg">All Membership Changes</button>
+    <button class="tab" onclick="setMgrTab('nurture')" id="tab-nur">Tier Change Nurture</button>
+    <button class="tab" onclick="setMgrTab('staff')" id="tab-st">Staff Management</button>
+  </div>
+  <div id="mgr-ov"><div class="srow" id="mgr-stats"></div><div id="mgr-list"></div></div>
+  <div id="mgr-chg" style="display:none;"><div class="srow" id="mgr-chg-stats"></div><div id="mgr-chg-list"></div></div>
+  <div id="mgr-nurture" style="display:none;"><div class="srow" id="mgr-nur-stats"></div><div id="mgr-nur-list"></div></div>
+  <div id="mgr-staff" style="display:none;">
+    <div class="smp">
+      <div class="smpt">Staff roster</div>
+      <div class="smlist" id="roster"></div>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+        <div class="fg" style="margin:0;flex:1;min-width:160px;"><label class="fl">Add new staff member</label><input type="text" class="fi" id="new-sname" placeholder="First name"></div>
+        <button class="btn btn-p" onclick="addStaff()">Add staff</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- .main -->
+
+<!-- LOG TP MODAL -->
+<div class="modal-ov" id="log-modal">
+  <div class="modal">
+    <div class="modal-title">Log touchpoint</div>
+    <div class="modal-sub" id="log-sub"></div>
+    <div class="fg"><label class="fl">Channel used</label>
+      <select class="fi" id="log-channel">
+        <option>Call — reached member</option>
+        <option>Call — voicemail + text</option>
+        <option>Text only</option>
+        <option>In-studio conversation</option>
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Member visit status</label>
+      <select class="fi" id="log-vs">
+        <option value="healthy">Healthy — within expected cadence</option>
+        <option value="at-risk">At-risk — overdue on visits</option>
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Notes (optional)</label><textarea class="fi" id="log-notes"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-g" onclick="closeModal('log-modal')">Cancel</button>
+      <button class="btn btn-p" onclick="saveLog()">Save log</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT GUEST MODAL -->
+<div class="modal-ov" id="edit-guest-modal">
+  <div class="modal">
+    <div class="modal-title">Edit client</div>
+    <div class="modal-sub" id="eg-sub"></div>
+    <div class="fg"><label class="fl">Client name<span class="req">*</span></label><input type="text" class="fi" id="eg-name"></div>
+    <div class="frow">
+      <div class="fg"><label class="fl">Type</label><select class="fi" id="eg-type" onchange="updateEditTierOpts()"><option value="member">Member</option><option value="package">Package holder</option></select></div>
+      <div class="fg"><label class="fl">Tier</label><select class="fi" id="eg-tier"></select></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label class="fl">Contract start date</label><input type="date" class="fi" id="eg-date"></div>
+      <div class="fg"><label class="fl">Assigned staff</label><select class="fi" id="eg-staff"></select></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-g" onclick="closeModal('edit-guest-modal')">Cancel</button>
+      <button class="btn btn-p" onclick="saveEditGuest()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT CHANGE MODAL -->
+<div class="modal-ov" id="edit-change-modal">
+  <div class="modal">
+    <div class="modal-title">Edit request</div>
+    <div class="modal-sub" id="ec-sub"></div>
+    <div class="fg"><label class="fl">Guest name</label><input type="text" class="fi" id="ec-name"></div>
+    <div class="frow">
+      <div class="fg"><label class="fl">Date requested</label><input type="date" class="fi" id="ec-req-date"></div>
+      <div class="fg"><label class="fl">Bill date</label><input type="date" class="fi" id="ec-bill-date"></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label class="fl">Current tier</label>
+        <select class="fi" id="ec-cur-tier">
+          <option value="IRelax 4x">IRelax 4x</option>
+          <option value="IRecover 8x">IRecover 8x</option>
+          <option value="IRitual Unlimited">IRitual Unlimited</option>
+        </select>
+      </div>
+      <div class="fg"><label class="fl">New tier (if applicable)</label>
+        <select class="fi" id="ec-new-tier">
+          <option value="">N/A</option>
+          <option value="IRevive 2x">IRevive 2x</option>
+          <option value="IRelax 4x">IRelax 4x</option>
+          <option value="IRecover 8x">IRecover 8x</option>
+          <option value="IRitual Unlimited">IRitual Unlimited</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg"><label class="fl">Freeze duration (if applicable)</label>
+      <select class="fi" id="ec-freeze-dur">
+        <option value="">N/A</option>
+        <option value="30">30 days</option>
+        <option value="60">60 days</option>
+        <option value="90">90 days</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Notes</label><textarea class="fi" id="ec-notes"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-g" onclick="closeModal('edit-change-modal')">Cancel</button>
+      <button class="btn btn-p" onclick="saveEditChange()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- REASSIGN MODAL -->
+<div class="modal-ov" id="rassign-modal">
+  <div class="modal">
+    <div class="modal-title">Reassign clients</div>
+    <div class="rassign-info" id="rassign-info"></div>
+    <div class="fg"><label class="fl">Reassign to</label><select class="fi" id="rassign-target"></select></div>
+    <div class="modal-actions">
+      <button class="btn btn-g" onclick="closeModal('rassign-modal')">Cancel</button>
+      <button class="btn btn-p" onclick="doReassign()">Reassign</button>
+    </div>
+  </div>
+</div>
+
+<!-- TP SCRIPT MODAL -->
+<div class="modal-ov" id="tp-script-modal">
+  <div class="modal" style="max-width:620px;">
+    <div class="modal-title" id="tp-script-title">Outreach script</div>
+    <div class="modal-sub" id="tp-script-sub"></div>
+    <div class="stabs" id="tp-script-tabs"></div>
+    <div class="script-content" id="tp-script-body" style="max-height:50vh;overflow-y:auto;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-g" onclick="closeModal('tp-script-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONSTANTS ─────────────────────────────────────────────────────────────
+
+const MEMBER_TIERS=['IRelax 4x','IRecover 8x','IRitual Unlimited'];
+const PACKAGE_TIERS=['4 Pack','8 Pack','20 Pack'];
+const CLOSED=['01-01','04-20','05-26','07-04','09-01','12-25','12-26','12-31'];
+const EARLY_CLOSE=['10-31','11-26','12-24'];
+function mmdd(d){return`${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function isClosed(d){return d&&CLOSED.includes(mmdd(d));}
+function isEarlyClose(d){return d&&EARLY_CLOSE.includes(mmdd(d));}
+
+function atRiskDays(t){
+  t=t.toLowerCase();
+  if(t.includes('iritual')||t.includes('irecover'))return 7;
+  if(t.includes('8 pack')||t.includes('20 pack'))return 28;
+  if(t.includes('4 pack'))return 21;
+  return 14;
+}
+function cadenceGuide(tier){
+  const t=tier.toLowerCase();
+  if(t.includes('iritual'))return{ideal:'3–4 visits/week',risk:'7+ days no visit',tip:'Anchor to specific days — e.g. Mon/Wed/Fri/Sun — to build a true ritual.'};
+  if(t.includes('irecover'))return{ideal:'2 visits/week',risk:'7+ days no visit',tip:'Twice a week, spaced 3–4 days apart for best recovery benefits.'};
+  if(t.includes('irelax'))return{ideal:'1 visit/week',risk:'14+ days no visit',tip:'Same day each week is the easiest habit to build.'};
+  if(t.includes('20 pack'))return{ideal:'Every 2 weeks',risk:'28+ days in first 60 days',tip:'Bi-weekly rhythm locks in the habit before sessions pile up.'};
+  if(t.includes('8 pack'))return{ideal:'Every 3 weeks',risk:'28+ days in first 60 days',tip:'Once every 3 weeks in the first 3 months.'};
+  return{ideal:'Every 4–6 weeks',risk:'21+ days in first 60 days',tip:'Don\'t let early gaps grow too long.'};
+}
+
+const MEMBER_TPS=[
+  {label:'TP 1',window:'Day 2–4',  goal:'Warm check-in, reinforce excitement',    channel:'call'},
+  {label:'TP 2',window:'Day 9–12', goal:'Booking rhythm check-in',                channel:'call'},
+  {label:'TP 3',window:'Day 18–22',goal:'Goal-anchored — what brought them in',   channel:'reassess'},
+  {label:'TP 4',window:'Day 26–30',goal:'Usage check — celebrate or re-engage',   channel:'reassess'},
+  {label:'TP 5',window:'Day 40–45',goal:'Shift toward ritual & habit identity',   channel:'reassess'},
+  {label:'TP 6',window:'Day 55–60',goal:'Relationship check-in',                  channel:'reassess'},
+  {label:'TP 7',window:'Day 75–80',goal:'Final 90-day, set long-term mindset',    channel:'reassess'},
+];
+const PACKAGE_TPS=[
+  {label:'TP 1',window:'Day 7–10', goal:'2nd visit booked? Celebrate or encourage',channel:'call'},
+  {label:'TP 2',window:'Day 21–25',goal:'Pace-setting — ideal rhythm for pack',    channel:'call'},
+  {label:'TP 3',window:'Day 40–45',goal:'Habit check — sessions supporting goals?',channel:'reassess'},
+  {label:'TP 4',window:'Day 75–80',goal:'Relationship check-in, handoff to auto',  channel:'reassess'},
+];
+const MEMBER_WINS=[[2,4],[9,12],[18,22],[26,30],[40,45],[55,60],[75,80]];
+const PACKAGE_WINS=[[7,10],[21,25],[40,45],[75,80]];
+
+// ── SCRIPTS ───────────────────────────────────────────────────────────────
+
+const SCRIPTS={
+  termination:{
+    call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners! I saw your cancellation request come through and wanted to personally reach out before we process anything.
+
+I'd love to hear what's going on — is there anything we can do to work with your schedule or budget? We have a few options I'd love to walk you through before we finalize anything:
+
+• You can pause your membership for 30 or 60 days as of your next billing date — no charge during the pause, and your current rate is locked in and guaranteed when you come back. If you cancel and rejoin later, you'd pay our going rate at that time.
+
+• If you're not using your current membership often enough, we also have a lower-cost option at <INSERT PRICE>/month for [X] sessions that lets you stay in the routine without the higher commitment.
+
+• Any rollover sessions you have would expire if you cancel, but with a pause we can extend the expiration so you don't lose them.
+
+Do you have a quick minute to chat about what might work best for you?`,
+    voicemail:`Hi [Name], this is [Your Name] calling from Perspire Peachtree Corners. I'm reaching out because I saw your cancellation request and I wanted to connect with you personally before we process anything.
+
+We really value you as a member and would love to see if there's anything we can do to make it work — whether that's pausing your membership, adjusting your plan, or something else entirely. Your current rate would be locked in if you pause, so you wouldn't lose it.
+
+Please give us a call back at 404-947-8084 or just reply to this with a text — we'd love to hear from you!`,
+    text:`Hi [Name]! This is [Your Name] from Perspire Peachtree Corners 🧡 I saw your cancellation request come in and wanted to reach out personally before we process it. We have some options that might work better for you — like pausing your membership (your rate stays locked in!) or adjusting your plan. Do you have a few minutes to chat? Feel free to call or text back anytime!`,
+    email:`Hi [Name],
+
+Thank you for being a valued member of Perspire Sauna Studio Peachtree Corners!
+
+We received your cancellation request. Before we process this, we wanted to make sure you're aware of a couple of options:
+
+PAUSE YOUR MEMBERSHIP
+You can pause your membership for 30 or 60 days as of your next billing date of [Bill Date].
+• You are not charged a membership fee during a pause.
+• Your current membership rate is locked in and guaranteed to stay the same after your pause ends. If you cancel and rejoin later, you would pay our going rate at that time.
+• Any rollover sessions on your account would have their expiration extended by the length of the pause so you can still use them when you return.
+
+LOWER-COST MEMBERSHIP OPTION
+If you're not using your current membership often enough, you can switch to our [membership tier] plan for just <INSERT PRICE>/month. This lets you keep your routine going and continue using any rollover sessions on your account.
+
+Please respond to this email with your choice by [Two Days Before Bill Date] so that we have time to process the change before your next billing date of [Bill Date].
+
+If you have any questions, feel free to write back or call us anytime!
+
+All the best,
+[Your Name]
+Perspire Sauna Studio Peachtree Corners`
+  },
+  termination_followup:{
+    call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners — I'm following up from my message earlier this week. I still have your cancellation request open and wanted to connect before we move forward with processing it.
+
+I just want to make sure you had a chance to consider your options — we can pause your membership so your rate stays locked in, or adjust your plan to something that fits better. We'd really love to keep you in the Perspire family if there's a way to make it work.
+
+Please give me a call back at 404-947-8084 when you get a chance — I'm happy to walk through everything with you!`,
+    voicemail:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners — following up on a message I left earlier this week. Your cancellation request is still open and I just want to make sure we've had a chance to connect before we process anything.
+
+We have options like pausing your membership or adjusting your plan — and your current rate would stay locked in. Please call us back at 404-947-8084 or reply with a text. We're here for you!`,
+    text:`Hi [Name]! Following up from Perspire Peachtree Corners 🧡 I reached out earlier about your cancellation request and wanted to try one more time before we process it. Just a reminder — we can pause your membership (your rate stays locked in!) or adjust your plan if that works better. We'd love to keep you with us! Call or text back anytime.`,
+    email:`Hi [Name],
+
+I'm following up on the message I sent earlier this week regarding your cancellation request. I want to make sure you had a chance to see the options available to you before we process anything.
+
+As a reminder, you can:
+
+• Pause your membership for 30 or 60 days — no charge during the pause, and your current rate is guaranteed when you return.
+• Switch to a lower-cost plan at <INSERT PRICE>/month for [X] sessions per month.
+
+Your next billing date is [Bill Date], so we'd need to hear from you by [Two Days Before Bill Date] to make any changes before your next payment.
+
+If you'd still like to proceed with the cancellation, we completely understand — just let us know and we'll take care of it. But if any of these options sound like a better fit, we'd love to help you stay!
+
+All the best,
+[Your Name]
+Perspire Sauna Studio Peachtree Corners`
+  },
+  downgrade:{
+    call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners! I'm calling about your membership adjustment request. I want to make sure we set you up with exactly the right plan.
+
+Can I confirm which tier you'd like to move to? I also want to walk you through what to expect with your new plan — your visit cadence, how your rollover sessions carry over, and anything else so the transition feels seamless.
+
+We want to make sure you're still getting the most out of your time with us, even at a different level!`,
+    voicemail:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners calling about your membership adjustment request. We want to make sure we get you set up on the right plan and that the transition is smooth.
+
+Please call us back at 404-947-8084 so we can confirm the details and walk you through what to expect. We're here to help!`,
+    text:`Hi [Name]! This is [Your Name] from Perspire Peachtree Corners 🧡 Just reaching out about your membership adjustment — we'd love to confirm the details and make sure you're all set with your new plan. Can we chat for a quick minute? Feel free to call or text back!`,
+    email:`Hi [Name],
+
+Thank you for reaching out about adjusting your membership! We want to make sure the transition to your new plan is smooth and that you're set up for success.
+
+To confirm your membership change, could you let us know:
+• Which plan you'd like to switch to?
+• Any questions about visit frequency or how your rollover sessions will work on the new plan?
+
+We'll need to process this before your next billing date of [Bill Date], so please respond by [Two Days Before Bill Date] if possible.
+
+We're glad you're staying with us — even at a different level, we're here to support your wellness routine!
+
+All the best,
+[Your Name]
+Perspire Sauna Studio Peachtree Corners`
+  },
+  upgrade:{
+    call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners — congratulations on upgrading to [New Tier]! We're so excited for you.
+
+I'm calling to make sure your transition is smooth and to walk you through what to expect. With [New Tier], we really recommend coming in [frequency] to get the most out of your membership. I'd love to help you think through a routine that works for your schedule — do you have a couple of minutes?`,
+    voicemail:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners! Congratulations on upgrading to [New Tier] — we're thrilled for you!
+
+Just wanted to touch base to make sure everything transitions smoothly and help you plan your new visit routine. With [New Tier], we recommend coming in [frequency] to really maximize the benefits. Give us a call back at 404-947-8084 — we'd love to set you up for success!`,
+    text:`Hi [Name]! This is [Your Name] from Perspire Peachtree Corners 🧡 Congrats on your upgrade to [New Tier]! We're so excited for you. For your new plan, we recommend coming in [frequency] to get the most out of it. Any questions about your new routine? We're here — call or text anytime!`,
+    email:`Hi [Name],
+
+Congratulations on upgrading to [New Tier]! We're so excited to have you at this level — you're going to love the results.
+
+Here's what to expect with your new plan:
+• We recommend coming in [frequency] to get the full benefit of your membership.
+• Your new billing will begin on your next billing date of [Bill Date].
+
+If you'd like help planning out your weekly routine or have any questions about maximizing your new plan, don't hesitate to reach out. We're here to help you get the most out of every session!
+
+Welcome to your new level of wellness 🧡
+
+All the best,
+[Your Name]
+Perspire Sauna Studio Peachtree Corners`
+  }
+};
+
+// ── TOUCHPOINT OUTREACH SCRIPTS (New Guests) ─────────────────────────────
+
+const TP_SCRIPTS={
+  member:[
+    {// TP 1 — Day 2–4
+      call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners! I just wanted to check in after your first session — how are you feeling? A lot of our members say the first time is unlike anything they've experienced before, and I'd love to hear your take.\n\nDid you get a chance to book your next session yet? If not, I'd love to help you find a time that works — the key to getting the most out of your membership is building a consistent rhythm early on.`,
+      voicemail:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners! Just calling to check in after your first session — we hope you loved it! I'd love to hear how you're feeling and help you get your next visit on the books. Give us a call back at 404-947-8084 or text us anytime!`,
+      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 How are you feeling after your first session? We'd love to hear about your experience! Have you had a chance to book your next visit? Let us know if you need help finding a time — we're here for you!`
+    },
+    {// TP 2 — Day 9–12
+      call:`Hi [Name], it's [Your Name] from Perspire! I'm checking in to see how things are going — have you been able to get back in for another session since your first visit?\n\nThe first couple of weeks are really about finding a rhythm that works for your schedule. For your [Tier] membership, we recommend coming in [frequency]. Would it help if we looked at the schedule together and found a recurring time that works for you?`,
+      voicemail:`Hi [Name], it's [Your Name] from Perspire Peachtree Corners! Just checking in to see how your first couple of weeks are going. We'd love to help you find a booking rhythm that works for your schedule — give us a call at 404-947-8084 or text us back!`,
+      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 How's your first couple of weeks going? Have you been able to get back in? For your membership, we recommend coming in [frequency] — want help finding a regular time that works for your schedule?`
+    },
+    {// TP 3 — Day 18–22
+      call:`Hi [Name], it's [Your Name] from Perspire! I wanted to check in — we're about three weeks into your membership and I'd love to hear how things are going.\n\nWhat originally brought you in to Perspire? Whether it's recovery, stress relief, sleep, or just feeling good — I want to make sure your sessions are supporting that goal. Sometimes adjusting session timing or frequency can make a big difference in the results you're seeing.`,
+      voicemail:`Hi [Name], it's [Your Name] from Perspire! We're about three weeks in and I'd love to hear how your sessions are going. I want to make sure we're supporting whatever brought you in — whether that's recovery, stress, sleep, or anything else. Call us at 404-947-8084 or text us back anytime!`,
+      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 We're about three weeks in — how are you feeling? I'd love to hear what brought you in and make sure your sessions are supporting your goals. Any questions or anything we can help with?`
+    },
+    {// TP 4 — Day 26–30
+      call:`Hi [Name], it's [Your Name] from Perspire! You're about a month in now — how's everything going?\n\nI took a quick look at your visit history and [IF GOOD: I love that you've been coming in regularly — that's exactly how you build the habit! / IF LOW: I noticed you haven't been in as much recently — is there anything getting in the way? We'd love to help you get back into a rhythm.]\n\nThe first month is really when the habit starts to stick, so I just wanted to check in and see how we can support you.`,
+      voicemail:`Hi [Name], it's [Your Name] from Perspire! You're about a month in and I just wanted to see how things are going. Whether you've been coming in regularly or it's been tricky to find the time, I'd love to help. Call us at 404-947-8084 or text back!`,
+      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 You're about a month in! How's your routine feeling? I'd love to hear how it's going and help with anything — whether that's finding a better time, adjusting your routine, or just celebrating that you're building a great habit!`
+    },
+    {// TP 5 — Day 40–45
+      call:`Hi [Name], it's [Your Name] from Perspire! I wanted to touch base — you're about six weeks in now and I hope infrared is starting to feel like part of your routine.\n\nA lot of our members say that around this point, it stops being something they "do" and starts being something they look forward to. How's that feeling for you? Is there anything we can do to make your experience even better?`,
+      voicemail:`Hi [Name], it's [Your Name] from Perspire! You're about six weeks in and I just wanted to check in — I hope your sessions are starting to feel like a real part of your wellness routine. We'd love to hear how things are going! Call us at 404-947-8084 or text us back.`,
+      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 You're about six weeks in! Is infrared starting to feel like part of your routine? We love hearing how our members are doing at this stage. Anything we can do to make your experience even better?`
+    },
+    {// TP 6 — Day 55–60
+      call:`Hi [Name], it's [Your Name] from Perspire! Just wanted to do a quick check-in — you're about two months in now.\n\nHow are you feeling about your membership overall? Are you seeing the benefits you were hoping for? I want to make sure everything is working well for you — the experience, the scheduling, all of it. We really appreciate having you as part of the Perspire family.`,
+      voicemail:`Hi [Name], it's [Your Name] from Perspire! You're about two months in and I just wanted to check in and see how everything's going. We really value you as a member and want to make sure the experience is great. Call us at 404-947-8084 or text us back!`,
+      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 You're about two months in! How's everything going? We really value you as a member and want to make sure you're getting the most out of your sessions. Any feedback or questions? We're always here!`
+    },
+    {// TP 7 — Day 75–80
+      call:`Hi [Name], it's [Your Name] from Perspire! I can't believe you're almost at 90 days — that's a real milestone!\n\nI just wanted to check in one more time and say that we're so glad you've made infrared part of your routine. At this point, you've built something really valuable — a consistent wellness habit. How are you feeling about keeping the momentum going long-term?\n\nAnd if you ever have friends or family who might benefit, we'd love to welcome them in. But mostly, I just wanted to say thank you for being part of the Perspire family.`,
+      voicemail:`Hi [Name], it's [Your Name] from Perspire! You're coming up on 90 days and I just wanted to say congratulations — building a consistent wellness routine is no small thing. We're so glad you're part of the Perspire family. If there's ever anything we can do, call us at 404-947-8084 or text us anytime!`,
+      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 You're almost at 90 days — that's amazing! You've built a real wellness routine and we're so glad you're part of the Perspire family. Thank you for trusting us with your wellness journey. We're always here if you need anything!`
+    }
+  ],
+  package:[
+    {// TP 1 — Day 7–10
+      call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners! I'm just checking in after your first session — how did you enjoy it?\n\n[IF NO 2ND VISIT: Have you had a chance to book your next session? The key to getting the most out of your pack is building some early momentum — even just coming in every couple of weeks makes a huge difference.]\n[IF 2ND VISIT BOOKED: I see you already have your next session booked — that's awesome! Building that early rhythm is the best way to get the full benefit of your pack.]`,
+      voicemail:`Hi [Name], it's [Your Name] from Perspire Peachtree Corners! Just checking in after your first session — we hope you loved it! I'd love to help you get your next visit on the books so you can start building a great rhythm. Call us at 404-947-8084 or text us back!`,
+      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 How was your first session? Have you had a chance to book your next visit? Building some early momentum is the best way to get the most out of your pack — let us know if you need help finding a time!`
+    },
+    {// TP 2 — Day 21–25
+      call:`Hi [Name], it's [Your Name] from Perspire! I'm checking in to see how your sessions are going — you're about three weeks in.\n\nFor your [Package] pack, a great rhythm is about one session every [ideal frequency]. That pace helps you build the habit and get the most out of every visit. How has scheduling been working for you so far?`,
+      voicemail:`Hi [Name], it's [Your Name] from Perspire! Just checking in on your pack sessions — I'd love to help you think through the ideal pace so you get the most out of every visit. Call us at 404-947-8084 or text us back!`,
+      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 How are your sessions going so far? For your pack, we recommend coming in about every [ideal frequency] — that way you build the habit and really feel the benefits. Need help booking your next visit?`
+    },
+    {// TP 3 — Day 40–45
+      call:`Hi [Name], it's [Your Name] from Perspire! You're about six weeks in and I wanted to check in — are your sessions supporting the goals that brought you in?\n\nWhether it's recovery, stress relief, better sleep, or just feeling good — I want to make sure the experience is living up to what you were hoping for. Is there anything we can adjust or help with?`,
+      voicemail:`Hi [Name], it's [Your Name] from Perspire! You're about six weeks into your pack and I'd love to hear how things are going. Are your sessions supporting your wellness goals? Call us at 404-947-8084 or text us back — we're here to help!`,
+      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 You're about six weeks in! How are your sessions going — are they supporting the goals that brought you in? Anything we can help with or adjust? We want to make sure you're getting the most out of every visit!`
+    },
+    {// TP 4 — Day 75–80
+      call:`Hi [Name], it's [Your Name] from Perspire! I wanted to do a final check-in — you've been with us for a couple of months now and I hope you've been enjoying your sessions.\n\nAs you work through the rest of your pack, I just want you to know that we're here if you ever want to explore a membership option down the road. A lot of our pack holders find that once the habit is built, a membership makes it easier to keep the rhythm going. No pressure at all — just wanted to plant the seed.\n\nThank you for being part of the Perspire family!`,
+      voicemail:`Hi [Name], it's [Your Name] from Perspire! Just a quick check-in — you've been with us a couple of months and I hope your sessions have been great. As you work through your pack, know that we're here if you ever want to chat about a membership option to keep the momentum going. Call us at 404-947-8084 anytime!`,
+      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 You've been with us a couple of months now — how's everything going? As you work through the rest of your pack, just know we're always here if you want to chat about keeping the rhythm going. Thank you for being part of the Perspire family!`
+    }
+  ]
+};
+
+function openTpScript(type,idx){
+  const scripts=TP_SCRIPTS[type];if(!scripts||!scripts[idx])return;
+  const s=scripts[idx];
+  const tps=type==='member'?MEMBER_TPS:PACKAGE_TPS;
+  const tp=tps[idx];
+  document.getElementById('tp-script-title').textContent=`${tp.label} outreach script`;
+  document.getElementById('tp-script-sub').textContent=`${tp.window} · ${tp.goal}`;
+  document.getElementById('tp-script-body').textContent=s.call;
+  document.getElementById('tp-script-tabs').innerHTML=
+    `<button class="stab active" onclick="showTpScript('${type}',${idx},'call',this)">Phone call</button>`+
+    `<button class="stab" onclick="showTpScript('${type}',${idx},'voicemail',this)">Voicemail</button>`+
+    `<button class="stab" onclick="showTpScript('${type}',${idx},'text',this)">Text</button>`;
+  document.getElementById('tp-script-modal').classList.add('open');
+}
+function showTpScript(type,idx,ch,btn){
+  const s=TP_SCRIPTS[type][idx];if(!s)return;
+  document.getElementById('tp-script-body').textContent=s[ch]||'';
+  btn.closest('.stabs').querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── NURTURE TOUCHPOINTS (Tier Changes — 2 touchpoints / 30 days) ─────────
+
+const NURTURE_TPS=[
+  {label:'TP 1',window:'Day 3–5',goal:'Welcome to new tier, set usage expectations',channel:'call'},
+  {label:'TP 2',window:'Day 21–25',goal:'Usage check-in, reinforce new routine',channel:'reassess'},
+];
+const NURTURE_WINS=[[3,5],[21,25]];
+
+const NURTURE_SCRIPTS={
+  downgrade:[
+    {// TP 1 — Day 3–5
+      call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners! I wanted to check in now that you've transitioned to your [New Tier] plan.\n\nWith [New Tier], we recommend coming in [frequency] to get the most out of your sessions. I know it's a change from what you were doing before, but a lot of our members find that a consistent rhythm at this level still delivers great results.\n\nDo you have any questions about your new plan, or can I help you get your next session booked?`,
+      voicemail:`Hi [Name], it's [Your Name] from Perspire Peachtree Corners! Just calling to check in on your transition to [New Tier]. We want to make sure you're settling in and feeling good about your new plan. Give us a call at 404-947-8084 or text us back anytime!`,
+      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 Just checking in on your move to [New Tier]! With your new plan, we recommend coming in [frequency]. How's everything feeling so far? Let us know if you have any questions!`
+    },
+    {// TP 2 — Day 21–25
+      call:`Hi [Name], it's [Your Name] from Perspire! You've been on your [New Tier] plan for about three weeks now — how's it going?\n\nAre you finding a good rhythm with your sessions? I want to make sure you're getting the full benefit and that the new plan feels right for you. If anything needs adjusting, we're always here to help.`,
+      voicemail:`Hi [Name], it's [Your Name] from Perspire! You're about three weeks into your [New Tier] plan and I just wanted to check in. How's the new routine feeling? Call us at 404-947-8084 or text us back — we're here for you!`,
+      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 You're a few weeks into your [New Tier] plan — how's the new routine feeling? We want to make sure everything's working well for you. Any questions or feedback? We're always here!`
+    }
+  ],
+  upgrade:[
+    {// TP 1 — Day 3–5
+      call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners! Congratulations again on upgrading to [New Tier]!\n\nI wanted to check in and make sure you're getting settled into your new plan. With [New Tier], we really recommend coming in [frequency] to maximize the benefits. Have you been able to get in more frequently since the upgrade?\n\nI'd love to help you think through a weekly routine if that would be helpful!`,
+      voicemail:`Hi [Name], it's [Your Name] from Perspire! Just calling to check in after your upgrade to [New Tier] — we're so excited for you! We'd love to help you build a routine that gets the most out of your new plan. Call us at 404-947-8084 or text us back!`,
+      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 Congrats again on your upgrade to [New Tier]! Have you been able to get in more frequently? We recommend [frequency] for your new plan. Let us know if you want help building a routine — we're here for you!`
+    },
+    {// TP 2 — Day 21–25
+      call:`Hi [Name], it's [Your Name] from Perspire! You've been on [New Tier] for about three weeks now — how are you liking the upgrade?\n\nAre you able to make it in [frequency] like we talked about? I want to make sure you're seeing the full benefit of the higher tier. A lot of our [New Tier] members really start to notice the difference around this point when the routine is locked in.`,
+      voicemail:`Hi [Name], it's [Your Name] from Perspire! You're about three weeks into your [New Tier] upgrade and I'd love to hear how it's going. Are you getting in [frequency]? Call us at 404-947-8084 or text us back — we want to make sure you're loving it!`,
+      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 Three weeks into your [New Tier] upgrade — how's it going? Are you getting in [frequency]? This is right around when members start really feeling the difference. Let us know how it's going!`
+    }
+  ]
+};
+
+function openNurtureScript(type,idx){
+  const scripts=NURTURE_SCRIPTS[type];if(!scripts||!scripts[idx])return;
+  const s=scripts[idx];
+  const tp=NURTURE_TPS[idx];
+  document.getElementById('tp-script-title').textContent=`${tp.label} — Tier change nurture`;
+  document.getElementById('tp-script-sub').textContent=`${tp.window} · ${tp.goal}`;
+  document.getElementById('tp-script-body').textContent=s.call;
+  document.getElementById('tp-script-tabs').innerHTML=
+    `<button class="stab active" onclick="showNurtureScript('${type}',${idx},'call',this)">Phone call</button>`+
+    `<button class="stab" onclick="showNurtureScript('${type}',${idx},'voicemail',this)">Voicemail</button>`+
+    `<button class="stab" onclick="showNurtureScript('${type}',${idx},'text',this)">Text</button>`;
+  document.getElementById('tp-script-modal').classList.add('open');
+}
+function showNurtureScript(type,idx,ch,btn){
+  const s=NURTURE_SCRIPTS[type]?.[idx];if(!s)return;
+  document.getElementById('tp-script-body').textContent=s[ch]||'';
+  btn.closest('.stabs').querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function nurtureStatus(n,i){
+  const[ws,we]=NURTURE_WINS[i],d=daysSince(n.startDate);
+  if(n.logs?.[i]?.date)return'completed';
+  if(d<ws)return'future';
+  if(d<=we+3)return'due-now';
+  return'overdue';
+}
+
+function openChangeScript(key,title){
+  const s=SCRIPTS[key];if(!s)return;
+  document.getElementById('tp-script-title').textContent=title;
+  document.getElementById('tp-script-sub').textContent='';
+  document.getElementById('tp-script-body').textContent=s.call;
+  document.getElementById('tp-script-tabs').innerHTML=
+    `<button class="stab active" onclick="showChangeScript('${key}','call',this)">Phone call</button>`+
+    `<button class="stab" onclick="showChangeScript('${key}','voicemail',this)">Voicemail</button>`+
+    `<button class="stab" onclick="showChangeScript('${key}','text',this)">Text</button>`+
+    `<button class="stab" onclick="showChangeScript('${key}','email',this)">Email</button>`;
+  document.getElementById('tp-script-modal').classList.add('open');
+}
+function showChangeScript(key,ch,btn){
+  const s=SCRIPTS[key];if(!s)return;
+  document.getElementById('tp-script-body').textContent=s[ch]||'';
+  btn.closest('.stabs').querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+
+let guests=[],changes=[],staffList=[],nurtures=[];
+
+const DEFAULT_STAFF=[
+  {id:'crystal', name:'Crystal', active:true},{id:'hannah',  name:'Hannah',  active:true},
+  {id:'mahek',   name:'Mahek',   active:true},{id:'mohogany',name:'Mohogany',active:true},
+  {id:'raine',   name:'Raine',   active:true},{id:'vayanna', name:'Vayanna', active:true},
+  {id:'victor',  name:'Victor',  active:true},
+];
+
+// Storage keys for local fallback mode
+const LS_GUESTS='psp-v7-guests',LS_CHANGES='psp-v7-changes',LS_STAFF='psp-v7-staff',LS_NURTURES='psp-v7-nurtures';
+let useLocalStorage=false;
+
+// ── API HELPERS ───────────────────────────────────────────────────────────
+
+async function api(path, opts={}){
+  const res=await fetch('/api/'+path,{
+    headers:{'Content-Type':'application/json',...(opts.headers||{})},
+    ...opts,
+    body:opts.body?JSON.stringify(opts.body):undefined
+  });
+  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error||res.statusText);}
+  return res.json();
+}
+
+function lsGet(k,fallback){try{const v=localStorage.getItem(k);return v?JSON.parse(v):fallback;}catch(e){return fallback;}}
+function lsSave(){
+  try{
+    localStorage.setItem(LS_GUESTS,JSON.stringify(guests));
+    localStorage.setItem(LS_CHANGES,JSON.stringify(changes));
+    localStorage.setItem(LS_STAFF,JSON.stringify(staffList));
+    localStorage.setItem(LS_NURTURES,JSON.stringify(nurtures));
+  }catch(e){}
+}
+
+async function loadGuests(){
+  if(useLocalStorage){guests=lsGet(LS_GUESTS,[]);return;}
+  guests=await api('guests');
+}
+async function loadChanges(){
+  if(useLocalStorage){changes=lsGet(LS_CHANGES,[]);return;}
+  changes=await api('changes');
+}
+async function loadStaff(){
+  if(useLocalStorage){staffList=lsGet(LS_STAFF,DEFAULT_STAFF);return;}
+  staffList=await api('staff');
+}
+async function loadNurtures(){
+  if(useLocalStorage){nurtures=lsGet(LS_NURTURES,[]);return;}
+  nurtures=await api('nurtures');
+}
+async function loadAll(){
+  try{
+    await Promise.all([loadGuests(),loadChanges(),loadStaff(),loadNurtures()]);
+  }catch(e){
+    console.warn('API unavailable, using local storage fallback.',e.message);
+    useLocalStorage=true;
+    guests=lsGet(LS_GUESTS,[]);
+    changes=lsGet(LS_CHANGES,[]);
+    staffList=lsGet(LS_STAFF,DEFAULT_STAFF);
+    nurtures=lsGet(LS_NURTURES,[]);
+  }
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+
+function today(){const d=new Date();d.setHours(0,0,0,0);return d;}
+function parseDate(s){
+  if(!s)return null;
+  if(s instanceof Date){const d=new Date(s);d.setHours(0,0,0,0);return d;}
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)){const[y,m,d]=s.split('-').map(Number);const dt=new Date(y,m-1,d);dt.setHours(0,0,0,0);return isNaN(dt)?null:dt;}
+  if(s.includes('T')){const ds=s.split('T')[0];const[y,m,d]=ds.split('-').map(Number);const dt=new Date(y,m-1,d);dt.setHours(0,0,0,0);return isNaN(dt)?null:dt;}
+  const p=s.split('/');
+  if(p.length===3){let y=+p[2];if(y<100)y+=2000;const dt=new Date(y,+p[0]-1,+p[1]);dt.setHours(0,0,0,0);return isNaN(dt)?null:dt;}
+  return null;
+}
+function toInputDate(s){const d=parseDate(s);if(!d)return'';return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function fmtDate(s){const d=parseDate(s);return d?d.toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'}):s||'—';}
+function daysSince(s){const d=parseDate(s);return d?Math.max(0,Math.floor((today()-d)/86400000)):0;}
+function daysUntil(s){const d=parseDate(s);return d?Math.floor((d-today())/86400000):null;}
+function windowDates(startDate,ws,we){
+  const sd=parseDate(startDate);if(!sd)return'';
+  const d1=new Date(sd);d1.setDate(d1.getDate()+ws);
+  const d2=new Date(sd);d2.setDate(d2.getDate()+we);
+  const fmt=d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  return`${fmt(d1)} – ${fmt(d2)}`;
+}
+function initials(n){return n.trim().split(' ').map(p=>p[0]).join('').toUpperCase().slice(0,2);}
+function getTPs(t){return t==='member'?MEMBER_TPS:PACKAGE_TPS;}
+function getWins(t){return t==='member'?MEMBER_WINS:PACKAGE_WINS;}
+function sName(id){const s=staffList.find(x=>x.id===id);return s?s.name:id;}
+function activeStaff(){return[...staffList].filter(s=>s.active).sort((a,b)=>a.name.localeCompare(b.name));}
+
+function billUrgency(bs){
+  const du=daysUntil(bs);if(du===null)return'normal';
+  const bd=parseDate(bs);
+  const db=new Date(bd);db.setDate(db.getDate()-1);
+  if(du<=0)return'urgent';
+  if(du===1&&(isClosed(bd)||isEarlyClose(db)))return'urgent';
+  if(du<=2)return'urgent';
+  if(du<=5)return'warn';
+  return'normal';
+}
+function tpStatus(c,i){
+  const[ws,we]=getWins(c.type)[i],d=daysSince(c.contractStartDate);
+  if(c.logs?.[i]?.date)return'completed';
+  if(d<ws)return'future';
+  if(d<=we+3)return'due-now';
+  return'overdue';
+}
+function guestStatus(c){
+  const w=getWins(c.type);
+  for(let i=0;i<w.length;i++)if(tpStatus(c,i)==='overdue')return'overdue';
+  for(let i=0;i<w.length;i++)if(tpStatus(c,i)==='due-now')return'due-now';
+  if(daysSince(c.contractStartDate)>80)return'complete';
+  return'on-track';
+}
+function chLabel(ch){
+  if(ch==='call')return{label:'Call first',cls:'chcall'};
+  if(ch==='text')return{label:'Text first',cls:'chtext'};
+  return{label:'Reassess',cls:'chre'};
+}
+
+// ── DROPDOWNS ─────────────────────────────────────────────────────────────
+
+function fillStaff(id){const el=document.getElementById(id);if(!el)return;const opts=activeStaff().map(s=>`<option value="${s.id}">${s.name}</option>`).join('');el.innerHTML=id==='staff-sel'?`<option value="all">All staff</option>${opts}`:opts;}
+function updateTierOpts(){const t=document.getElementById('ng-type').value;document.getElementById('ng-tier').innerHTML=(t==='member'?MEMBER_TIERS:PACKAGE_TIERS).map(x=>`<option value="${x}">${x}</option>`).join('');}
+function updateEditTierOpts(){
+  const t=document.getElementById('eg-type').value,cur=document.getElementById('eg-tier').value;
+  const opts=(t==='member'?MEMBER_TIERS:PACKAGE_TIERS);
+  document.getElementById('eg-tier').innerHTML=opts.map(x=>`<option value="${x}" ${x===cur?'selected':''}>${x}</option>`).join('');
+}
+function fillAll(){fillStaff('staff-sel');fillStaff('ng-staff');updateTierOpts();}
+
+// ── FORM LOGIC ────────────────────────────────────────────────────────────
+
+function show(id){document.getElementById(id).style.display='block';}
+function hide(id){document.getElementById(id).style.display='none';}
+
+function onTypeChange(){
+  const t=document.getElementById('mc-type').value;
+  document.getElementById('mc-new-tier-wrap').style.display=(t==='downgrade'||t==='upgrade')?'block':'none';
+  const isSusp=t==='suspension';
+  document.getElementById('mc-freeze-wrap').style.display=isSusp?'block':'none';
+  hide('mc-freeze-other-wrap');
+  document.getElementById('mc-term-section').style.display=t==='termination'?'block':'none';
+  document.getElementById('mc-tierchange-section').style.display=(t==='downgrade'||t==='upgrade')?'block':'none';
+  document.getElementById('mc-susp-section').style.display=t==='suspension'?'block':'none';
+  if(t==='termination') initFrmScript();
+  hide('mc-si-wrap');hide('mc-si-other-wrap');hide('mc-di-wrap');
+  const oo=document.getElementById('mc-out-outcome');if(oo)oo.value='';
+}
+
+function onFreezeDurChange(selId,wrapId){
+  const v=document.getElementById(selId).value;
+  document.getElementById(wrapId).style.display=v==='other'?'block':'none';
+}
+
+function onOutcomeChange(){
+  const v=document.getElementById('mc-out-outcome').value;
+  document.getElementById('mc-si-wrap').style.display=v==='suspend-instead'?'block':'none';
+  document.getElementById('mc-di-wrap').style.display=v==='downgrade-instead'?'block':'none';
+  if(v!=='suspend-instead'){hide('mc-si-other-wrap');}
+}
+
+function initFrmScript(){
+  const el=document.getElementById('fscript-term');
+  if(el)el.textContent=SCRIPTS.termination.call;
+}
+function frmScript(key,type,btn){
+  const map={term:'termination'};
+  const k=map[key]||key;
+  const el=document.getElementById(`fscript-${key}`);
+  if(el&&SCRIPTS[k])el.textContent=SCRIPTS[k][type]||'';
+  btn.closest('.stabs').querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function cardScript(cid,key,type,btn){
+  const el=document.getElementById(`cscript-${cid}-${key}`);
+  if(el&&SCRIPTS[key])el.textContent=SCRIPTS[key][type]||'';
+  btn.closest('.stabs').querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── RENDER: NEW GUESTS ────────────────────────────────────────────────────
+
+function renderGuests(){
+  const sid=document.getElementById('staff-sel').value;
+  const fil=document.getElementById('filter-sel').value;
+  const mine=sid==='all'?guests:guests.filter(c=>c.assignedStaff===sid);
+  const ov=mine.filter(c=>guestStatus(c)==='overdue').length;
+  const dn=mine.filter(c=>guestStatus(c)==='due-now').length;
+  const ot=mine.filter(c=>guestStatus(c)==='on-track').length;
+  document.getElementById('guest-stats').innerHTML=`
+    <div class="sc"><div class="scl">Active clients</div><div class="scv">${mine.length}</div></div>
+    <div class="sc"><div class="scl">Overdue</div><div class="scv ${ov>0?'d':''}">${ov}</div></div>
+    <div class="sc"><div class="scl">Due this week</div><div class="scv ${dn>0?'w':''}">${dn}</div></div>
+    <div class="sc"><div class="scl">On track</div><div class="scv ${ot>0?'s':''}">${ot}</div></div>`;
+  let list=mine;
+  if(fil==='overdue')list=mine.filter(c=>guestStatus(c)==='overdue');
+  else if(fil==='at-risk')list=mine.filter(c=>c.visitStatus==='at-risk');
+  else if(fil==='due-soon')list=mine.filter(c=>guestStatus(c)==='due-now');
+  else if(fil==='between')list=mine.filter(c=>{const s=guestStatus(c);return(s==='on-track'||s==='complete')&&daysSince(c.contractStartDate)<=90;});
+  list.sort((a,b)=>{const o={overdue:0,'due-now':1,'on-track':2,complete:3};return(o[guestStatus(a)]||2)-(o[guestStatus(b)]||2);});
+  const el=document.getElementById('guest-list');
+  if(!list.length){el.innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No clients yet.<br>Use "+ Add client" to get started.</p></div>`;return;}
+  el.innerHTML=`<div class="sec-hdr"><div class="sec-title">Your clients</div><div class="sec-ct">${list.length}</div></div><div class="clist">${list.map(c=>renderGuestCard(c,true)).join('')}</div>`;
+  restoreExpanded();
+}
+
+function renderGuestCard(c,actions,prefix=''){
+  const st=guestStatus(c),tps=getTPs(c.type),days=daysSince(c.contractStartDate),g=cadenceGuide(c.tier);
+  const done=tps.filter((_,i)=>tpStatus(c,i)==='completed').length;
+  const sBdg={overdue:`<span class="badge bod">Overdue</span>`,'due-now':`<span class="badge bdu">Due now</span>`,'on-track':`<span class="badge bot">On track</span>`,complete:`<span class="badge bhlt">Complete</span>`}[st]||'';
+  const tBdg=c.type==='member'?`<span class="badge bm">Member</span>`:`<span class="badge bpk">Package</span>`;
+  const wins=getWins(c.type);
+  const tpHtml=tps.map((tp,i)=>{
+    const s=tpStatus(c,i),log=c.logs?.[i],ch=chLabel(tp.channel);
+    const canLog=actions&&!log;
+    const stTxt=s==='completed'?`✓ ${log.channel}`:s==='overdue'?'! Overdue':s==='due-now'?'Due now':'Upcoming';
+    const stCls=s==='completed'?'done':s==='overdue'?'late':s==='due-now'?'pending':'fut';
+    const dates=windowDates(c.contractStartDate,wins[i][0],wins[i][1]);
+    return`<div class="tpi ${s}"><div class="tpn">${tp.label}</div><div class="tpw">${tp.window}</div>${dates?`<div style="font-size:10px;color:var(--muted);margin-bottom:3px;">${dates}</div>`:''}<div class="tpgl">${tp.goal}</div><span class="chtag ${ch.cls}">${ch.label}</span><div class="tpst ${stCls}">${stTxt}</div>${canLog?`<button class="tlbtn" onclick="openLog('${c.id}',${i})">Log outreach</button>`:''}${log?`<button class="tlbtn logged" disabled>✓ Logged</button>`:''}<button class="tlbtn" style="border-color:var(--info);color:var(--info);margin-top:3px;" onclick="event.stopPropagation();openTpScript('${c.type}',${i})">View script</button>${log?.notes?`<div class="tpnts">"${log.notes}"</div>`:''}</div>`;
+  }).join('');
+  const actHtml=actions?`<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+    <button class="btn btn-g btn-sm" onclick="openEditGuest('${c.id}')">Edit</button>
+    <button class="btn btn-g btn-sm" onclick="toggleRisk('${c.id}')">${c.visitStatus==='at-risk'?'✓ Mark healthy':'Mark at-risk'}</button>
+    <button class="btn btn-g btn-sm" onclick="openReassignSingle('${c.id}')">Reassign</button>
+    <button class="btn btn-sm btn-do" onclick="removeGuest('${c.id}')">Remove</button>
+  </div>`:'';
+  return`<div class="ccard ${st==='overdue'?'isod':st==='due-now'?'isdu':''}" id="${prefix}ccard-${c.id}">
+    <div class="chdr" onclick="toggleCard('${prefix}ccard-${c.id}')">
+      <div class="cav">${initials(c.name)}</div>
+      <div class="ci"><div class="cn">${c.name}</div><div class="cm">${c.tier} · Day ${days} · ${done}/${tps.length} touchpoints · ${sName(c.assignedStaff)}</div></div>
+      <div class="cbdg">${tBdg}${sBdg}${c.visitStatus==='at-risk'?`<span class="badge bod">At-risk</span>`:''}</div>
+      <svg class="xic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </div>
+    <div class="cbody">
+      <div class="tpg">${tpHtml}</div>
+      <div class="cadbox"><div class="cadbox-t">Cadence guidance — ${c.tier}</div><p><strong>Ideal:</strong> ${g.ideal} · <strong>At-risk:</strong> ${g.risk}<br><strong>Tip:</strong> ${g.tip}</p></div>
+      ${actHtml}
+    </div>
+  </div>`;
+}
+
+// ── RENDER: MEMBERSHIP CHANGES ────────────────────────────────────────────
+
+function renderChanges(){
+  const fil=document.getElementById('chg-filter').value;
+  const open=changes.filter(c=>c.status!=='closed');
+  const urgent=changes.filter(c=>c.status!=='closed'&&billUrgency(c.billDate)==='urgent');
+  const followup=changes.filter(c=>c.status!=='closed'&&c.needsFollowup);
+
+  let banners='';
+  if(urgent.length)banners+=`<div class="urgbanner"><div class="urgicon">⚠</div><div class="urgtxt"><strong>${urgent.length} urgent — process before bill date or closure.</strong><br>${urgent.map(c=>`${c.guestName} (${c.type}, bill ${fmtDate(c.billDate)})`).join(' · ')}</div></div>`;
+  if(followup.length)banners+=`<div class="urgbanner" style="background:#856404;"><div class="urgicon">↩</div><div class="urgtxt"><strong>${followup.length} member${followup.length!==1?'s':''} need${followup.length===1?'s':''} follow-up today.</strong><br>${followup.map(c=>c.guestName).join(' · ')}</div></div>`;
+  document.getElementById('urgent-banners').innerHTML=banners;
+
+  const terms=open.filter(c=>c.type==='termination').length;
+  document.getElementById('chg-stats').innerHTML=`
+    <div class="sc"><div class="scl">Open requests</div><div class="scv">${open.length}</div></div>
+    <div class="sc"><div class="scl">Urgent</div><div class="scv ${urgent.length>0?'u':''}">${urgent.length}</div></div>
+    <div class="sc"><div class="scl">Terminations</div><div class="scv ${terms>0?'d':''}">${terms}</div></div>
+    <div class="sc"><div class="scl">Follow-up needed</div><div class="scv ${followup.length>0?'w':''}">${followup.length}</div></div>`;
+
+  let list=changes;
+  if(fil==='open')list=changes.filter(c=>c.status!=='closed');
+  else if(fil==='urgent')list=changes.filter(c=>c.status!=='closed'&&billUrgency(c.billDate)==='urgent');
+  else if(fil==='followup')list=changes.filter(c=>c.status!=='closed'&&c.needsFollowup);
+  else if(fil==='termination')list=changes.filter(c=>c.type==='termination'&&c.status!=='closed');
+  else if(fil==='suspension')list=changes.filter(c=>c.type==='suspension'&&c.status!=='closed');
+  else if(fil==='downgrade')list=changes.filter(c=>c.type==='downgrade'&&c.status!=='closed');
+  else if(fil==='upgrade')list=changes.filter(c=>c.type==='upgrade'&&c.status!=='closed');
+
+  list=[...list].sort((a,b)=>{
+    const fol=(x)=>x.needsFollowup&&x.status!=='closed'?0:1;
+    const u={urgent:0,warn:1,normal:2};
+    const cls=(x)=>x.status==='closed'?1:0;
+    return(cls(a)-cls(b))||((u[billUrgency(a.billDate)]??2)-(u[billUrgency(b.billDate)]??2))||((daysUntil(a.billDate)??999)-(daysUntil(b.billDate)??999))||(fol(a)-fol(b));
+  });
+  const el=document.getElementById('change-list');
+  if(!list.length){el.innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No requests matching this filter.</p></div>`;return;}
+  el.innerHTML=`<div class="sec-hdr"><div class="sec-title">Requests</div><div class="sec-ct">${list.length}</div></div><div class="mclist">${list.map(c=>renderChangeCard(c)).join('')}</div>`;
+  restoreExpanded();
+}
+
+function renderChangeCard(c,prefix=''){
+  const urg=billUrgency(c.billDate);
+  const du=daysUntil(c.billDate);
+  const duLbl=du===null?'':du<=0?'Bill date passed':du===1?'⚠ TOMORROW':`${du} days to bill`;
+  const urgCls=c.needsFollowup&&c.status!=='closed'?'isfol':urg==='urgent'&&c.status!=='closed'?'isurg':urg==='warn'&&c.status!=='closed'?'iswarn':'';
+  const tmap={termination:'bTERM',suspension:'bSUSP',downgrade:'bDOWN',upgrade:'bUP'};
+  const tlbl={termination:'Termination',suspension:'Suspension',downgrade:'Downgrade',upgrade:'Upgrade'};
+
+  const clItems=buildPostChecklist(c);
+  const clHtml=clItems.map((item,i)=>{
+    const done=c.checklist?.[i];
+    return`<div class="cli ${done?'done':''}" id="cli-${c.id}-${i}">
+      <div class="cli-chk" onclick="toggleCheck('${c.id}',${i})">${done?`<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`:''}</div>
+      <div class="cli-txt"><div class="cli-lbl">${item.label}</div>${item.desc?`<div class="cli-desc">${item.desc}</div>`:''}</div>
+    </div>`;
+  }).join('');
+
+  let freezeHtml='';
+  if(c.type==='suspension'||(c.outreachOutcome==='suspend-instead')){
+    const dur=c.freezeDuration,needsOvr=dur==='90'||dur==='other';
+    freezeHtml=`<div class="fadv ${needsOvr?'is90':''}">
+      <div class="fadv-title">Freeze rules${needsOvr?' — exception required':''}</div>
+      <p>• Bill date = freeze start date<br>
+      • Standard durations: 30 or 60 days · Max 2 freezes/year · No back-to-back<br>
+      • Members cannot use sessions while frozen<br>
+      ${dur&&dur!=='other'?`• <strong>Requested duration: ${dur} days</strong>`:dur==='other'?`• <strong>Open-ended freeze</strong>${c.freezeOtherNote?` — ${c.freezeOtherNote}`:''}`:''}<br>
+      ${needsOvr?`• <strong>This requires Mohogany approval.</strong>`:''}</p>
+      ${needsOvr?`<div class="ovr-row"><input type="checkbox" class="ovr-chk" id="ovr-${c.id}" ${c.freezeOverride?'checked':''} onchange="toggleOverride('${c.id}')"><label class="ovr-lbl" for="ovr-${c.id}">Exception approved by Mohogany — override standard freeze rules</label></div>`:''}
+    </div>`;
+  }
+
+  let reactHtml='';
+  if(c.type==='suspension'&&c.freezeDuration&&c.freezeDuration!=='other'&&c.billDate){
+    const bd=parseDate(c.billDate);
+    if(bd){
+      const rd=new Date(bd);rd.setDate(rd.getDate()+parseInt(c.freezeDuration));
+      const rdDays=Math.floor((rd-today())/86400000);
+      if(rdDays>=0&&rdDays<=7){
+        reactHtml=`<div class="reactiv"><p>🔔 <strong>Reactivation in ${rdDays} day${rdDays!==1?'s':''}.</strong> Mohogany should send the welcome-back email and confirm reactivation in Mindbody (${rd.toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'})}).</p></div>`;
+      }
+    }
+  }
+
+  let followScriptHtml='';
+  if(c.needsFollowup&&c.status!=='closed'){
+    followScriptHtml=`
+      <div class="folbanner"><p>↩ <strong>Follow-up needed.</strong> No answer on initial outreach — attempt contact again before bill date (${fmtDate(c.billDate)}).</p></div>
+      <div style="margin-top:10px;"><button class="btn btn-g btn-sm" style="border-color:#856404;color:#856404;" onclick="openChangeScript('termination_followup','Follow-up outreach scripts')">View follow-up scripts</button></div>`;
+  }
+
+  let tierHtml='';
+  if((c.type==='downgrade'||c.type==='upgrade')&&c.newTier){
+    tierHtml=`<div class="tier-box"><strong>Tier change:</strong> ${c.currentTier} → ${c.newTier}<br><span style="opacity:.8">Target cadence after processing: ${cadenceGuide(c.newTier).ideal}</span></div>`;
+  }
+
+  let cardScriptHtml='';
+  const scriptKey=c.type==='suspension'?null:c.type==='termination'?null:c.type;
+  if(scriptKey&&SCRIPTS[scriptKey]){
+    cardScriptHtml=`<div style="margin-top:10px;"><button class="btn btn-g btn-sm" style="border-color:var(--pur);color:var(--pur);" onclick="openChangeScript('${scriptKey}','${c.type==='upgrade'?'Upgrade confirmation':'Downgrade confirmation'} scripts')">View ${c.type} scripts</button></div>`;
+  }
+
+  const isTermination=c.type==='termination'||(c.outreachOutcome&&['continuing','no-answer','suspend-instead','downgrade-instead'].includes(c.outreachOutcome));
+  const outHtml=isTermination?`<div class="out-row">
+    <span class="out-lbl">Outcome:</span>
+    <select class="out-sel" onchange="handleOutcome('${c.id}',this.value)">
+      <option value="pending" ${!c.outcome||c.outcome==='pending'?'selected':''}>Pending — in progress</option>
+      <option value="continuing" ${c.outcome==='continuing'?'selected':''}>Proceeding as requested</option>
+      <option value="saved-same" ${c.outcome==='saved-same'?'selected':''}>Saved — staying at same tier</option>
+      <option value="saved-downgrade" ${c.outcome==='saved-downgrade'?'selected':''}>Saved — downgraded</option>
+      <option value="saved-freeze" ${c.outcome==='saved-freeze'?'selected':''}>Saved — freeze accepted</option>
+    </select>
+    <input type="text" class="notes-in" placeholder="Notes..." value="${c.outcomeNotes||''}" onblur="updateNotes('${c.id}',this.value)">
+  </div>
+  <div id="out-extra-${c.id}" style="margin-top:8px;display:${c.outcome==='saved-downgrade'||c.outcome==='saved-freeze'?'block':'none'};">
+    ${c.outcome==='saved-downgrade'?`<div class="frow"><div class="fg"><label class="fl">Downgrade to</label><select class="fi" id="out-tier-${c.id}" onchange="applyOutcomeTier('${c.id}')"><option value="IRevive 2x">IRevive 2x</option><option value="IRelax 4x">IRelax 4x</option><option value="IRecover 8x">IRecover 8x</option></select></div></div>`:''}
+    ${c.outcome==='saved-freeze'?`<div class="frow"><div class="fg"><label class="fl">Freeze duration</label><select class="fi" id="out-freeze-${c.id}" onchange="applyOutcomeFreeze('${c.id}')"><option value="30">30 days</option><option value="60">60 days</option><option value="90">90 days (requires approval)</option><option value="other">Other (open-ended / requires approval)</option></select></div></div>`:''}
+  </div>`:`<div style="margin-top:8px;"><input type="text" class="notes-in" style="width:100%;" placeholder="Notes..." value="${c.outcomeNotes||''}" onblur="updateNotes('${c.id}',this.value)"></div>`;
+  const actHtml=`<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+    <button class="btn btn-g btn-sm" onclick="openEditChange('${c.id}')">Edit</button>
+    <button class="btn btn-g btn-sm" onclick="toggleClose('${c.id}')">${c.status==='closed'?'Reopen':'Mark processed ✓'}</button>
+    <button class="btn btn-sm btn-do" onclick="removeChange('${c.id}')">Remove</button>
+  </div>`;
+
+  return`<div class="mccard ${urgCls}" id="${prefix}mc-${c.id}">
+    <div class="mchdr" onclick="toggleCard('${prefix}mc-${c.id}')">
+      <div class="cav">${initials(c.guestName)}</div>
+      <div class="ci">
+        <div class="cn">${c.guestName}</div>
+        <div class="cm">Requested ${fmtDate(c.dateRequested)} · Bill ${fmtDate(c.billDate)}${duLbl?` · <strong style="color:${urg==='urgent'?'var(--urg)':'var(--warn)'}">${duLbl}</strong>`:''}${c.status==='closed'?' · ✓ Processed':''}</div>
+      </div>
+      <div class="mcbdg">
+        <span class="badge ${tmap[c.type]||'bot'}">${tlbl[c.type]||c.type}</span>
+        <span class="badge ${c.status==='closed'?'bCLOSD':'bOPEN'}">${c.status==='closed'?'Processed':'Open'}</span>
+        ${urg==='urgent'&&c.status!=='closed'?`<span class="badge bURG">URGENT</span>`:''}
+        ${c.needsFollowup&&c.status!=='closed'?`<span class="badge bFOL">Follow-up</span>`:''}
+      </div>
+      <svg class="xic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </div>
+    <div class="mcbody">
+      ${c.notes?`<div style="font-size:13px;color:var(--mid);margin-top:12px;padding:10px 13px;background:var(--sand);border-radius:8px;border:1px solid var(--border);">📝 ${c.notes}</div>`:''}
+      <div class="checklist">${clHtml}</div>
+      ${followScriptHtml}${freezeHtml}${reactHtml}${tierHtml}${cardScriptHtml}${outHtml}${actHtml}
+    </div>
+  </div>`;
+}
+
+function buildPostChecklist(c){
+  const items=[];
+  if(c.type==='termination'&&c.needsFollowup){
+    items.push({label:'Second outreach attempt made',desc:'Try again before bill date. Use the follow-up scripts above.'});
+  }
+  return items;
+}
+
+// ── RENDER: MANAGER VIEW ──────────────────────────────────────────────────
+
+function renderMgrOverview(){
+  const ov=guests.filter(c=>guestStatus(c)==='overdue').length;
+  const dn=guests.filter(c=>guestStatus(c)==='due-now').length;
+  const ot=guests.filter(c=>guestStatus(c)==='on-track').length;
+  const ar=guests.filter(c=>c.visitStatus==='at-risk').length;
+  document.getElementById('mgr-stats').innerHTML=`
+    <div class="sc"><div class="scl">Total new guests</div><div class="scv">${guests.length}</div></div>
+    <div class="sc"><div class="scl">Overdue touchpoints</div><div class="scv ${ov>0?'d':''}">${ov}</div></div>
+    <div class="sc"><div class="scl">Due this week</div><div class="scv ${dn>0?'w':''}">${dn}</div></div>
+    <div class="sc"><div class="scl">At-risk members</div><div class="scv ${ar>0?'d':''}">${ar}</div></div>`;
+  if(!guests.length){document.getElementById('mgr-list').innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No clients yet.</p></div>`;return;}
+  document.getElementById('mgr-list').innerHTML=staffList.map(s=>{
+    const sc=guests.filter(c=>c.assignedStaff===s.id);if(!sc.length)return'';
+    const ovs=sc.filter(c=>guestStatus(c)==='overdue').length;
+    const flag=ovs>0?`<span class="badge bod">${ovs} overdue</span>`:`<span class="badge bhlt">All on track</span>`;
+    return`<div class="staff-sec"><div class="staff-hdr"><div class="sav">${s.name[0]}</div><div class="snlbl">${s.name}</div>${!s.active?`<span class="badge bia">Inactive</span>`:''}${flag}<div class="ssum">${sc.length} client${sc.length!==1?'s':''}</div></div><div class="clist">${sc.map(c=>renderGuestCard(c,false,'mgr-')).join('')}</div></div>`;
+  }).join('');
+}
+
+function renderMgrChanges(){
+  const open=changes.filter(c=>c.status!=='closed');
+  const urg=open.filter(c=>billUrgency(c.billDate)==='urgent').length;
+  document.getElementById('mgr-chg-stats').innerHTML=`
+    <div class="sc"><div class="scl">Open requests</div><div class="scv">${open.length}</div></div>
+    <div class="sc"><div class="scl">Urgent</div><div class="scv ${urg>0?'u':''}">${urg}</div></div>
+    <div class="sc"><div class="scl">Terminations</div><div class="scv ${open.filter(c=>c.type==='termination').length>0?'d':''}">${open.filter(c=>c.type==='termination').length}</div></div>
+    <div class="sc"><div class="scl">Total processed</div><div class="scv s">${changes.filter(c=>c.status==='closed').length}</div></div>`;
+  const sorted=[...open].sort((a,b)=>{const u={urgent:0,warn:1,normal:2};return((u[billUrgency(a.billDate)]??2)-(u[billUrgency(b.billDate)]??2))||((daysUntil(a.billDate)??999)-(daysUntil(b.billDate)??999));});
+  document.getElementById('mgr-chg-list').innerHTML=!sorted.length?`<div class="empty"><div class="empty-icon">○</div><p>No open requests.</p></div>`:`<div class="mclist">${sorted.map(c=>renderChangeCard(c,'mgr-')).join('')}</div>`;
+}
+
+function renderRoster(){
+  document.getElementById('roster').innerHTML=staffList.map(s=>{
+    const ct=guests.filter(c=>c.assignedStaff===s.id).length;
+    return`<div class="smrow"><div class="sav" style="width:28px;height:28px;font-size:12px;">${s.name[0]}</div><div class="smname">${s.name}${s.id==='mohogany'?` <span style="font-size:11px;color:var(--muted);font-style:italic;">(Team lead)</span>`:''}</div><div class="smct">${ct} client${ct!==1?'s':''}</div><button class="btn btn-g btn-sm" onclick="openReassignStaff('${s.id}')">Reassign all</button><button class="btn btn-sm" style="${s.active?'color:var(--err);border:1.5px solid var(--err);':'color:var(--ok);border:1.5px solid var(--ok);'}background:transparent;" onclick="toggleStaffActive('${s.id}')">${s.active?'Deactivate':'Reactivate'}</button></div>`;
+  }).join('');
+}
+
+// ── RENDER: TIER CHANGE NURTURE ──────────────────────────────────────────
+
+function renderMgrNurture(){
+  const active=nurtures.filter(n=>n.status==='active');
+  const completed=nurtures.filter(n=>n.status==='completed');
+  const overdue=active.filter(n=>NURTURE_WINS.some((_,i)=>nurtureStatus(n,i)==='overdue')).length;
+  const dueNow=active.filter(n=>NURTURE_WINS.some((_,i)=>nurtureStatus(n,i)==='due-now')).length;
+  document.getElementById('mgr-nur-stats').innerHTML=`
+    <div class="sc"><div class="scl">Active nurtures</div><div class="scv">${active.length}</div></div>
+    <div class="sc"><div class="scl">Overdue</div><div class="scv ${overdue>0?'d':''}">${overdue}</div></div>
+    <div class="sc"><div class="scl">Due now</div><div class="scv ${dueNow>0?'w':''}">${dueNow}</div></div>
+    <div class="sc"><div class="scl">Completed</div><div class="scv s">${completed.length}</div></div>`;
+
+  const sorted=[...active].sort((a,b)=>{
+    const urgA=NURTURE_WINS.some((_,i)=>nurtureStatus(a,i)==='overdue')?0:NURTURE_WINS.some((_,i)=>nurtureStatus(a,i)==='due-now')?1:2;
+    const urgB=NURTURE_WINS.some((_,i)=>nurtureStatus(b,i)==='overdue')?0:NURTURE_WINS.some((_,i)=>nurtureStatus(b,i)==='due-now')?1:2;
+    return urgA-urgB;
+  });
+
+  const el=document.getElementById('mgr-nur-list');
+  if(!sorted.length&&!completed.length){el.innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No tier change nurtures yet.<br>They are created automatically when a downgrade or upgrade is marked processed.</p></div>`;return;}
+
+  let html='';
+  if(sorted.length){
+    html+=`<div class="sec-hdr"><div class="sec-title">Active</div><div class="sec-ct">${sorted.length}</div></div><div class="clist">${sorted.map(n=>renderNurtureCard(n)).join('')}</div>`;
+  }
+  if(completed.length){
+    html+=`<div class="sec-hdr" style="margin-top:22px;"><div class="sec-title">Completed</div><div class="sec-ct">${completed.length}</div></div><div class="clist">${completed.map(n=>renderNurtureCard(n)).join('')}</div>`;
+  }
+  el.innerHTML=html;
+  restoreExpanded();
+}
+
+function renderNurtureCard(n){
+  const days=daysSince(n.startDate);
+  const done=NURTURE_TPS.filter((_,i)=>nurtureStatus(n,i)==='completed').length;
+  const hasOverdue=NURTURE_TPS.some((_,i)=>nurtureStatus(n,i)==='overdue');
+  const hasDue=NURTURE_TPS.some((_,i)=>nurtureStatus(n,i)==='due-now');
+  const st=n.status==='completed'?'complete':hasOverdue?'overdue':hasDue?'due-now':'on-track';
+  const sBdg={overdue:`<span class="badge bod">Overdue</span>`,'due-now':`<span class="badge bdu">Due now</span>`,'on-track':`<span class="badge bot">On track</span>`,complete:`<span class="badge bhlt">Complete</span>`}[st]||'';
+  const tBdg=n.type==='upgrade'?`<span class="badge bUP">Upgrade</span>`:`<span class="badge bDOWN">Downgrade</span>`;
+
+  const tpHtml=NURTURE_TPS.map((tp,i)=>{
+    const s=nurtureStatus(n,i),log=n.logs?.[i],ch=chLabel(tp.channel);
+    const canLog=n.status==='active'&&!log;
+    const stTxt=s==='completed'?`✓ ${log.channel}`:s==='overdue'?'! Overdue':s==='due-now'?'Due now':'Upcoming';
+    const stCls=s==='completed'?'done':s==='overdue'?'late':s==='due-now'?'pending':'fut';
+    const dates=windowDates(n.startDate,NURTURE_WINS[i][0],NURTURE_WINS[i][1]);
+    return`<div class="tpi ${s}"><div class="tpn">${tp.label}</div><div class="tpw">${tp.window}</div>${dates?`<div style="font-size:10px;color:var(--muted);margin-bottom:3px;">${dates}</div>`:''}<div class="tpgl">${tp.goal}</div><span class="chtag ${ch.cls}">${ch.label}</span><div class="tpst ${stCls}">${stTxt}</div>${canLog?`<button class="tlbtn" onclick="openNurtureLog('${n.id}',${i})">Log outreach</button>`:''}${log?`<button class="tlbtn logged" disabled>✓ Logged</button>`:''}<button class="tlbtn" style="border-color:var(--info);color:var(--info);margin-top:3px;" onclick="event.stopPropagation();openNurtureScript('${n.type}',${i})">View script</button>${log?.notes?`<div class="tpnts">"${log.notes}"</div>`:''}</div>`;
+  }).join('');
+
+  return`<div class="ccard ${st==='overdue'?'isod':st==='due-now'?'isdu':''}" id="nur-${n.id}">
+    <div class="chdr" onclick="toggleCard('nur-${n.id}')">
+      <div class="cav">${initials(n.guestName)}</div>
+      <div class="ci"><div class="cn">${n.guestName}</div><div class="cm">${n.oldTier} → ${n.newTier} · Day ${days} · ${done}/${NURTURE_TPS.length} touchpoints</div></div>
+      <div class="cbdg">${tBdg}${sBdg}</div>
+      <svg class="xic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </div>
+    <div class="cbody">
+      <div class="tier-box" style="margin-bottom:12px;"><strong>Tier change:</strong> ${n.oldTier} → ${n.newTier}<br><span style="opacity:.8">Target cadence: ${cadenceGuide(n.newTier).ideal}</span></div>
+      <div class="tpg">${tpHtml}</div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+        ${n.status==='active'?`<button class="btn btn-g btn-sm" onclick="completeNurture('${n.id}')">Mark complete ✓</button>`:`<button class="btn btn-g btn-sm" onclick="reopenNurture('${n.id}')">Reopen</button>`}
+        <button class="btn btn-sm btn-do" onclick="removeNurture('${n.id}')">Remove</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// Nurture log modal
+let nurtureLogId=null,nurtureLogIdx=null;
+function openNurtureLog(nid,idx){
+  nurtureLogId=nid;nurtureLogIdx=idx;
+  const n=nurtures.find(x=>x.id===nid);
+  const tp=NURTURE_TPS[idx];
+  document.getElementById('log-sub').textContent=`${n.guestName} · Nurture ${tp.label} · ${tp.window}`;
+  document.getElementById('log-notes').value='';
+  document.getElementById('log-channel').value='Call — reached member';
+  document.getElementById('log-vs').value='healthy';
+  document.getElementById('log-modal').classList.add('open');
+}
+
+// Override saveLog to handle both guest logs and nurture logs
+const _origSaveLog=typeof saveLog==='undefined'?null:null;
+
+async function saveLog(){
+  if(nurtureLogId){
+    const n=nurtures.find(x=>x.id===nurtureLogId);if(!n)return;
+    if(!n.logs)n.logs={};
+    n.logs[nurtureLogIdx]={date:new Date().toISOString(),channel:document.getElementById('log-channel').value,notes:document.getElementById('log-notes').value.trim()};
+    const allDone=NURTURE_TPS.every((_,i)=>n.logs[i]?.date);
+    if(allDone)n.status='completed';
+    if(useLocalStorage){lsSave();}
+    else{await api('nurtures/'+n.id,{method:'PUT',body:{logs:n.logs,status:n.status}});}
+    closeModal('log-modal');nurtureLogId=null;nurtureLogIdx=null;
+    renderMgrNurture();
+    return;
+  }
+  const c=guests.find(x=>x.id===mId);if(!c)return;
+  const channel=document.getElementById('log-channel').value;
+  const notes=document.getElementById('log-notes').value.trim();
+  const vs=document.getElementById('log-vs').value;
+  if(useLocalStorage){
+    if(!c.logs)c.logs={};
+    c.logs[mIdx]={date:new Date().toISOString(),channel,notes};
+    c.visitStatus=vs;
+    lsSave();
+  } else {
+    await api('logs',{method:'POST',body:{guestId:mId,tpIndex:mIdx,channel,notes}});
+    if(vs!==c.visitStatus){await api('guests/'+mId,{method:'PUT',body:{visitStatus:vs}});}
+    await loadGuests();
+  }
+  closeModal('log-modal');renderGuests();
+}
+
+async function completeNurture(id){
+  const n=nurtures.find(x=>x.id===id);if(!n)return;
+  n.status='completed';
+  if(useLocalStorage){lsSave();}
+  else{await api('nurtures/'+id,{method:'PUT',body:{status:'completed'}});}
+  renderMgrNurture();
+}
+async function reopenNurture(id){
+  const n=nurtures.find(x=>x.id===id);if(!n)return;
+  n.status='active';
+  if(useLocalStorage){lsSave();}
+  else{await api('nurtures/'+id,{method:'PUT',body:{status:'active'}});}
+  renderMgrNurture();
+}
+async function removeNurture(id){
+  if(!confirm('Remove this nurture record?'))return;
+  if(useLocalStorage){nurtures=nurtures.filter(x=>x.id!==id);lsSave();}
+  else{await api('nurtures/'+id,{method:'DELETE'});await loadNurtures();}
+  renderMgrNurture();
+}
+
+// ── ACTIONS ───────────────────────────────────────────────────────────────
+
+function refreshChanges(){renderChanges();if(currentView==='manager'&&currentMgrTab==='changes')renderMgrChanges();}
+
+const expandedCards=new Set();
+function toggleCard(id){
+  const el=document.getElementById(id);if(!el)return;
+  el.classList.toggle('expanded');
+  if(el.classList.contains('expanded'))expandedCards.add(id);else expandedCards.delete(id);
+}
+function restoreExpanded(){expandedCards.forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('expanded');});}
+
+// Guest form
+function toggleAddGuest(){
+  const f=document.getElementById('add-guest-form');f.classList.toggle('open');
+  if(f.classList.contains('open')){
+    document.getElementById('ng-date').value=toInputDate(new Date());
+    fillStaff('ng-staff');document.getElementById('ng-staff').value=document.getElementById('staff-sel').value;
+  }
+}
+async function addGuest(){
+  const name=document.getElementById('ng-name').value.trim();
+  const type=document.getElementById('ng-type').value;
+  const tier=document.getElementById('ng-tier').value;
+  const dv=document.getElementById('ng-date').value;
+  const staff=document.getElementById('ng-staff').value;
+  if(!name){alert('Please enter a client name.');return;}
+  if(!parseDate(dv)){alert('Please enter a valid contract start date.');return;}
+  const id=Date.now().toString();
+  const d=parseDate(dv);
+  const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  if(useLocalStorage){
+    guests.push({id,name,type,tier,contractStartDate:d.toISOString(),assignedStaff:staff,visitStatus:'healthy',logs:{},createdAt:new Date().toISOString()});
+    lsSave();
+  } else {
+    await api('guests',{method:'POST',body:{id,name,type,tier,contractStartDate:dateStr,assignedStaff:staff,visitStatus:'healthy'}});
+    await loadGuests();
+  }
+  document.getElementById('ng-name').value='';toggleAddGuest();renderGuests();
+}
+async function removeGuest(id){
+  if(!confirm('Remove this client?'))return;
+  if(useLocalStorage){
+    guests=guests.filter(c=>c.id!==id);lsSave();
+  } else {
+    await api('guests/'+id,{method:'DELETE'});await loadGuests();
+  }
+  renderGuests();
+}
+async function toggleRisk(id){
+  const c=guests.find(x=>x.id===id);if(!c)return;
+  c.visitStatus=c.visitStatus==='at-risk'?'healthy':'at-risk';
+  if(useLocalStorage){lsSave();}
+  else{await api('guests/'+id,{method:'PUT',body:{visitStatus:c.visitStatus}});await loadGuests();}
+  renderGuests();
+}
+
+// Change form — state for editing
+let editingChangeId=null;
+
+function toggleAddChange(){
+  const f=document.getElementById('add-change-form');
+  if(f.classList.contains('open')){cancelChangeForm();return;}
+  editingChangeId=null;
+  document.getElementById('chg-form-title').textContent='Log membership change request';
+  document.getElementById('chg-submit-btn').textContent='Log request';
+  f.classList.add('open');
+  document.getElementById('mc-req-date').value=toInputDate(new Date());
+  document.getElementById('mc-bill-date').value='';
+  document.getElementById('mc-name').value='';
+  document.getElementById('mc-notes').value='';
+  document.getElementById('mc-type').value='termination';
+  // Reset all form checkboxes
+  ['chk-mb','chk-out','chk-mb-tc','chk-mb-susp'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
+  onTypeChange();
+  initFrmScript();
+}
+
+function cancelChangeForm(){
+  document.getElementById('add-change-form').classList.remove('open');
+  editingChangeId=null;
+}
+
+async function submitChange(){
+  const name=document.getElementById('mc-name').value.trim();
+  const type=document.getElementById('mc-type').value;
+  const reqDate=document.getElementById('mc-req-date').value;
+  const billDate=document.getElementById('mc-bill-date').value;
+  const curTier=document.getElementById('mc-cur-tier').value;
+  const newTier=(type==='downgrade'||type==='upgrade')?document.getElementById('mc-new-tier').value:null;
+  const notes=document.getElementById('mc-notes').value.trim();
+  const errs=[];
+  if(!name)errs.push('Guest name');
+  if(!parseDate(billDate))errs.push('Bill date');
+
+  let outreachOutcome=null,needsFollowup=false,freezeDuration=null,freezeOtherNote=null,finalType=type,finalNewTier=newTier;
+
+  if(type==='termination'){
+    if(!document.getElementById('chk-mb').checked)errs.push('Mindbody contact log (required checkbox)');
+    if(!document.getElementById('chk-out').checked)errs.push('Initial outreach attempted (required checkbox)');
+    const oo=document.getElementById('mc-out-outcome').value;
+    if(!oo)errs.push('Outreach outcome');
+    outreachOutcome=oo;
+    if(oo==='no-answer')needsFollowup=true;
+    if(oo==='suspend-instead'){
+      finalType='suspension';
+      freezeDuration=document.getElementById('mc-si-dur').value;
+      if(freezeDuration==='other')freezeOtherNote=document.getElementById('mc-si-other').value.trim();
+    }
+    if(oo==='downgrade-instead'){
+      finalType='downgrade';
+      finalNewTier=document.getElementById('mc-di-tier').value;
+    }
+  }
+  if(type==='downgrade'||type==='upgrade'){
+    if(!document.getElementById('chk-mb-tc').checked)errs.push('Mindbody contact log (required checkbox)');
+  }
+  if(type==='suspension'){
+    if(!document.getElementById('chk-mb-susp').checked)errs.push('Mindbody contact log (required checkbox)');
+    freezeDuration=document.getElementById('mc-freeze-dur').value;
+    if(freezeDuration==='other')freezeOtherNote=document.getElementById('mc-freeze-other').value.trim();
+  }
+
+  if(errs.length){alert('Please complete:\n• '+errs.join('\n• '));return;}
+
+  const rd=parseDate(reqDate);
+  const bd=parseDate(billDate);
+  const dateRequestedStr=rd?`${rd.getFullYear()}-${String(rd.getMonth()+1).padStart(2,'0')}-${String(rd.getDate()).padStart(2,'0')}`:new Date().toISOString().slice(0,10);
+  const billDateStr=`${bd.getFullYear()}-${String(bd.getMonth()+1).padStart(2,'0')}-${String(bd.getDate()).padStart(2,'0')}`;
+
+  if(editingChangeId){
+    const c=changes.find(x=>x.id===editingChangeId);
+    if(c){c.guestName=name;c.type=finalType;c.dateRequested=useLocalStorage?parseDate(dateRequestedStr).toISOString():dateRequestedStr;c.billDate=useLocalStorage?parseDate(billDateStr).toISOString():billDateStr;c.currentTier=curTier;c.newTier=finalNewTier;c.notes=notes;}
+    if(useLocalStorage){lsSave();}
+    else{await api('changes/'+editingChangeId,{method:'PUT',body:{guestName:name,type:finalType,dateRequested:dateRequestedStr,billDate:billDateStr,currentTier:curTier,newTier:finalNewTier,notes}});await loadChanges();}
+  } else {
+    const rec={id:Date.now().toString(),guestName:name,type:finalType,dateRequested:useLocalStorage?parseDate(dateRequestedStr)?.toISOString()||new Date().toISOString():dateRequestedStr,billDate:useLocalStorage?parseDate(billDateStr).toISOString():billDateStr,currentTier:curTier,newTier:finalNewTier,freezeDuration,freezeOtherNote,notes,status:'open',outcome:'pending',outcomeNotes:'',checklist:{},freezeOverride:false,needsFollowup,outreachOutcome,createdAt:new Date().toISOString()};
+    if(useLocalStorage){changes.push(rec);lsSave();}
+    else{await api('changes',{method:'POST',body:{...rec}});await loadChanges();}
+  }
+  cancelChangeForm();refreshChanges();
+}
+
+async function removeChange(id){
+  if(!confirm('Remove this request?'))return;
+  if(useLocalStorage){changes=changes.filter(c=>c.id!==id);lsSave();}
+  else{await api('changes/'+id,{method:'DELETE'});await loadChanges();}
+  refreshChanges();
+}
+async function toggleClose(id){
+  const c=changes.find(x=>x.id===id);if(!c)return;
+  const wasOpen=c.status!=='closed';
+  c.status=c.status==='closed'?'open':'closed';
+  if(useLocalStorage){lsSave();}
+  else{await api('changes/'+id,{method:'PUT',body:{status:c.status}});await loadChanges();}
+  // Auto-create nurture record when a downgrade or upgrade is marked processed
+  if(wasOpen&&c.status==='closed'&&(c.type==='downgrade'||c.type==='upgrade')){
+    const existing=nurtures.find(n=>n.changeId===c.id);
+    if(!existing){
+      const rec={id:Date.now().toString(),changeId:c.id,guestName:c.guestName,type:c.type,oldTier:c.currentTier,newTier:c.newTier||'',startDate:new Date().toISOString().split('T')[0],logs:{},status:'active',createdAt:new Date().toISOString()};
+      if(useLocalStorage){nurtures.push(rec);lsSave();}
+      else{await api('nurtures',{method:'POST',body:rec});await loadNurtures();}
+    }
+  }
+  refreshChanges();
+}
+async function toggleCheck(cid,idx){
+  const c=changes.find(x=>x.id===cid);if(!c)return;
+  if(!c.checklist)c.checklist={};c.checklist[idx]=!c.checklist[idx];
+  if(useLocalStorage){lsSave();}
+  else{await api('changes/'+cid,{method:'PUT',body:{checklist:c.checklist}});await loadChanges();}
+  refreshChanges();
+}
+async function updateOutcome(id,val){
+  const c=changes.find(x=>x.id===id);if(c)c.outcome=val;
+  if(useLocalStorage){lsSave();}
+  else{await api('changes/'+id,{method:'PUT',body:{outcome:val}});}
+}
+async function handleOutcome(id,val){
+  await updateOutcome(id,val);
+  if(val==='saved-downgrade'||val==='saved-freeze'){
+    refreshChanges();
+  }
+}
+async function applyOutcomeTier(id){
+  const c=changes.find(x=>x.id===id);if(!c)return;
+  const sel=document.getElementById('out-tier-'+id);if(!sel)return;
+  c.type='downgrade';c.newTier=sel.value;c.outcome='saved-downgrade';
+  if(useLocalStorage){lsSave();}
+  else{await api('changes/'+id,{method:'PUT',body:{type:'downgrade',newTier:sel.value,outcome:'saved-downgrade'}});}
+  refreshChanges();
+}
+async function applyOutcomeFreeze(id){
+  const c=changes.find(x=>x.id===id);if(!c)return;
+  const sel=document.getElementById('out-freeze-'+id);if(!sel)return;
+  c.type='suspension';c.freezeDuration=sel.value;c.outcome='saved-freeze';
+  if(useLocalStorage){lsSave();}
+  else{await api('changes/'+id,{method:'PUT',body:{type:'suspension',freezeDuration:sel.value,outcome:'saved-freeze'}});}
+  refreshChanges();
+}
+async function updateNotes(id,val){
+  const c=changes.find(x=>x.id===id);if(c)c.outcomeNotes=val;
+  if(useLocalStorage){lsSave();}
+  else{await api('changes/'+id,{method:'PUT',body:{outcomeNotes:val}});}
+}
+async function toggleOverride(id){
+  const c=changes.find(x=>x.id===id);if(!c)return;
+  c.freezeOverride=!c.freezeOverride;
+  if(useLocalStorage){lsSave();}
+  else{await api('changes/'+id,{method:'PUT',body:{freezeOverride:c.freezeOverride}});}
+}
+
+// Edit change — reuse the same form
+function openEditChange(id){
+  const c=changes.find(x=>x.id===id);if(!c)return;
+  editingChangeId=id;
+  document.getElementById('chg-form-title').textContent='Edit membership change request';
+  document.getElementById('chg-submit-btn').textContent='Save changes';
+  const f=document.getElementById('add-change-form');f.classList.add('open');
+  document.getElementById('mc-name').value=c.guestName;
+  document.getElementById('mc-type').value=c.type;
+  onTypeChange();
+  document.getElementById('mc-req-date').value=toInputDate(c.dateRequested);
+  document.getElementById('mc-bill-date').value=toInputDate(c.billDate);
+  document.getElementById('mc-cur-tier').value=c.currentTier||'IRelax 4x';
+  if(c.newTier)document.getElementById('mc-new-tier').value=c.newTier;
+  if(c.freezeDuration){document.getElementById('mc-freeze-dur')&&(document.getElementById('mc-freeze-dur').value=c.freezeDuration);}
+  document.getElementById('mc-notes').value=c.notes||'';
+  f.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// Edit guest modal
+let editGuestId=null;
+function openEditGuest(id){
+  editGuestId=id;
+  const c=guests.find(x=>x.id===id);if(!c)return;
+  document.getElementById('eg-sub').textContent=c.name;
+  document.getElementById('eg-name').value=c.name;
+  document.getElementById('eg-type').value=c.type;
+  updateEditTierOpts();document.getElementById('eg-tier').value=c.tier;
+  document.getElementById('eg-date').value=toInputDate(c.contractStartDate);
+  fillStaff('eg-staff');document.getElementById('eg-staff').value=c.assignedStaff;
+  document.getElementById('edit-guest-modal').classList.add('open');
+}
+async function saveEditGuest(){
+  const c=guests.find(x=>x.id===editGuestId);if(!c)return;
+  const name=document.getElementById('eg-name').value.trim();
+  if(!name){alert('Name is required.');return;}
+  c.name=name;c.type=document.getElementById('eg-type').value;c.tier=document.getElementById('eg-tier').value;
+  const dv=document.getElementById('eg-date').value;
+  const d=parseDate(dv);
+  if(d)c.contractStartDate=useLocalStorage?d.toISOString():`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  c.assignedStaff=document.getElementById('eg-staff').value;
+  if(useLocalStorage){lsSave();}
+  else{await api('guests/'+editGuestId,{method:'PUT',body:{name:c.name,type:c.type,tier:c.tier,contractStartDate:c.contractStartDate,assignedStaff:c.assignedStaff}});await loadGuests();}
+  closeModal('edit-guest-modal');renderGuests();
+}
+
+// Edit change modal
+let editChangeId=null;
+function openEditChangeFull(id){
+  editChangeId=id;
+  const c=changes.find(x=>x.id===id);if(!c)return;
+  document.getElementById('ec-sub').textContent=`${c.guestName} — ${c.type}`;
+  document.getElementById('ec-name').value=c.guestName;
+  document.getElementById('ec-req-date').value=toInputDate(c.dateRequested);
+  document.getElementById('ec-bill-date').value=toInputDate(c.billDate);
+  document.getElementById('ec-cur-tier').value=c.currentTier||'IRelax 4x';
+  document.getElementById('ec-new-tier').value=c.newTier||'';
+  document.getElementById('ec-freeze-dur').value=c.freezeDuration||'';
+  document.getElementById('ec-notes').value=c.notes||'';
+  document.getElementById('edit-change-modal').classList.add('open');
+}
+async function saveEditChange(){
+  const c=changes.find(x=>x.id===editChangeId);if(!c)return;
+  const name=document.getElementById('ec-name').value.trim()||c.guestName;
+  c.guestName=name;
+  const rd=document.getElementById('ec-req-date').value,bd=document.getElementById('ec-bill-date').value;
+  const rdp=parseDate(rd);if(rdp)c.dateRequested=useLocalStorage?rdp.toISOString():`${rdp.getFullYear()}-${String(rdp.getMonth()+1).padStart(2,'0')}-${String(rdp.getDate()).padStart(2,'0')}`;
+  const bdp=parseDate(bd);if(bdp)c.billDate=useLocalStorage?bdp.toISOString():`${bdp.getFullYear()}-${String(bdp.getMonth()+1).padStart(2,'0')}-${String(bdp.getDate()).padStart(2,'0')}`;
+  c.currentTier=document.getElementById('ec-cur-tier').value;
+  const nt=document.getElementById('ec-new-tier').value;c.newTier=nt||null;
+  const fd=document.getElementById('ec-freeze-dur').value;c.freezeDuration=fd||null;
+  c.notes=document.getElementById('ec-notes').value.trim();
+  if(useLocalStorage){lsSave();}
+  else{await api('changes/'+editChangeId,{method:'PUT',body:{guestName:c.guestName,dateRequested:c.dateRequested,billDate:c.billDate,currentTier:c.currentTier,newTier:c.newTier,freezeDuration:c.freezeDuration,notes:c.notes}});await loadChanges();}
+  closeModal('edit-change-modal');refreshChanges();
+}
+
+// Log TP modal
+let mId=null,mIdx=null;
+function openLog(cid,idx){
+  mId=cid;mIdx=idx;
+  const c=guests.find(x=>x.id===cid),tp=getTPs(c.type)[idx];
+  document.getElementById('log-sub').textContent=`${c.name} · ${tp.label} · ${tp.window}`;
+  document.getElementById('log-notes').value='';
+  document.getElementById('log-channel').value='Call — reached member';
+  document.getElementById('log-vs').value=c.visitStatus||'healthy';
+  document.getElementById('log-modal').classList.add('open');
+}
+// saveLog is defined above in the nurture section (handles both guest and nurture logs)
+
+// Reassign
+let rStaff=null,rClient=null;
+function openReassignStaff(sid){
+  rStaff=sid;rClient=null;
+  const s=staffList.find(x=>x.id===sid),ct=guests.filter(c=>c.assignedStaff===sid).length;
+  document.getElementById('rassign-info').textContent=`Reassign all ${ct} client${ct!==1?'s':''} from ${s.name}.`;
+  document.getElementById('rassign-target').innerHTML=staffList.filter(x=>x.active&&x.id!==sid).map(x=>`<option value="${x.id}">${x.name}</option>`).join('');
+  document.getElementById('rassign-modal').classList.add('open');
+}
+function openReassignSingle(id){
+  rClient=id;rStaff=null;
+  const c=guests.find(x=>x.id===id);
+  document.getElementById('rassign-info').textContent=`Reassign ${c.name} to a different staff member.`;
+  document.getElementById('rassign-target').innerHTML=staffList.filter(x=>x.active&&x.id!==c.assignedStaff).map(x=>`<option value="${x.id}">${x.name}</option>`).join('');
+  document.getElementById('rassign-modal').classList.add('open');
+}
+async function doReassign(){
+  const t=document.getElementById('rassign-target').value;
+  const ids=rStaff?guests.filter(c=>c.assignedStaff===rStaff).map(c=>c.id):rClient?[rClient]:[];
+  if(useLocalStorage){
+    ids.forEach(id=>{const c=guests.find(x=>x.id===id);if(c)c.assignedStaff=t;});
+    lsSave();
+  } else {
+    await Promise.all(ids.map(id=>api('guests/'+id,{method:'PUT',body:{assignedStaff:t}})));
+    await loadGuests();
+  }
+  closeModal('rassign-modal');
+  currentView==='guests'?renderGuests():(renderMgrOverview(),renderRoster());
+}
+
+async function addStaff(){
+  const n=document.getElementById('new-sname').value.trim();if(!n){alert('Please enter a name.');return;}
+  const id=n.toLowerCase().replace(/\s+/g,'_')+'_'+Date.now();
+  if(useLocalStorage){
+    staffList.push({id,name:n,active:true});
+    staffList.sort((a,b)=>a.name.localeCompare(b.name));
+    lsSave();
+  } else {
+    await api('staff',{method:'POST',body:{id,name:n,active:true}});
+    await loadStaff();
+  }
+  fillAll();renderRoster();document.getElementById('new-sname').value='';
+}
+async function toggleStaffActive(sid){
+  const s=staffList.find(x=>x.id===sid);if(!s)return;
+  if(s.active){const ct=guests.filter(c=>c.assignedStaff===sid).length;if(ct>0){alert(`${s.name} has ${ct} active client${ct!==1?'s':''}. Please reassign first.`);return;}}
+  s.active=!s.active;
+  if(useLocalStorage){lsSave();}
+  else{await api('staff/'+sid,{method:'PUT',body:{active:s.active}});await loadStaff();}
+  fillAll();renderRoster();
+}
+
+function closeModal(id){
+  document.getElementById(id).classList.remove('open');
+  if(id==='log-modal'){mId=null;mIdx=null;}
+  if(id==='rassign-modal'){rStaff=null;rClient=null;}
+  if(id==='edit-guest-modal')editGuestId=null;
+  if(id==='edit-change-modal')editChangeId=null;
+}
+
+// View switching
+let currentView='guests',currentMgrTab='overview';
+function setView(v){
+  currentView=v;
+  ['guests','changes','manager'].forEach(x=>{document.getElementById('view-'+x).style.display=x===v?'block':'none';document.getElementById('btn-'+x).classList.toggle('active',x===v);});
+  if(v==='manager'){renderMgrOverview();renderRoster();}
+  else if(v==='changes')renderChanges();
+  else renderGuests();
+}
+function setMgrTab(tab){
+  currentMgrTab=tab;
+  const map={overview:'mgr-ov',changes:'mgr-chg',nurture:'mgr-nurture',staff:'mgr-staff'};
+  Object.entries(map).forEach(([k,id])=>document.getElementById(id).style.display=k===tab?'block':'none');
+  ['ov','chg','nur','st'].forEach((s,i)=>document.getElementById('tab-'+s).classList.toggle('active',['overview','changes','nurture','staff'][i]===tab));
+  if(tab==='overview')renderMgrOverview();
+  else if(tab==='changes')renderMgrChanges();
+  else if(tab==='nurture')renderMgrNurture();
+  else renderRoster();
+}
+
+loadAll().then(()=>{fillAll();renderGuests();onTypeChange();initFrmScript();});
+</script>
+</body>
+</html>
