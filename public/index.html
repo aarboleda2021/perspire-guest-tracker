@@ -571,11 +571,31 @@
 
 const MEMBER_TIERS=['IRelax 4x','IRecover 8x','IRitual Unlimited'];
 const PACKAGE_TIERS=['4 Pack','8 Pack','20 Pack'];
-const CLOSED=['01-01','04-20','05-26','07-04','09-01','12-25','12-26','12-31'];
-const EARLY_CLOSE=['10-31','11-26','12-24'];
+// Dynamic holiday calculation
+function easterDate(y){// Anonymous Gregorian algorithm
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),month=Math.floor((h+l-7*m+114)/31),day=((h+l-7*m+114)%31)+1;
+  return`${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+}
+function nthDayOfMonth(y,month,dow,n){// Find nth occurrence of dow (0=Sun) in month
+  const first=new Date(y,month-1,1).getDay();let d=1+(dow-first+7)%7;d+=(n-1)*7;return`${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+function dayBefore(mmdd,y){const d=new Date(y,parseInt(mmdd.split('-')[0])-1,parseInt(mmdd.split('-')[1]));d.setDate(d.getDate()-1);return`${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function getClosedDates(y){
+  const easter=easterDate(y);
+  let memDay=nthDayOfMonth(y,5,1,4);// 4th Monday in May
+  const memD=parseInt(memDay.split('-')[1]);if(memD+7<=31)memDay=`05-${String(memD+7).padStart(2,'0')}`;// Use 5th if it exists
+  const laborDay=nthDayOfMonth(y,9,1,1);// First Monday in Sept
+  // Thanksgiving = 4th Thursday in Nov
+  const thanksgiving=nthDayOfMonth(y,11,4,4);
+  const thanksgivingEve=dayBefore(thanksgiving,y);
+  return{
+    closed:['01-01',easter,memDay,'07-04',laborDay,'12-25','12-26','12-31'],
+    earlyClose:['10-31',thanksgivingEve,'12-24']
+  };
+}
 function mmdd(d){return`${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
-function isClosed(d){return d&&CLOSED.includes(mmdd(d));}
-function isEarlyClose(d){return d&&EARLY_CLOSE.includes(mmdd(d));}
+function isClosed(d){if(!d)return false;const h=getClosedDates(d.getFullYear());return h.closed.includes(mmdd(d));}
+function isEarlyClose(d){if(!d)return false;const h=getClosedDates(d.getFullYear());return h.earlyClose.includes(mmdd(d));}
 
 function atRiskDays(t){
   t=t.toLowerCase();
@@ -799,14 +819,17 @@ const TP_SCRIPTS={
   ]
 };
 
-function openTpScript(type,idx){
+let _tpScriptData={};
+function openTpScript(type,idx,guestId){
   const scripts=TP_SCRIPTS[type];if(!scripts||!scripts[idx])return;
   const s=scripts[idx];
   const tps=type==='member'?MEMBER_TPS:PACKAGE_TPS;
   const tp=tps[idx];
+  const g=guestId?guests.find(x=>x.id===guestId):null;
+  _tpScriptData=g?{name:g.name,tier:g.tier,packageName:g.tier}:{};
   document.getElementById('tp-script-title').textContent=`${tp.label} outreach script`;
   document.getElementById('tp-script-sub').textContent=`${tp.window} · ${tp.goal}`;
-  document.getElementById('tp-script-body').textContent=s.call;
+  document.getElementById('tp-script-body').textContent=fillScript(s.call,_tpScriptData);
   document.getElementById('tp-script-tabs').innerHTML=
     `<button class="stab active" onclick="showTpScript('${type}',${idx},'call',this)">Phone call</button>`+
     `<button class="stab" onclick="showTpScript('${type}',${idx},'voicemail',this)">Voicemail</button>`+
@@ -815,7 +838,7 @@ function openTpScript(type,idx){
 }
 function showTpScript(type,idx,ch,btn){
   const s=TP_SCRIPTS[type][idx];if(!s)return;
-  document.getElementById('tp-script-body').textContent=s[ch]||'';
+  document.getElementById('tp-script-body').textContent=fillScript(s[ch]||'',_tpScriptData);
   btn.closest('.stabs').querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
   btn.classList.add('active');
 }
@@ -855,13 +878,16 @@ const NURTURE_SCRIPTS={
   ]
 };
 
-function openNurtureScript(type,idx){
+let _nurtureScriptData={};
+function openNurtureScript(type,idx,nurtureId){
   const scripts=NURTURE_SCRIPTS[type];if(!scripts||!scripts[idx])return;
   const s=scripts[idx];
   const tp=NURTURE_TPS[idx];
+  const n=nurtureId?nurtures.find(x=>x.id===nurtureId):null;
+  _nurtureScriptData=n?{name:n.guestName,newTier:n.newTier}:{};
   document.getElementById('tp-script-title').textContent=`${tp.label} — Tier change nurture`;
   document.getElementById('tp-script-sub').textContent=`${tp.window} · ${tp.goal}`;
-  document.getElementById('tp-script-body').textContent=s.call;
+  document.getElementById('tp-script-body').textContent=fillScript(s.call,_nurtureScriptData);
   document.getElementById('tp-script-tabs').innerHTML=
     `<button class="stab active" onclick="showNurtureScript('${type}',${idx},'call',this)">Phone call</button>`+
     `<button class="stab" onclick="showNurtureScript('${type}',${idx},'voicemail',this)">Voicemail</button>`+
@@ -870,7 +896,7 @@ function openNurtureScript(type,idx){
 }
 function showNurtureScript(type,idx,ch,btn){
   const s=NURTURE_SCRIPTS[type]?.[idx];if(!s)return;
-  document.getElementById('tp-script-body').textContent=s[ch]||'';
+  document.getElementById('tp-script-body').textContent=fillScript(s[ch]||'',_nurtureScriptData);
   btn.closest('.stabs').querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
   btn.classList.add('active');
 }
@@ -883,11 +909,29 @@ function nurtureStatus(n,i){
   return'overdue';
 }
 
-function openChangeScript(key,title){
+// Auto-fill script placeholders with real data
+function fillScript(text,data){
+  if(!data)return text;
+  let s=text;
+  if(data.name)s=s.replace(/\[Name\]/g,data.name);
+  if(data.billDate)s=s.replace(/\[Bill Date\]/g,fmtDate(data.billDate));
+  if(data.billDate){const bd=parseDate(data.billDate);if(bd){const twoBefore=new Date(bd);twoBefore.setDate(twoBefore.getDate()-2);s=s.replace(/\[Two Days Before Bill Date\]/g,fmtDate(twoBefore.toISOString()));}}
+  if(data.newTier)s=s.replace(/\[New Tier\]/g,data.newTier);
+  if(data.newTier){const g=cadenceGuide(data.newTier);s=s.replace(/\[frequency\]/g,g.ideal);}
+  if(data.tier){const g=cadenceGuide(data.tier);s=s.replace(/\[frequency\]/g,g.ideal);s=s.replace(/\[Tier\]/g,data.tier);}
+  if(data.packageName)s=s.replace(/\[Package\]/g,data.packageName);
+  s=s.replace(/\[studio phone number\]/g,'404-947-8084');
+  return s;
+}
+
+let _changeScriptData={};
+function openChangeScript(key,title,changeId){
   const s=SCRIPTS[key];if(!s)return;
+  const c=changeId?changes.find(x=>x.id===changeId):null;
+  _changeScriptData=c?{name:c.guestName,billDate:c.billDate,newTier:c.newTier}:{};
   document.getElementById('tp-script-title').textContent=title;
   document.getElementById('tp-script-sub').textContent='';
-  document.getElementById('tp-script-body').textContent=s.call;
+  document.getElementById('tp-script-body').textContent=fillScript(s.call,_changeScriptData);
   document.getElementById('tp-script-tabs').innerHTML=
     `<button class="stab active" onclick="showChangeScript('${key}','call',this)">Phone call</button>`+
     `<button class="stab" onclick="showChangeScript('${key}','voicemail',this)">Voicemail</button>`+
@@ -897,7 +941,7 @@ function openChangeScript(key,title){
 }
 function showChangeScript(key,ch,btn){
   const s=SCRIPTS[key];if(!s)return;
-  document.getElementById('tp-script-body').textContent=s[ch]||'';
+  document.getElementById('tp-script-body').textContent=fillScript(s[ch]||'',_changeScriptData);
   btn.closest('.stabs').querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
   btn.classList.add('active');
 }
@@ -920,12 +964,18 @@ let useLocalStorage=false;
 // ── API HELPERS ───────────────────────────────────────────────────────────
 
 async function api(path, opts={}){
-  const res=await fetch('/api/'+path,{
-    headers:{'Content-Type':'application/json',...(opts.headers||{})},
-    ...opts,
-    body:opts.body?JSON.stringify(opts.body):undefined
-  });
-  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error||res.statusText);}
+  let res;
+  try{
+    res=await fetch('/api/'+path,{
+      headers:{'Content-Type':'application/json',...(opts.headers||{})},
+      ...opts,
+      body:opts.body?JSON.stringify(opts.body):undefined
+    });
+  }catch(e){
+    alert('Connection error — your change may not have saved. Please check your internet and try again.');
+    throw e;
+  }
+  if(!res.ok){const e=await res.json().catch(()=>({}));alert('Save error: '+(e.error||res.statusText));throw new Error(e.error||res.statusText);}
   return res.json();
 }
 
@@ -1069,22 +1119,14 @@ function onOutcomeChange(){
   if(v!=='suspend-instead'){hide('mc-si-other-wrap');}
 }
 
-function initFrmScript(){
-  const el=document.getElementById('fscript-term');
-  if(el)el.textContent=SCRIPTS.termination.call;
-}
-function frmScript(key,type,btn){
-  const map={term:'termination'};
-  const k=map[key]||key;
-  const el=document.getElementById(`fscript-${key}`);
-  if(el&&SCRIPTS[k])el.textContent=SCRIPTS[k][type]||'';
-  btn.closest('.stabs').querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
-  btn.classList.add('active');
-}
+function initFrmScript(){/* no-op — scripts now use popup modals */}
+function frmScript(key,type,btn){/* no-op — scripts now use popup modals */}
 
 function cardScript(cid,key,type,btn){
   const el=document.getElementById(`cscript-${cid}-${key}`);
-  if(el&&SCRIPTS[key])el.textContent=SCRIPTS[key][type]||'';
+  const c=changes.find(x=>x.id===cid);
+  const data=c?{name:c.guestName,billDate:c.billDate,newTier:c.newTier}:{};
+  if(el&&SCRIPTS[key])el.textContent=fillScript(SCRIPTS[key][type]||'',data);
   btn.closest('.stabs').querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
   btn.classList.add('active');
 }
@@ -1127,7 +1169,7 @@ function renderGuestCard(c,actions,prefix=''){
     const stTxt=s==='completed'?`✓ ${log.channel}`:s==='overdue'?'! Overdue':s==='due-now'?'Due now':'Upcoming';
     const stCls=s==='completed'?'done':s==='overdue'?'late':s==='due-now'?'pending':'fut';
     const dates=windowDates(c.contractStartDate,wins[i][0],wins[i][1]);
-    return`<div class="tpi ${s}"><div class="tpn">${tp.label}</div><div class="tpw">${tp.window}</div>${dates?`<div style="font-size:10px;color:var(--muted);margin-bottom:3px;">${dates}</div>`:''}<div class="tpgl">${tp.goal}</div><span class="chtag ${ch.cls}">${ch.label}</span><div class="tpst ${stCls}">${stTxt}</div>${canLog?`<button class="tlbtn" onclick="openLog('${c.id}',${i})">Log outreach</button>`:''}${log?`<button class="tlbtn logged" disabled>✓ Logged</button>`:''}<button class="tlbtn" style="border-color:var(--info);color:var(--info);margin-top:3px;" onclick="event.stopPropagation();openTpScript('${c.type}',${i})">View script</button>${log?.notes?`<div class="tpnts">"${log.notes}"</div>`:''}</div>`;
+    return`<div class="tpi ${s}"><div class="tpn">${tp.label}</div><div class="tpw">${tp.window}</div>${dates?`<div style="font-size:10px;color:var(--muted);margin-bottom:3px;">${dates}</div>`:''}<div class="tpgl">${tp.goal}</div><span class="chtag ${ch.cls}">${ch.label}</span><div class="tpst ${stCls}">${stTxt}</div>${canLog?`<button class="tlbtn" onclick="openLog('${c.id}',${i})">Log outreach</button>`:''}${log?`<button class="tlbtn logged" disabled>✓ Logged</button>`:''}<button class="tlbtn" style="border-color:var(--info);color:var(--info);margin-top:3px;" onclick="event.stopPropagation();openTpScript('${c.type}',${i},'${c.id}')">View script</button>${log?.notes?`<div class="tpnts">"${log.notes}"</div>`:''}</div>`;
   }).join('');
   const actHtml=actions?`<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
     <button class="btn btn-g btn-sm" onclick="openEditGuest('${c.id}')">Edit</button>
@@ -1238,7 +1280,7 @@ function renderChangeCard(c,prefix=''){
   if(needsFollowupNow(c)){
     followScriptHtml=`
       <div class="folbanner"><p>↩ <strong>Follow-up needed.</strong> No answer on initial outreach — attempt contact again before bill date (${fmtDate(c.billDate)}).</p></div>
-      <div style="margin-top:10px;"><button class="btn btn-g btn-sm" style="border-color:#856404;color:#856404;" onclick="openChangeScript('termination_followup','Follow-up outreach scripts')">View follow-up scripts</button></div>`;
+      <div style="margin-top:10px;"><button class="btn btn-g btn-sm" style="border-color:#856404;color:#856404;" onclick="openChangeScript('termination_followup','Follow-up outreach scripts','${c.id}')">View follow-up scripts</button></div>`;
   }
 
   let tierHtml='';
@@ -1249,7 +1291,7 @@ function renderChangeCard(c,prefix=''){
   let cardScriptHtml='';
   const scriptKey=c.type==='suspension'?null:c.type==='termination'?null:c.type;
   if(scriptKey&&SCRIPTS[scriptKey]){
-    cardScriptHtml=`<div style="margin-top:10px;"><button class="btn btn-g btn-sm" style="border-color:var(--pur);color:var(--pur);" onclick="openChangeScript('${scriptKey}','${c.type==='upgrade'?'Upgrade confirmation':'Downgrade confirmation'} scripts')">View ${c.type} scripts</button></div>`;
+    cardScriptHtml=`<div style="margin-top:10px;"><button class="btn btn-g btn-sm" style="border-color:var(--pur);color:var(--pur);" onclick="openChangeScript('${scriptKey}','${c.type==='upgrade'?'Upgrade confirmation':'Downgrade confirmation'} scripts','${c.id}')">View ${c.type} scripts</button></div>`;
   }
 
   const isTermination=c.type==='termination'||(c.outreachOutcome&&['continuing','no-answer','suspend-instead','downgrade-instead'].includes(c.outreachOutcome));
@@ -1317,6 +1359,7 @@ function renderMgrOverview(){
     <div class="sc"><div class="scl">Overdue touchpoints</div><div class="scv ${ov>0?'d':''}">${ov}</div></div>
     <div class="sc"><div class="scl">Due this week</div><div class="scv ${dn>0?'w':''}">${dn}</div></div>
     <div class="sc"><div class="scl">At-risk members</div><div class="scv ${ar>0?'d':''}">${ar}</div></div>`;
+  document.getElementById('mgr-stats').innerHTML+=`<div style="grid-column:1/-1;text-align:right;"><button class="btn btn-g btn-sm" onclick="exportGuests()">Export CSV</button></div>`;
   if(!guests.length){document.getElementById('mgr-list').innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No clients yet.</p></div>`;return;}
   document.getElementById('mgr-list').innerHTML=staffList.map(s=>{
     const sc=guests.filter(c=>c.assignedStaff===s.id);if(!sc.length)return'';
@@ -1334,6 +1377,7 @@ function renderMgrChanges(){
     <div class="sc"><div class="scl">Urgent</div><div class="scv ${urg>0?'u':''}">${urg}</div></div>
     <div class="sc"><div class="scl">Terminations</div><div class="scv ${open.filter(c=>c.type==='termination').length>0?'d':''}">${open.filter(c=>c.type==='termination').length}</div></div>
     <div class="sc"><div class="scl">Total processed</div><div class="scv s">${changes.filter(c=>c.status==='closed').length}</div></div>`;
+  document.getElementById('mgr-chg-stats').innerHTML+=`<div style="grid-column:1/-1;text-align:right;"><button class="btn btn-g btn-sm" onclick="exportChanges()">Export CSV</button></div>`;
   const sorted=[...open].sort((a,b)=>{const u={urgent:0,warn:1,normal:2};return((u[billUrgency(a.billDate)]??2)-(u[billUrgency(b.billDate)]??2))||((daysUntil(a.billDate)??999)-(daysUntil(b.billDate)??999));});
   document.getElementById('mgr-chg-list').innerHTML=!sorted.length?`<div class="empty"><div class="empty-icon">○</div><p>No open requests.</p></div>`:`<div class="mclist">${sorted.map(c=>renderChangeCard(c,'mgr-')).join('')}</div>`;
 }
@@ -1357,6 +1401,7 @@ function renderMgrNurture(){
     <div class="sc"><div class="scl">Overdue</div><div class="scv ${overdue>0?'d':''}">${overdue}</div></div>
     <div class="sc"><div class="scl">Due now</div><div class="scv ${dueNow>0?'w':''}">${dueNow}</div></div>
     <div class="sc"><div class="scl">Completed</div><div class="scv s">${completed.length}</div></div>`;
+  document.getElementById('mgr-nur-stats').innerHTML+=`<div style="grid-column:1/-1;text-align:right;"><button class="btn btn-g btn-sm" onclick="exportNurtures()">Export CSV</button></div>`;
 
   const sorted=[...active].sort((a,b)=>{
     const urgA=NURTURE_WINS.some((_,i)=>nurtureStatus(a,i)==='overdue')?0:NURTURE_WINS.some((_,i)=>nurtureStatus(a,i)==='due-now')?1:2;
@@ -1393,7 +1438,7 @@ function renderNurtureCard(n){
     const stTxt=s==='completed'?`✓ ${log.channel}`:s==='overdue'?'! Overdue':s==='due-now'?'Due now':'Upcoming';
     const stCls=s==='completed'?'done':s==='overdue'?'late':s==='due-now'?'pending':'fut';
     const dates=windowDates(n.startDate,NURTURE_WINS[i][0],NURTURE_WINS[i][1]);
-    return`<div class="tpi ${s}"><div class="tpn">${tp.label}</div><div class="tpw">${tp.window}</div>${dates?`<div style="font-size:10px;color:var(--muted);margin-bottom:3px;">${dates}</div>`:''}<div class="tpgl">${tp.goal}</div><span class="chtag ${ch.cls}">${ch.label}</span><div class="tpst ${stCls}">${stTxt}</div>${canLog?`<button class="tlbtn" onclick="openNurtureLog('${n.id}',${i})">Log outreach</button>`:''}${log?`<button class="tlbtn logged" disabled>✓ Logged</button>`:''}<button class="tlbtn" style="border-color:var(--info);color:var(--info);margin-top:3px;" onclick="event.stopPropagation();openNurtureScript('${n.type}',${i})">View script</button>${log?.notes?`<div class="tpnts">"${log.notes}"</div>`:''}</div>`;
+    return`<div class="tpi ${s}"><div class="tpn">${tp.label}</div><div class="tpw">${tp.window}</div>${dates?`<div style="font-size:10px;color:var(--muted);margin-bottom:3px;">${dates}</div>`:''}<div class="tpgl">${tp.goal}</div><span class="chtag ${ch.cls}">${ch.label}</span><div class="tpst ${stCls}">${stTxt}</div>${canLog?`<button class="tlbtn" onclick="openNurtureLog('${n.id}',${i})">Log outreach</button>`:''}${log?`<button class="tlbtn logged" disabled>✓ Logged</button>`:''}<button class="tlbtn" style="border-color:var(--info);color:var(--info);margin-top:3px;" onclick="event.stopPropagation();openNurtureScript('${n.type}',${i},'${n.id}')">View script</button>${log?.notes?`<div class="tpnts">"${log.notes}"</div>`:''}</div>`;
   }).join('');
 
   return`<div class="ccard ${st==='overdue'?'isod':st==='due-now'?'isdu':''}" id="nur-${n.id}">
@@ -1429,8 +1474,6 @@ function openNurtureLog(nid,idx){
 }
 
 // Override saveLog to handle both guest logs and nurture logs
-const _origSaveLog=typeof saveLog==='undefined'?null:null;
-
 async function saveLog(){
   if(nurtureLogId){
     const n=nurtures.find(x=>x.id===nurtureLogId);if(!n)return;
@@ -1609,6 +1652,15 @@ async function submitChange(){
   }
   if(type==='downgrade'||type==='upgrade'){
     if(!document.getElementById('chk-mb-tc').checked)errs.push('Mindbody contact log (required checkbox)');
+    // Validate tier direction
+    if(!editingChangeId&&finalNewTier&&curTier){
+      const tierOrder=['IRevive 2x','IRelax 4x','IRecover 8x','IRitual Unlimited'];
+      const curIdx=tierOrder.indexOf(curTier),newIdx=tierOrder.indexOf(finalNewTier);
+      if(curIdx>=0&&newIdx>=0){
+        if(type==='downgrade'&&newIdx>=curIdx)errs.push('New tier must be lower than current tier for a downgrade');
+        if(type==='upgrade'&&newIdx<=curIdx)errs.push('New tier must be higher than current tier for an upgrade');
+      }
+    }
   }
   if(type==='suspension'){
     if(!document.getElementById('chk-mb-susp').checked)errs.push('Mindbody contact log (required checkbox)');
@@ -1808,15 +1860,19 @@ let rStaff=null,rClient=null;
 function openReassignStaff(sid){
   rStaff=sid;rClient=null;
   const s=staffList.find(x=>x.id===sid),ct=guests.filter(c=>c.assignedStaff===sid).length;
+  const targets=staffList.filter(x=>x.active&&x.id!==sid);
+  if(!targets.length){alert('No other active staff members to reassign to.');return;}
   document.getElementById('rassign-info').textContent=`Reassign all ${ct} client${ct!==1?'s':''} from ${s.name}.`;
-  document.getElementById('rassign-target').innerHTML=staffList.filter(x=>x.active&&x.id!==sid).map(x=>`<option value="${x.id}">${x.name}</option>`).join('');
+  document.getElementById('rassign-target').innerHTML=targets.map(x=>`<option value="${x.id}">${x.name}</option>`).join('');
   document.getElementById('rassign-modal').classList.add('open');
 }
 function openReassignSingle(id){
   rClient=id;rStaff=null;
   const c=guests.find(x=>x.id===id);
+  const targets=staffList.filter(x=>x.active&&x.id!==c.assignedStaff);
+  if(!targets.length){alert('No other active staff members to reassign to.');return;}
   document.getElementById('rassign-info').textContent=`Reassign ${c.name} to a different staff member.`;
-  document.getElementById('rassign-target').innerHTML=staffList.filter(x=>x.active&&x.id!==c.assignedStaff).map(x=>`<option value="${x.id}">${x.name}</option>`).join('');
+  document.getElementById('rassign-target').innerHTML=targets.map(x=>`<option value="${x.id}">${x.name}</option>`).join('');
   document.getElementById('rassign-modal').classList.add('open');
 }
 async function doReassign(){
@@ -1874,6 +1930,30 @@ function closeModal(id){
   if(id==='edit-change-modal')editChangeId=null;
 }
 
+// CSV export
+function downloadCSV(filename,rows){
+  const csv=rows.map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();
+}
+function exportGuests(){
+  const rows=[['Name','Type','Tier','Contract Start','Assigned Staff','Visit Status','Day','Status','Touchpoints Completed']];
+  guests.forEach(c=>{const tps=getTPs(c.type);const done=tps.filter((_,i)=>tpStatus(c,i)==='completed').length;
+    rows.push([c.name,c.type,c.tier,toInputDate(c.contractStartDate),sName(c.assignedStaff),c.visitStatus,daysSince(c.contractStartDate),guestStatus(c),`${done}/${tps.length}`]);
+  });
+  downloadCSV('perspire-new-guests.csv',rows);
+}
+function exportChanges(){
+  const rows=[['Guest Name','Type','Date Requested','Bill Date','Current Tier','New Tier','Freeze Duration','Status','Outcome','Notes']];
+  changes.forEach(c=>{rows.push([c.guestName,c.type,toInputDate(c.dateRequested),toInputDate(c.billDate),c.currentTier,c.newTier||'',c.freezeDuration||'',c.status,c.outcome||'',c.notes||'']);});
+  downloadCSV('perspire-membership-changes.csv',rows);
+}
+function exportNurtures(){
+  const rows=[['Guest Name','Type','Old Tier','New Tier','Start Date','Assigned Staff','Status','TP1 Done','TP2 Done']];
+  nurtures.forEach(n=>{rows.push([n.guestName,n.type,n.oldTier,n.newTier,toInputDate(n.startDate),sName(n.assignedStaff||'mohogany'),n.status,n.logs?.[0]?'Yes':'No',n.logs?.[1]?'Yes':'No']);});
+  downloadCSV('perspire-nurtures.csv',rows);
+}
+
 // View switching
 let currentView='guests',currentMgrTab='overview';
 function setView(v){
@@ -1893,6 +1973,15 @@ function setMgrTab(tab){
   else if(tab==='nurture')renderMgrNurture();
   else renderRoster();
 }
+
+// Escape key closes modals
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    ['log-modal','edit-guest-modal','edit-change-modal','rassign-modal','tp-script-modal'].forEach(id=>{
+      const el=document.getElementById(id);if(el&&el.classList.contains('open'))closeModal(id);
+    });
+  }
+});
 
 loadAll().then(()=>{fillAll();renderGuests();onTypeChange();initFrmScript();});
 </script>
