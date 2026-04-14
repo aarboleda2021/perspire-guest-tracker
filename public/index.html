@@ -32,7 +32,7 @@
   .btn-p{background:var(--tc);color:white;} .btn-p:hover{background:var(--tcl);}
   .btn-g{background:transparent;color:var(--mid);border:1.5px solid var(--border);} .btn-g:hover{border-color:var(--tc);color:var(--tc);}
   .btn-sm{padding:5px 10px;font-size:12px;}
-  .btn-do{background:transparent;color:var(--err);border:1.5px solid var(--err);}
+  .btn-do{background:transparent;color:var(--err);border:1.5px solid var(--err);} .btn-do:hover{background:var(--err);color:white;}
 
   /* STATS */
   .srow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px;}
@@ -97,7 +97,7 @@
 
   /* FORMS */
   .aform{background:white;border-radius:12px;border:1.5px dashed var(--tc);padding:18px;margin-bottom:18px;display:none;}
-  .aform.open{display:block;}
+  .aform.open{display:block;} .aform.editing{border-color:var(--info);border-style:solid;background:var(--infop);}
   .aft{font-family:'DM Serif Display',serif;font-size:16px;margin-bottom:14px;}
   .fg{margin-bottom:13px;} .fghidden{display:none;margin-bottom:13px;}
   .fl{display:block;font-size:12px;font-weight:500;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;}
@@ -301,6 +301,7 @@
     <div class="frow">
       <div class="fg"><label class="fl">Current tier<span class="req">*</span></label>
         <select class="fi" id="mc-cur-tier">
+          <option value="IRevive 2x">IRevive 2x</option>
           <option value="IRelax 4x">IRelax 4x</option>
           <option value="IRecover 8x">IRecover 8x</option>
           <option value="IRitual Unlimited">IRitual Unlimited</option>
@@ -508,6 +509,7 @@
     <div class="frow">
       <div class="fg"><label class="fl">Current tier</label>
         <select class="fi" id="ec-cur-tier">
+          <option value="IRevive 2x">IRevive 2x</option>
           <option value="IRelax 4x">IRelax 4x</option>
           <option value="IRecover 8x">IRecover 8x</option>
           <option value="IRitual Unlimited">IRitual Unlimited</option>
@@ -775,7 +777,7 @@ const TP_SCRIPTS={
       text:`Hi [Name]! It's [Your Name] from Perspire 🧡 We're about three weeks in — how are you feeling? I'd love to hear what brought you in and make sure your sessions are supporting your goals. Any questions or anything we can help with?`
     },
     {// TP 4 — Day 26–30
-      call:`Hi [Name], it's [Your Name] from Perspire! You're about a month in now — how's everything going?\n\nI took a quick look at your visit history and [IF GOOD: I love that you've been coming in regularly — that's exactly how you build the habit! / IF LOW: I noticed you haven't been in as much recently — is there anything getting in the way? We'd love to help you get back into a rhythm.]\n\nThe first month is really when the habit starts to stick, so I just wanted to check in and see how we can support you.`,
+      call:`Hi [Name], it's [Your Name] from Perspire! You're about a month in now — how's everything going?\n\nI took a quick look at your visit history before calling. If you've been coming in regularly — that's amazing, keep it up! That's exactly how you build the habit. And if it's been a little trickier to find the time lately, that's totally normal — I'd love to help you get into a rhythm that works for your schedule.\n\nThe first month is really when the habit starts to stick, so I just wanted to check in and see how we can support you.`,
       voicemail:`Hi [Name], it's [Your Name] from Perspire! You're about a month in and I just wanted to see how things are going. Whether you've been coming in regularly or it's been tricky to find the time, I'd love to help. Call us at 404-947-8084 or text back!`,
       text:`Hi [Name]! It's [Your Name] from Perspire 🧡 You're about a month in! How's your routine feeling? I'd love to hear how it's going and help with anything — whether that's finding a better time, adjusting your routine, or just celebrating that you're building a great habit!`
     },
@@ -797,7 +799,7 @@ const TP_SCRIPTS={
   ],
   package:[
     {// TP 1 — Day 7–10
-      call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners! I'm just checking in after your first session — how did you enjoy it?\n\n[IF NO 2ND VISIT: Have you had a chance to book your next session? The key to getting the most out of your pack is building some early momentum — even just coming in every couple of weeks makes a huge difference.]\n[IF 2ND VISIT BOOKED: I see you already have your next session booked — that's awesome! Building that early rhythm is the best way to get the full benefit of your pack.]`,
+      call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners! I'm just checking in after your first session — how did you enjoy it?\n\nHave you had a chance to book your next session yet? The key to getting the most out of your pack is building some early momentum — even just coming in every couple of weeks makes a huge difference. If you've already got your next visit on the books, that's awesome — keep that rhythm going!\n\nWould you like me to help you find a time that works?`,
       voicemail:`Hi [Name], it's [Your Name] from Perspire Peachtree Corners! Just checking in after your first session — we hope you loved it! I'd love to help you get your next visit on the books so you can start building a great rhythm. Call us at 404-947-8084 or text us back!`,
       text:`Hi [Name]! It's [Your Name] from Perspire 🧡 How was your first session? Have you had a chance to book your next visit? Building some early momentum is the best way to get the most out of your pack — let us know if you need help finding a time!`
     },
@@ -856,24 +858,28 @@ const NURTURE_SCRIPTS={
     {// TP 1 — Day 3–5
       call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners! I wanted to check in now that you've transitioned to your [New Tier] plan.\n\nWith [New Tier], we recommend coming in [frequency] to get the most out of your sessions. I know it's a change from what you were doing before, but a lot of our members find that a consistent rhythm at this level still delivers great results.\n\nDo you have any questions about your new plan, or can I help you get your next session booked?`,
       voicemail:`Hi [Name], it's [Your Name] from Perspire Peachtree Corners! Just calling to check in on your transition to [New Tier]. We want to make sure you're settling in and feeling good about your new plan. Give us a call at 404-947-8084 or text us back anytime!`,
-      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 Just checking in on your move to [New Tier]! With your new plan, we recommend coming in [frequency]. How's everything feeling so far? Let us know if you have any questions!`
+      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 Just checking in on your move to [New Tier]! With your new plan, we recommend coming in [frequency]. How's everything feeling so far? Let us know if you have any questions!`,
+      email:`Hi [Name],\n\nJust wanted to check in now that you've transitioned to your [New Tier] plan!\n\nWith [New Tier], we recommend coming in [frequency] to get the most out of your sessions. We know it's a change, but a consistent rhythm at this level still delivers great results.\n\nIf you have any questions about your new plan or want help booking your next session, just reply to this email or call us at 404-947-8084.\n\nAll the best,\n[Your Name]\nPerspire Sauna Studio Peachtree Corners`
     },
     {// TP 2 — Day 21–25
       call:`Hi [Name], it's [Your Name] from Perspire! You've been on your [New Tier] plan for about three weeks now — how's it going?\n\nAre you finding a good rhythm with your sessions? I want to make sure you're getting the full benefit and that the new plan feels right for you. If anything needs adjusting, we're always here to help.`,
       voicemail:`Hi [Name], it's [Your Name] from Perspire! You're about three weeks into your [New Tier] plan and I just wanted to check in. How's the new routine feeling? Call us at 404-947-8084 or text us back — we're here for you!`,
-      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 You're a few weeks into your [New Tier] plan — how's the new routine feeling? We want to make sure everything's working well for you. Any questions or feedback? We're always here!`
+      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 You're a few weeks into your [New Tier] plan — how's the new routine feeling? We want to make sure everything's working well for you. Any questions or feedback? We're always here!`,
+      email:`Hi [Name],\n\nYou're about three weeks into your [New Tier] plan and we wanted to check in!\n\nHow's the new routine feeling? Are you finding a good rhythm with [frequency]? We want to make sure everything is working well and that you're getting the full benefit of your plan.\n\nIf anything needs adjusting or you have questions, just reply or call us at 404-947-8084. We're always here!\n\nAll the best,\n[Your Name]\nPerspire Sauna Studio Peachtree Corners`
     }
   ],
   upgrade:[
     {// TP 1 — Day 3–5
       call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners! Congratulations again on upgrading to [New Tier]!\n\nI wanted to check in and make sure you're getting settled into your new plan. With [New Tier], we really recommend coming in [frequency] to maximize the benefits. Have you been able to get in more frequently since the upgrade?\n\nI'd love to help you think through a weekly routine if that would be helpful!`,
       voicemail:`Hi [Name], it's [Your Name] from Perspire! Just calling to check in after your upgrade to [New Tier] — we're so excited for you! We'd love to help you build a routine that gets the most out of your new plan. Call us at 404-947-8084 or text us back!`,
-      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 Congrats again on your upgrade to [New Tier]! Have you been able to get in more frequently? We recommend [frequency] for your new plan. Let us know if you want help building a routine — we're here for you!`
+      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 Congrats again on your upgrade to [New Tier]! Have you been able to get in more frequently? We recommend [frequency] for your new plan. Let us know if you want help building a routine — we're here for you!`,
+      email:`Hi [Name],\n\nCongratulations again on upgrading to [New Tier]! We're so excited for you.\n\nWith your new plan, we recommend coming in [frequency] to get the full benefit. If you'd like help planning a weekly routine that works for your schedule, we'd love to help!\n\nAny questions at all, just reply or call us at 404-947-8084.\n\nAll the best,\n[Your Name]\nPerspire Sauna Studio Peachtree Corners`
     },
     {// TP 2 — Day 21–25
       call:`Hi [Name], it's [Your Name] from Perspire! You've been on [New Tier] for about three weeks now — how are you liking the upgrade?\n\nAre you able to make it in [frequency] like we talked about? I want to make sure you're seeing the full benefit of the higher tier. A lot of our [New Tier] members really start to notice the difference around this point when the routine is locked in.`,
       voicemail:`Hi [Name], it's [Your Name] from Perspire! You're about three weeks into your [New Tier] upgrade and I'd love to hear how it's going. Are you getting in [frequency]? Call us at 404-947-8084 or text us back — we want to make sure you're loving it!`,
-      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 Three weeks into your [New Tier] upgrade — how's it going? Are you getting in [frequency]? This is right around when members start really feeling the difference. Let us know how it's going!`
+      text:`Hi [Name]! It's [Your Name] from Perspire 🧡 Three weeks into your [New Tier] upgrade — how's it going? Are you getting in [frequency]? This is right around when members start really feeling the difference. Let us know how it's going!`,
+      email:`Hi [Name],\n\nYou're about three weeks into your [New Tier] upgrade — how are you liking it?\n\nWe recommend coming in [frequency] to really maximize the benefits. A lot of our [New Tier] members start to notice a real difference around this point when the routine is locked in.\n\nLet us know how it's going! Reply anytime or call us at 404-947-8084.\n\nAll the best,\n[Your Name]\nPerspire Sauna Studio Peachtree Corners`
     }
   ]
 };
@@ -891,7 +897,8 @@ function openNurtureScript(type,idx,nurtureId){
   document.getElementById('tp-script-tabs').innerHTML=
     `<button class="stab active" onclick="showNurtureScript('${type}',${idx},'call',this)">Phone call</button>`+
     `<button class="stab" onclick="showNurtureScript('${type}',${idx},'voicemail',this)">Voicemail</button>`+
-    `<button class="stab" onclick="showNurtureScript('${type}',${idx},'text',this)">Text</button>`;
+    `<button class="stab" onclick="showNurtureScript('${type}',${idx},'text',this)">Text</button>`+
+    `<button class="stab" onclick="showNurtureScript('${type}',${idx},'email',this)">Email</button>`;
   document.getElementById('tp-script-modal').classList.add('open');
 }
 function showNurtureScript(type,idx,ch,btn){
@@ -1149,7 +1156,7 @@ function renderGuests(){
   if(fil==='overdue')list=mine.filter(c=>guestStatus(c)==='overdue');
   else if(fil==='at-risk')list=mine.filter(c=>c.visitStatus==='at-risk');
   else if(fil==='due-soon')list=mine.filter(c=>guestStatus(c)==='due-now');
-  else if(fil==='between')list=mine.filter(c=>{const s=guestStatus(c);return(s==='on-track'||s==='complete')&&daysSince(c.contractStartDate)<=90;});
+  else if(fil==='between')list=mine.filter(c=>{const s=guestStatus(c);return(s==='on-track'||s==='complete')&&daysSince(c.contractStartDate)<=95;});
   list.sort((a,b)=>{const o={overdue:0,'due-now':1,'on-track':2,complete:3};return(o[guestStatus(a)]||2)-(o[guestStatus(b)]||2);});
   const el=document.getElementById('guest-list');
   if(!list.length){el.innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No clients yet.<br>Use "+ Add client" to get started.</p></div>`;return;}
@@ -1157,9 +1164,21 @@ function renderGuests(){
   restoreExpanded();
 }
 
+function nextTpInfo(c){
+  const tps=getTPs(c.type),wins=getWins(c.type),d=daysSince(c.contractStartDate);
+  for(let i=0;i<tps.length;i++){
+    const s=tpStatus(c,i);
+    if(s==='overdue')return{label:tps[i].label,text:'overdue',urgent:true};
+    if(s==='due-now')return{label:tps[i].label,text:'due now',urgent:true};
+    if(s==='future'){const daysTo=wins[i][0]-d;return{label:tps[i].label,text:`in ${daysTo} day${daysTo!==1?'s':''}`,urgent:false};}
+  }
+  return null;
+}
 function renderGuestCard(c,actions,prefix=''){
   const st=guestStatus(c),tps=getTPs(c.type),days=daysSince(c.contractStartDate),g=cadenceGuide(c.tier);
   const done=tps.filter((_,i)=>tpStatus(c,i)==='completed').length;
+  const nxt=nextTpInfo(c);
+  const nxtTxt=nxt?` · Next: ${nxt.label} ${nxt.text}`:'';
   const sBdg={overdue:`<span class="badge bod">Overdue</span>`,'due-now':`<span class="badge bdu">Due now</span>`,'on-track':`<span class="badge bot">On track</span>`,complete:`<span class="badge bhlt">Complete</span>`}[st]||'';
   const tBdg=c.type==='member'?`<span class="badge bm">Member</span>`:`<span class="badge bpk">Package</span>`;
   const wins=getWins(c.type);
@@ -1180,7 +1199,7 @@ function renderGuestCard(c,actions,prefix=''){
   return`<div class="ccard ${st==='overdue'?'isod':st==='due-now'?'isdu':''}" id="${prefix}ccard-${c.id}">
     <div class="chdr" onclick="toggleCard('${prefix}ccard-${c.id}')">
       <div class="cav">${initials(c.name)}</div>
-      <div class="ci"><div class="cn">${c.name}</div><div class="cm">${c.tier} · Day ${days} · ${done}/${tps.length} touchpoints · ${sName(c.assignedStaff)}</div></div>
+      <div class="ci"><div class="cn">${c.name}</div><div class="cm">${c.tier} · Day ${days} · ${done}/${tps.length} touchpoints${nxtTxt} · ${sName(c.assignedStaff)}</div></div>
       <div class="cbdg">${tBdg}${sBdg}${c.visitStatus==='at-risk'?`<span class="badge bod">At-risk</span>`:''}</div>
       <svg class="xic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
     </div>
@@ -1236,7 +1255,7 @@ function renderChanges(){
 function renderChangeCard(c,prefix=''){
   const urg=billUrgency(c.billDate);
   const du=daysUntil(c.billDate);
-  const duLbl=du===null?'':du<=0?'Bill date passed':du===1?'⚠ TOMORROW':`${du} days to bill`;
+  const duLbl=du===null?'':du<0?'Bill date passed':du===0?'⚠ BILL DATE TODAY':du===1?'⚠ TOMORROW':`${du} days to bill`;
   const urgCls=needsFollowupNow(c)?'isfol':urg==='urgent'&&c.status!=='closed'?'isurg':urg==='warn'&&c.status!=='closed'?'iswarn':'';
   const tmap={termination:'bTERM',suspension:'bSUSP',downgrade:'bDOWN',upgrade:'bUP'};
   const tlbl={termination:'Termination',suspension:'Suspension',downgrade:'Downgrade',upgrade:'Upgrade'};
@@ -1311,7 +1330,7 @@ function renderChangeCard(c,prefix=''){
     ${c.outcome==='saved-freeze'?`<div class="frow"><div class="fg"><label class="fl">Freeze duration</label><select class="fi" id="out-freeze-${c.id}" onchange="applyOutcomeFreeze('${c.id}')"><option value="30">30 days</option><option value="60">60 days</option><option value="90">90 days (requires approval)</option><option value="other">Other (open-ended / requires approval)</option></select></div></div>`:''}
   </div>`:`<div style="margin-top:8px;"><input type="text" class="notes-in" style="width:100%;" placeholder="Notes..." value="${c.outcomeNotes||''}" onblur="updateNotes('${c.id}',this.value)"></div>`;
   const actHtml=`<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-    <button class="btn btn-g btn-sm" onclick="openEditChange('${c.id}')">Edit</button>
+    <button class="btn btn-g btn-sm" onclick="openEditChangeFull('${c.id}')">Edit</button>
     <button class="btn btn-g btn-sm" onclick="toggleClose('${c.id}')">${c.status==='closed'?'Reopen':'Mark processed ✓'}</button>
     <button class="btn btn-sm btn-do" onclick="removeChange('${c.id}')">Remove</button>
   </div>`;
@@ -1553,7 +1572,9 @@ function toggleAddGuest(){
   const f=document.getElementById('add-guest-form');f.classList.toggle('open');
   if(f.classList.contains('open')){
     document.getElementById('ng-date').value=toInputDate(new Date());
-    fillStaff('ng-staff');document.getElementById('ng-staff').value=document.getElementById('staff-sel').value;
+    fillStaff('ng-staff');
+    const selStaff=document.getElementById('staff-sel').value;
+    if(selStaff&&selStaff!=='all')document.getElementById('ng-staff').value=selStaff;
   }
 }
 async function addGuest(){
@@ -1564,6 +1585,8 @@ async function addGuest(){
   const staff=document.getElementById('ng-staff').value;
   if(!name){alert('Please enter a client name.');return;}
   if(!parseDate(dv)){alert('Please enter a valid contract start date.');return;}
+  const dup=guests.find(c=>c.name.toLowerCase()===name.toLowerCase());
+  if(dup&&!confirm(`A client named "${dup.name}" already exists (assigned to ${sName(dup.assignedStaff)}). Add another with this name?`))return;
   const id=Date.now().toString();
   const d=parseDate(dv);
   const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -1602,7 +1625,7 @@ function toggleAddChange(){
   editingChangeId=null;
   document.getElementById('chg-form-title').textContent='Log membership change request';
   document.getElementById('chg-submit-btn').textContent='Log request';
-  f.classList.add('open');
+  f.classList.remove('editing');f.classList.add('open');
   document.getElementById('mc-req-date').value=toInputDate(new Date());
   document.getElementById('mc-bill-date').value='';
   document.getElementById('mc-name').value='';
@@ -1615,7 +1638,8 @@ function toggleAddChange(){
 }
 
 function cancelChangeForm(){
-  document.getElementById('add-change-form').classList.remove('open');
+  const f=document.getElementById('add-change-form');
+  f.classList.remove('open');f.classList.remove('editing');
   editingChangeId=null;
 }
 
@@ -1765,8 +1789,9 @@ async function toggleOverride(id){
 function openEditChange(id){
   const c=changes.find(x=>x.id===id);if(!c)return;
   editingChangeId=id;
-  document.getElementById('chg-form-title').textContent='Edit membership change request';
+  document.getElementById('chg-form-title').textContent='Editing: '+c.guestName;
   document.getElementById('chg-submit-btn').textContent='Save changes';
+  document.getElementById('add-change-form').classList.add('editing');
   const f=document.getElementById('add-change-form');f.classList.add('open');
   document.getElementById('mc-name').value=c.guestName;
   document.getElementById('mc-type').value=c.type;
