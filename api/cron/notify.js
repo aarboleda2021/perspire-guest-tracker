@@ -50,7 +50,7 @@ module.exports = async function handler(req, res) {
   ].filter(Boolean);
 
   if (process.env.RESEND_API_KEY && recipients.length) {
-    const emailBody = `Hi team,\n\nThis is an automated alert from the Perspire Guest Tracker.\n\n⚠️ ${summary}:\n\n${details}\n\nPlease log in to the tracker and process these before the bill date:\n${process.env.VERCEL_PROJECT_PRODUCTION_URL ? 'https://' + process.env.VERCEL_PROJECT_PRODUCTION_URL : 'https://perspire-guest-tracker.vercel.app'}\n\n— Perspire Guest Tracker`;
+    const emailBody = `Hi team,\n\nThis is an automated alert from the Perspire Guest Tracker.\n\n⚠️ ${summary}:\n\n${details}\n\nPlease log in to the tracker and process these before the bill date:\nhttps://perspire-guest-tracker.vercel.app\n\n— Perspire Guest Tracker`;
 
     try {
       const emailRes = await fetch('https://api.resend.com/emails', {
@@ -73,43 +73,8 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  // ── SEND SMS via Twilio ────────────────────────────────────────────────
-  const smsResults = [];
-  const phones = [
-    process.env.NOTIFY_PHONE_1,
-    process.env.NOTIFY_PHONE_2
-  ].filter(Boolean);
-
-  if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM_NUMBER && phones.length) {
-    const smsBody = `⚠️ Perspire Tracker: ${summary}. ${urgent.map(c => c.guest_name).join(', ')}. Please process ASAP.`;
-    const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Messages.json`;
-    const auth = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
-
-    for (const phone of phones) {
-      try {
-        const smsRes = await fetch(twilioUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Basic ${auth}`,
-            'Content-Type': 'application/x-www-form-urlencoded'
-          },
-          body: new URLSearchParams({
-            To: phone,
-            From: process.env.TWILIO_FROM_NUMBER,
-            Body: smsBody
-          }).toString()
-        });
-        const smsData = await smsRes.json();
-        smsResults.push({ phone, status: smsRes.ok ? 'sent' : 'failed', sid: smsData.sid });
-      } catch (e) {
-        smsResults.push({ phone, status: 'error', message: e.message });
-      }
-    }
-  }
-
   return res.status(200).json({
     urgentCount: urgent.length,
-    emailResults,
-    smsResults
+    emailResults
   });
 };
