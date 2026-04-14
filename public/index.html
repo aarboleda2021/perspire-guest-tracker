@@ -1160,7 +1160,7 @@ function renderChanges(){
 
   let banners='';
   if(urgent.length)banners+=`<div class="urgbanner"><div class="urgicon">⚠</div><div class="urgtxt"><strong>${urgent.length} urgent — process before bill date or closure.</strong><br>${urgent.map(c=>`${c.guestName} (${c.type}, bill ${fmtDate(c.billDate)})`).join(' · ')}</div></div>`;
-  if(followup.length)banners+=`<div class="urgbanner" style="background:#856404;"><div class="urgicon">↩</div><div class="urgtxt"><strong>${followup.length} member${followup.length!==1?'s':''} need${followup.length===1?'s':''} follow-up today.</strong><br>${followup.map(c=>c.guestName).join(' · ')}</div></div>`;
+  if(followup.length)banners+=`<div class="urgbanner" style="background:#856404;"><div class="urgicon">↩</div><div class="urgtxt"><strong>${followup.length} member${followup.length!==1?'s':''} need${followup.length===1?'s':''} follow-up.</strong><br>${followup.map(c=>c.guestName).join(' · ')}</div></div>`;
   document.getElementById('urgent-banners').innerHTML=banners;
 
   const terms=open.filter(c=>c.type==='termination').length;
