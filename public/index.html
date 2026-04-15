@@ -1200,27 +1200,33 @@ function renderGuests(){
     if(statusDiff!==0)return statusDiff;
     return nextTpUrgency(b)-nextTpUrgency(a);// within same status, most urgent first
   });
-  // Include nurture records assigned to this staff member
+  // Build unified list of guest cards + nurture cards
   const myNurtures=(fil==='deactivated')?[]:nurtures.filter(n=>n.status==='active'&&(sid==='all'||(n.assignedStaff||'mohogany')===sid));
-  const nurtureCards=myNurtures.map(n=>{
+
+  function nurtureStatusGroup(n){
     const hasOverdue=NURTURE_WINS.some((_,i)=>nurtureStatus(n,i)==='overdue');
     const hasDue=NURTURE_WINS.some((_,i)=>nurtureStatus(n,i)==='due-now');
-    const urgency=hasOverdue?0:hasDue?1:2;
-    return{urgency,html:renderNurtureCard(n)};
-  });
+    return hasOverdue?0:hasDue?1:2;
+  }
+  function nurtureTpUrgency(n){
+    const d=daysSince(n.startDate);
+    for(let i=0;i<NURTURE_TPS.length;i++){
+      const s=nurtureStatus(n,i);
+      if(s==='overdue')return d-NURTURE_WINS[i][1];
+      if(s==='due-now')return-(NURTURE_WINS[i][1]-d);
+      if(s==='future')return-(NURTURE_WINS[i][0]-d);
+    }
+    return 999;
+  }
+
+  const combined=[];
+  list.forEach(c=>{const o={overdue:0,'due-now':1,'on-track':2,complete:3};combined.push({statusOrder:o[guestStatus(c)]??2,urgency:nextTpUrgency(c),html:renderGuestCard(c,true)});});
+  myNurtures.forEach(n=>{combined.push({statusOrder:nurtureStatusGroup(n),urgency:nurtureTpUrgency(n),html:renderNurtureCard(n)});});
+  combined.sort((a,b)=>(a.statusOrder-b.statusOrder)||(b.urgency-a.urgency));
 
   const el=document.getElementById('guest-list');
-  if(!list.length&&!nurtureCards.length){el.innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No clients yet.<br>Use "+ Add client" to get started.</p></div>`;return;}
-
-  let html='';
-  if(list.length){
-    html+=`<div class="sec-hdr"><div class="sec-title">New guest outreach</div><div class="sec-ct">${list.length}</div></div><div class="clist">${list.map(c=>renderGuestCard(c,true)).join('')}</div>`;
-  }
-  if(nurtureCards.length){
-    nurtureCards.sort((a,b)=>a.urgency-b.urgency);
-    html+=`<div class="sec-hdr" style="margin-top:22px;"><div class="sec-title">Tier change nurture</div><div class="sec-ct">${nurtureCards.length}</div></div><div class="clist">${nurtureCards.map(n=>n.html).join('')}</div>`;
-  }
-  el.innerHTML=html;
+  if(!combined.length){el.innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No clients yet.<br>Use "+ Add client" to get started.</p></div>`;return;}
+  el.innerHTML=`<div class="sec-hdr"><div class="sec-title">Your clients</div><div class="sec-ct">${combined.length}</div></div><div class="clist">${combined.map(c=>c.html).join('')}</div>`;
   restoreExpanded();
 }
 
@@ -1512,7 +1518,7 @@ function renderNurtureCard(n){
   const hasDue=NURTURE_TPS.some((_,i)=>nurtureStatus(n,i)==='due-now');
   const st=n.status==='completed'?'complete':hasOverdue?'overdue':hasDue?'due-now':'on-track';
   const sBdg={overdue:`<span class="badge bod">Overdue</span>`,'due-now':`<span class="badge bdu">Due now</span>`,'on-track':`<span class="badge bot">On track</span>`,complete:`<span class="badge bhlt">Complete</span>`}[st]||'';
-  const tBdg=n.type==='upgrade'?`<span class="badge bUP">Upgrade</span>`:`<span class="badge bDOWN">Downgrade</span>`;
+  const tBdg=`<span class="badge" style="background:var(--purp);color:var(--pur);">Tier Change</span> `+(n.type==='upgrade'?`<span class="badge bUP">Upgrade</span>`:`<span class="badge bDOWN">Downgrade</span>`);
 
   const tpHtml=NURTURE_TPS.map((tp,i)=>{
     const s=nurtureStatus(n,i),log=n.logs?.[i],ch=chLabel(tp.channel);
