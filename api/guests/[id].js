@@ -17,6 +17,8 @@ module.exports = async function handler(req, res) {
     if (body.assignedStaff !== undefined) updates.assigned_staff = body.assignedStaff;
     if (body.visitStatus !== undefined) updates.visit_status = body.visitStatus;
     if (body.deactivated !== undefined) updates.deactivated = body.deactivated;
+    if (body.deactivatedReason !== undefined) updates.deactivated_reason = body.deactivatedReason;
+    if (body.deactivatedNotes !== undefined) updates.deactivated_notes = body.deactivatedNotes;
 
     const { error } = await supabase.from('guests').update(updates).eq('id', id);
     if (error) return res.status(500).json({ error: error.message });
