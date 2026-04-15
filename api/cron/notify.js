@@ -42,17 +42,23 @@ module.exports = async function handler(req, res) {
   const tomorrow = new Date(now);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  // Build list of dates to check: tomorrow + any consecutive closure days after it
-  // Example: if tomorrow is 5/25 (closed) and 5/26 is also closed (Memorial Day),
-  // check 5/25, 5/26, and 5/27 so everything gets processed before the closure
+  // Build list of dates to check: tomorrow + look ahead past any closure days
+  // Example: if tomorrow is 5/25 (Memorial Day, closed), we also need to catch
+  // bill dates on 5/26 because we can't process them while closed on 5/25.
+  // So we check: 5/25, 5/26
   const datesToCheck = [toDateStr(tomorrow)];
-  let lookAhead = new Date(tomorrow);
-  while (true) {
-    lookAhead.setDate(lookAhead.getDate() + 1);
-    if (isClosedOrEarlyClose(lookAhead)) {
+  const closureDates = [];
+  if (isClosedOrEarlyClose(tomorrow)) {
+    closureDates.push(toDateStr(tomorrow));
+    let lookAhead = new Date(tomorrow);
+    while (true) {
+      lookAhead.setDate(lookAhead.getDate() + 1);
       datesToCheck.push(toDateStr(lookAhead));
-    } else {
-      break;
+      if (isClosedOrEarlyClose(lookAhead)) {
+        closureDates.push(toDateStr(lookAhead));
+      } else {
+        break;
+      }
     }
   }
 
@@ -79,10 +85,10 @@ module.exports = async function handler(req, res) {
     return `- ${c.guest_name} (${c.type}) — bill date ${label}`;
   });
 
-  const closureDays = datesToCheck.length > 1;
-  const summary = `${urgent.length} unprocessed request${urgent.length !== 1 ? 's' : ''} — process before ${closureDays ? 'studio closure' : 'tomorrow\'s bill date'}`;
+  const hasClosures = closureDates.length > 0;
+  const summary = `${urgent.length} unprocessed request${urgent.length !== 1 ? 's' : ''} — process before ${hasClosures ? 'studio closure' : 'tomorrow\'s bill date'}`;
   const details = lines.join('\n');
-  const closureNote = closureDays ? `\n\nNote: The studio is closed or closing early on ${datesToCheck.slice(1).join(', ')}, so these all need to be processed before then.\n` : '';
+  const closureNote = hasClosures ? `\n\nNote: The studio is closed or closing early on ${closureDates.join(', ')}, so these all need to be processed today.\n` : '';
 
   // ── SEND EMAIL via Resend ──────────────────────────────────────────────
   const emailResults = [];
