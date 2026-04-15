@@ -17,8 +17,8 @@ function getClosedDates(y){
   const thanksgivingD=parseInt(thanksgiving.split('-')[1]);
   const thanksgivingEve=`11-${String(thanksgivingD-1).padStart(2,'0')}`;
   return{
-    closed:['01-01',easter,memDay,'07-04',laborDay,'12-25','12-26','12-31'],
-    earlyClose:['10-31',thanksgivingEve,'12-24']
+    closed:['01-01',easter,memDay,'07-04',laborDay,thanksgiving,'12-24','12-25','12-31'],
+    earlyClose:['10-31',thanksgivingEve]
   };
 }
 function mmdd(d){return`${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
