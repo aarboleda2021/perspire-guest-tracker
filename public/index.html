@@ -907,14 +907,68 @@ const NURTURE_SCRIPTS={
   ]
 };
 
+// Reactivation touchpoints and scripts
+const REACTIVATION_TPS=[
+  {label:'TP 1',window:'Day 0–2',goal:'Welcome-back email — membership reactivating soon',channel:'call'},
+  {label:'TP 2',window:'Day 4–5',goal:'Follow-up call if no session booked',channel:'call'},
+];
+const REACTIVATION_WINS=[[0,2],[4,5]];
+
+// Open-ended freeze: monthly check-in
+const OPENENDED_TPS=[
+  {label:'Check-in 1',window:'Day 25–30',goal:'Monthly check-in — ready to reactivate?',channel:'call'},
+  {label:'Check-in 2',window:'Day 55–60',goal:'Monthly check-in — ready to reactivate?',channel:'call'},
+  {label:'Check-in 3',window:'Day 85–90',goal:'Monthly check-in — ready to reactivate?',channel:'call'},
+];
+const OPENENDED_WINS=[[25,30],[55,60],[85,90]];
+
+const NURTURE_SCRIPTS_REACTIVATION=[
+  {// TP 1 — welcome-back email (7 days before reactivation)
+    call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners! I'm calling because your membership freeze is ending soon and your [Tier] membership will be reactivating. We're excited to welcome you back!\n\nI wanted to make sure you're all set and help you get your first session back on the books. Do you have a few minutes?`,
+    voicemail:`Hi [Name], it's [Your Name] from Perspire Peachtree Corners! Your membership freeze is ending soon and we're excited to welcome you back! I'd love to help you get your first session booked. Give us a call at 404-947-8084 or text us back anytime!`,
+    text:`Hi [Name]! It's [Your Name] from Perspire 🧡 Your membership freeze is ending soon and we can't wait to welcome you back! Ready to get your first session booked? Call or text us anytime!`,
+    email:`Hi [Name],\n\nWe hope you've been well! This is a friendly reminder that your membership freeze is ending soon and your [Tier] membership will be reactivating.\n\nWe're so excited to welcome you back to Perspire! Here are a few things to know:\n\n• Your membership rate has stayed locked in — no changes to your pricing.\n• Any rollover sessions from before your freeze have been preserved.\n• We recommend getting back to your routine of [frequency] to maximize your benefits.\n\nWould you like to book your first session back? Just reply to this email or call us at 404-947-8084 and we'll get you set up!\n\nWelcome back 🧡\n\n[Your Name]\nPerspire Sauna Studio Peachtree Corners`
+  },
+  {// TP 2 — follow-up call (3 days before reactivation)
+    call:`Hi [Name], it's [Your Name] from Perspire! I'm following up — your membership is reactivating in just a few days and I wanted to make sure you saw our welcome-back message.\n\nHave you had a chance to think about when you'd like to come in for your first session? I'd love to help you get back into your routine!`,
+    voicemail:`Hi [Name], it's [Your Name] from Perspire! Just following up — your membership is reactivating very soon and we'd love to help you get your first session booked. Call us at 404-947-8084 or text us back!`,
+    text:`Hi [Name]! It's [Your Name] from Perspire 🧡 Your membership reactivates in just a few days! Have you had a chance to book your first session back? We'd love to get you set up — call or text anytime!`,
+    email:`Hi [Name],\n\nJust a quick follow-up — your membership is reactivating in the next few days!\n\nIf you haven't already, we'd love to help you book your first session back. Getting back into your routine early makes all the difference.\n\nReply to this email or call us at 404-947-8084 — we're here for you!\n\nAll the best,\n[Your Name]\nPerspire Sauna Studio Peachtree Corners`
+  }
+];
+
+const NURTURE_SCRIPTS_OPENENDED=[
+  {// Monthly check-in (same script reused for each)
+    call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners! I'm just checking in on you while your membership is on pause. How are things going?\n\nI wanted to see if there's been any change in your situation and whether you might be ready to reactivate. We'd love to have you back whenever you're ready — no pressure at all!`,
+    voicemail:`Hi [Name], it's [Your Name] from Perspire! Just checking in while your membership is paused. Whenever you're ready to come back, we're here for you! Give us a call at 404-947-8084 or text us anytime.`,
+    text:`Hi [Name]! It's [Your Name] from Perspire 🧡 Just checking in while your membership is on pause. Whenever you're ready to come back, we'd love to have you! No pressure — just know we're here. Call or text anytime!`,
+    email:`Hi [Name],\n\nJust checking in! We know your membership is currently on pause and we wanted to see how you're doing.\n\nWhenever you're ready to reactivate, we're here for you. Your rate is locked in and we'd love to welcome you back.\n\nNo pressure at all — just reply to this email or call us at 404-947-8084 whenever you'd like to chat.\n\nAll the best,\n[Your Name]\nPerspire Sauna Studio Peachtree Corners`
+  }
+];
+
+function getNurtureTPs(n){
+  if(n.type==='reactivation'){return n.freezeDuration==='other'?OPENENDED_TPS:REACTIVATION_TPS;}
+  return NURTURE_TPS;
+}
+function getNurtureWins(n){
+  if(n.type==='reactivation'){return n.freezeDuration==='other'?OPENENDED_WINS:REACTIVATION_WINS;}
+  return NURTURE_WINS;
+}
+function getNurtureScripts(n){
+  if(n.type==='reactivation'){return n.freezeDuration==='other'?NURTURE_SCRIPTS_OPENENDED:NURTURE_SCRIPTS_REACTIVATION;}
+  return NURTURE_SCRIPTS[n.type]||[];
+}
+
 let _nurtureScriptData={};
 function openNurtureScript(type,idx,nurtureId){
-  const scripts=NURTURE_SCRIPTS[type];if(!scripts||!scripts[idx])return;
-  const s=scripts[idx];
-  const tp=NURTURE_TPS[idx];
   const n=nurtureId?nurtures.find(x=>x.id===nurtureId):null;
-  _nurtureScriptData=n?{name:n.guestName,newTier:n.newTier}:{};
-  document.getElementById('tp-script-title').textContent=`${tp.label} — Tier change nurture`;
+  const scripts=n?getNurtureScripts(n):(NURTURE_SCRIPTS[type]||[]);
+  if(!scripts[idx])return;
+  const s=scripts[idx];
+  const tps=n?getNurtureTPs(n):NURTURE_TPS;
+  const tp=tps[idx];if(!tp)return;
+  _nurtureScriptData=n?{name:n.guestName,newTier:n.newTier,tier:n.oldTier||n.newTier}:{};
+  document.getElementById('tp-script-title').textContent=`${tp.label} — ${n&&n.type==='reactivation'?'Reactivation reminder':'Tier change nurture'}`;
   document.getElementById('tp-script-sub').textContent=`${tp.window} · ${tp.goal}`;
   document.getElementById('tp-script-body').textContent=fillScript(s.call,_nurtureScriptData);
   document.getElementById('tp-script-tabs').innerHTML=
@@ -932,7 +986,9 @@ function showNurtureScript(type,idx,ch,btn){
 }
 
 function nurtureStatus(n,i){
-  const[ws,we]=NURTURE_WINS[i],d=daysSince(n.startDate);
+  const wins=getNurtureWins(n);
+  if(!wins[i])return'future';
+  const[ws,we]=wins[i],d=daysSince(n.startDate);
   if(n.logs?.[i]?.date)return'completed';
   if(d<ws)return'future';
   if(d<=we+3)return'due-now';
@@ -1204,8 +1260,8 @@ function renderGuests(){
   const myNurtures=(fil==='deactivated')?[]:nurtures.filter(n=>n.status==='active'&&(sid==='all'||(n.assignedStaff||'mohogany')===sid));
 
   function nurtureStatusGroup(n){
-    const hasOverdue=NURTURE_WINS.some((_,i)=>nurtureStatus(n,i)==='overdue');
-    const hasDue=NURTURE_WINS.some((_,i)=>nurtureStatus(n,i)==='due-now');
+    const hasOverdue=getNurtureTPs(n).some((_,i)=>nurtureStatus(n,i)==='overdue');
+    const hasDue=getNurtureTPs(n).some((_,i)=>nurtureStatus(n,i)==='due-now');
     return hasOverdue?0:hasDue?1:2;
   }
   function nurtureTpUrgency(n){
@@ -1482,8 +1538,8 @@ function renderRoster(){
 function renderMgrNurture(){
   const active=nurtures.filter(n=>n.status==='active');
   const completed=nurtures.filter(n=>n.status==='completed');
-  const overdue=active.filter(n=>NURTURE_WINS.some((_,i)=>nurtureStatus(n,i)==='overdue')).length;
-  const dueNow=active.filter(n=>NURTURE_WINS.some((_,i)=>nurtureStatus(n,i)==='due-now')).length;
+  const overdue=active.filter(n=>getNurtureTPs(n).some((_,i)=>nurtureStatus(n,i)==='overdue')).length;
+  const dueNow=active.filter(n=>getNurtureTPs(n).some((_,i)=>nurtureStatus(n,i)==='due-now')).length;
   document.getElementById('mgr-nur-stats').innerHTML=`
     <div class="sc"><div class="scl">Active nurtures</div><div class="scv">${active.length}</div></div>
     <div class="sc"><div class="scl">Overdue</div><div class="scv ${overdue>0?'d':''}">${overdue}</div></div>
@@ -1492,8 +1548,8 @@ function renderMgrNurture(){
   document.getElementById('mgr-nur-stats').innerHTML+=`<div style="grid-column:1/-1;text-align:right;"><button class="btn btn-g btn-sm" onclick="exportNurtures()">Export CSV</button></div>`;
 
   const sorted=[...active].sort((a,b)=>{
-    const urgA=NURTURE_WINS.some((_,i)=>nurtureStatus(a,i)==='overdue')?0:NURTURE_WINS.some((_,i)=>nurtureStatus(a,i)==='due-now')?1:2;
-    const urgB=NURTURE_WINS.some((_,i)=>nurtureStatus(b,i)==='overdue')?0:NURTURE_WINS.some((_,i)=>nurtureStatus(b,i)==='due-now')?1:2;
+    const urgA=getNurtureTPs(a).some((_,i)=>nurtureStatus(a,i)==='overdue')?0:getNurtureTPs(a).some((_,i)=>nurtureStatus(a,i)==='due-now')?1:2;
+    const urgB=getNurtureTPs(b).some((_,i)=>nurtureStatus(b,i)==='overdue')?0:getNurtureTPs(b).some((_,i)=>nurtureStatus(b,i)==='due-now')?1:2;
     return urgA-urgB;
   });
 
@@ -1513,31 +1569,37 @@ function renderMgrNurture(){
 
 function renderNurtureCard(n){
   const days=daysSince(n.startDate);
-  const done=NURTURE_TPS.filter((_,i)=>nurtureStatus(n,i)==='completed').length;
-  const hasOverdue=NURTURE_TPS.some((_,i)=>nurtureStatus(n,i)==='overdue');
-  const hasDue=NURTURE_TPS.some((_,i)=>nurtureStatus(n,i)==='due-now');
+  const tps=getNurtureTPs(n),wins=getNurtureWins(n);
+  const done=tps.filter((_,i)=>nurtureStatus(n,i)==='completed').length;
+  const hasOverdue=tps.some((_,i)=>nurtureStatus(n,i)==='overdue');
+  const hasDue=tps.some((_,i)=>nurtureStatus(n,i)==='due-now');
   const st=n.status==='completed'?'complete':hasOverdue?'overdue':hasDue?'due-now':'on-track';
   const sBdg={overdue:`<span class="badge bod">Overdue</span>`,'due-now':`<span class="badge bdu">Due now</span>`,'on-track':`<span class="badge bot">On track</span>`,complete:`<span class="badge bhlt">Complete</span>`}[st]||'';
-  const tBdg=`<span class="badge" style="background:var(--purp);color:var(--pur);">Tier Change</span> `+(n.type==='upgrade'?`<span class="badge bUP">Upgrade</span>`:`<span class="badge bDOWN">Downgrade</span>`);
+  const isReact=n.type==='reactivation';
+  const tBdg=isReact?`<span class="badge" style="background:var(--okp);color:var(--ok);">Reactivation</span>`:`<span class="badge" style="background:var(--purp);color:var(--pur);">Tier Change</span> `+(n.type==='upgrade'?`<span class="badge bUP">Upgrade</span>`:`<span class="badge bDOWN">Downgrade</span>`);
 
-  const tpHtml=NURTURE_TPS.map((tp,i)=>{
+  const tpHtml=tps.map((tp,i)=>{
     const s=nurtureStatus(n,i),log=n.logs?.[i],ch=chLabel(tp.channel);
     const canLog=n.status==='active'&&!log;
     const stTxt=s==='completed'?`✓ ${log.channel}`:s==='overdue'?'! Overdue':s==='due-now'?'Due now':'Upcoming';
     const stCls=s==='completed'?'done':s==='overdue'?'late':s==='due-now'?'pending':'fut';
-    const dates=windowDates(n.startDate,NURTURE_WINS[i][0],NURTURE_WINS[i][1]);
+    const dates=windowDates(n.startDate,wins[i][0],wins[i][1]);
     return`<div class="tpi ${s}"><div class="tpn">${tp.label}</div><div class="tpw">${tp.window}</div>${dates?`<div style="font-size:10px;color:var(--muted);margin-bottom:3px;">${dates}</div>`:''}<div class="tpgl">${tp.goal}</div><span class="chtag ${ch.cls}">${ch.label}</span><div class="tpst ${stCls}">${stTxt}</div>${canLog?`<button class="tlbtn" onclick="openNurtureLog('${n.id}',${i})">Log outreach</button>`:''}${log?`<button class="tlbtn logged" disabled>✓ Logged</button>`:''}<button class="tlbtn" style="border-color:var(--info);color:var(--info);margin-top:3px;" onclick="event.stopPropagation();openNurtureScript('${n.type}',${i},'${n.id}')">View script</button>${log?.notes?`<div class="tpnts">"${log.notes}"</div>`:''}</div>`;
   }).join('');
+
+  const infoBox=isReact
+    ?`<div class="reactiv" style="margin-bottom:12px;"><p>🔔 <strong>Membership reactivation</strong> — ${n.freezeDuration==='other'?'Open-ended freeze (checking in monthly)':`${n.freezeDuration}-day freeze`}<br>Tier: ${n.oldTier} · Cadence on return: ${cadenceGuide(n.oldTier).ideal}</p></div>`
+    :`<div class="tier-box" style="margin-bottom:12px;"><strong>Tier change:</strong> ${n.oldTier} → ${n.newTier}<br><span style="opacity:.8">Target cadence: ${cadenceGuide(n.newTier).ideal}</span></div>`;
 
   return`<div class="ccard ${st==='overdue'?'isod':st==='due-now'?'isdu':''}" id="nur-${n.id}">
     <div class="chdr" onclick="toggleCard('nur-${n.id}')">
       <div class="cav">${initials(n.guestName)}</div>
-      <div class="ci"><div class="cn">${n.guestName}</div><div class="cm">${n.oldTier} → ${n.newTier} · Day ${days} · ${done}/${NURTURE_TPS.length} touchpoints · Assigned: ${sName(n.assignedStaff||'mohogany')}</div></div>
+      <div class="ci"><div class="cn">${n.guestName}</div><div class="cm">${isReact?(n.freezeDuration==='other'?'Open-ended freeze':'Reactivation reminder'):n.oldTier+' → '+n.newTier} · Day ${days} · ${done}/${tps.length} touchpoints · Assigned: ${sName(n.assignedStaff||'mohogany')}</div></div>
       <div class="cbdg">${tBdg}${sBdg}</div>
       <svg class="xic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
     </div>
     <div class="cbody">
-      <div class="tier-box" style="margin-bottom:12px;"><strong>Tier change:</strong> ${n.oldTier} → ${n.newTier}<br><span style="opacity:.8">Target cadence: ${cadenceGuide(n.newTier).ideal}</span></div>
+      ${infoBox}
       <div class="tpg">${tpHtml}</div>
       <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
         ${n.status==='active'?`<button class="btn btn-g btn-sm" onclick="completeNurture('${n.id}')">Mark complete ✓</button>`:`<button class="btn btn-g btn-sm" onclick="reopenNurture('${n.id}')">Reopen</button>`}
@@ -1553,8 +1615,9 @@ let nurtureLogId=null,nurtureLogIdx=null;
 function openNurtureLog(nid,idx){
   nurtureLogId=nid;nurtureLogIdx=idx;
   const n=nurtures.find(x=>x.id===nid);
-  const tp=NURTURE_TPS[idx];
-  document.getElementById('log-sub').textContent=`${n.guestName} · Nurture ${tp.label} · ${tp.window}`;
+  const tps=getNurtureTPs(n);
+  const tp=tps[idx];
+  document.getElementById('log-sub').textContent=`${n.guestName} · ${n.type==='reactivation'?'Reactivation':'Nurture'} ${tp.label} · ${tp.window}`;
   document.getElementById('log-notes').value='';
   document.getElementById('log-channel').value='Call — reached member';
   document.getElementById('log-vs').value='healthy';
@@ -1567,7 +1630,7 @@ async function saveLog(){
     const n=nurtures.find(x=>x.id===nurtureLogId);if(!n)return;
     if(!n.logs)n.logs={};
     n.logs[nurtureLogIdx]={date:new Date().toISOString(),channel:document.getElementById('log-channel').value,notes:document.getElementById('log-notes').value.trim()};
-    const allDone=NURTURE_TPS.every((_,i)=>n.logs[i]?.date);
+    const allDone=getNurtureTPs(n).every((_,i)=>n.logs[i]?.date);
     if(allDone)n.status='completed';
     if(useLocalStorage){lsSave();}
     else{await api('nurtures/'+n.id,{method:'PUT',body:{logs:n.logs,status:n.status}});}
@@ -1830,6 +1893,31 @@ async function toggleClose(id){
     const existing=nurtures.find(n=>n.changeId===c.id);
     if(!existing){
       const rec={id:Date.now().toString(),changeId:c.id,guestName:c.guestName,type:c.type,oldTier:c.currentTier,newTier:c.newTier||'',startDate:new Date().toISOString().split('T')[0],logs:{},status:'active',assignedStaff:'mohogany',createdAt:new Date().toISOString()};
+      if(useLocalStorage){nurtures.push(rec);lsSave();}
+      else{await api('nurtures',{method:'POST',body:rec});await loadNurtures();}
+    }
+  }
+  // Auto-create reactivation reminder when a suspension is marked processed
+  if(wasOpen&&c.status==='closed'&&c.type==='suspension'){
+    const existing=nurtures.find(n=>n.changeId===c.id);
+    if(!existing){
+      const dur=c.freezeDuration;
+      const isOpenEnded=dur==='other'||!dur;
+      // Start date = bill date (freeze start). For standard freezes, touchpoints are relative to reactivation.
+      // For open-ended, start date is today and we do monthly check-ins.
+      const bd=parseDate(c.billDate);
+      let startDate;
+      if(!isOpenEnded&&bd&&dur){
+        // Set start date so that "Day 0" aligns with the freeze START, and touchpoints fire before freeze END
+        const freezeEnd=new Date(bd);freezeEnd.setDate(freezeEnd.getDate()+parseInt(dur));
+        // Start date = freeze end minus 7 days (so TP1 at Day 0 = 7 days before reactivation)
+        const reminderStart=new Date(freezeEnd);reminderStart.setDate(reminderStart.getDate()-7);
+        startDate=toInputDate(reminderStart);
+      } else {
+        // Open-ended: start from today, monthly check-ins
+        startDate=new Date().toISOString().split('T')[0];
+      }
+      const rec={id:Date.now().toString(),changeId:c.id,guestName:c.guestName,type:'reactivation',oldTier:c.currentTier,newTier:c.currentTier,startDate,freezeDuration:dur||'other',logs:{},status:'active',assignedStaff:'mohogany',createdAt:new Date().toISOString()};
       if(useLocalStorage){nurtures.push(rec);lsSave();}
       else{await api('nurtures',{method:'POST',body:rec});await loadNurtures();}
     }

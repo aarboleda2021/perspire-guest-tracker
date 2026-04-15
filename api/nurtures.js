@@ -23,6 +23,7 @@ module.exports = async function handler(req, res) {
       startDate: n.start_date,
       logs: n.logs || {},
       status: n.status,
+      freezeDuration: n.freeze_duration || null,
       assignedStaff: n.assigned_staff || 'mohogany',
       createdAt: n.created_at
     }));
@@ -42,6 +43,7 @@ module.exports = async function handler(req, res) {
       start_date: b.startDate,
       logs: b.logs || {},
       status: b.status || 'active',
+      freeze_duration: b.freezeDuration || null,
       assigned_staff: b.assignedStaff || 'mohogany'
     });
     if (error) return res.status(500).json({ error: error.message });
