@@ -851,7 +851,7 @@ function openTpScript(type,idx,guestId){
   const tps=type==='member'?MEMBER_TPS:PACKAGE_TPS;
   const tp=tps[idx];
   const g=guestId?guests.find(x=>x.id===guestId):null;
-  _tpScriptData=g?{name:g.name,tier:g.tier,packageName:g.tier}:{};
+  _tpScriptData=g?{name:g.name,tier:g.tier,packageName:g.tier,staffName:sName(g.assignedStaff)}:{};
   document.getElementById('tp-script-title').textContent=`${tp.label} outreach script`;
   document.getElementById('tp-script-sub').textContent=`${tp.window} · ${tp.goal}`;
   document.getElementById('tp-script-body').textContent=fillScript(s.call,_tpScriptData);
@@ -970,7 +970,7 @@ function openNurtureScript(type,idx,nurtureId){
   const s=scripts[scriptIdx];
   const tps=n?getNurtureTPs(n):NURTURE_TPS;
   const tp=tps[idx];if(!tp)return;
-  _nurtureScriptData=n?{name:n.guestName,newTier:n.newTier,tier:n.oldTier||n.newTier}:{};
+  _nurtureScriptData=n?{name:n.guestName,newTier:n.newTier,tier:n.oldTier||n.newTier,staffName:sName(n.assignedStaff||'mohogany')}:{};
   document.getElementById('tp-script-title').textContent=`${tp.label} — ${n&&n.type==='reactivation'?'Reactivation reminder':'Tier change nurture'}`;
   document.getElementById('tp-script-sub').textContent=`${tp.window} · ${tp.goal}`;
   document.getElementById('tp-script-body').textContent=fillScript(s.call,_nurtureScriptData);
@@ -1012,6 +1012,7 @@ function fillScript(text,data){
   if(data.newTier){const g=cadenceGuide(data.newTier);s=s.replace(/\[frequency\]/g,g.ideal);}
   if(data.tier){const g=cadenceGuide(data.tier);s=s.replace(/\[frequency\]/g,g.ideal);s=s.replace(/\[Tier\]/g,data.tier);}
   if(data.packageName)s=s.replace(/\[Package\]/g,data.packageName);
+  if(data.staffName)s=s.replace(/\[Your Name\]/g,data.staffName);
   s=s.replace(/\[studio phone number\]/g,'404-947-8084');
   return s;
 }
