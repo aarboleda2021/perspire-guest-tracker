@@ -1200,9 +1200,27 @@ function renderGuests(){
     if(statusDiff!==0)return statusDiff;
     return nextTpUrgency(b)-nextTpUrgency(a);// within same status, most urgent first
   });
+  // Include nurture records assigned to this staff member
+  const myNurtures=(fil==='deactivated')?[]:nurtures.filter(n=>n.status==='active'&&(sid==='all'||(n.assignedStaff||'mohogany')===sid));
+  const nurtureCards=myNurtures.map(n=>{
+    const hasOverdue=NURTURE_WINS.some((_,i)=>nurtureStatus(n,i)==='overdue');
+    const hasDue=NURTURE_WINS.some((_,i)=>nurtureStatus(n,i)==='due-now');
+    const urgency=hasOverdue?0:hasDue?1:2;
+    return{urgency,html:renderNurtureCard(n)};
+  });
+
   const el=document.getElementById('guest-list');
-  if(!list.length){el.innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No clients yet.<br>Use "+ Add client" to get started.</p></div>`;return;}
-  el.innerHTML=`<div class="sec-hdr"><div class="sec-title">Your clients</div><div class="sec-ct">${list.length}</div></div><div class="clist">${list.map(c=>renderGuestCard(c,true)).join('')}</div>`;
+  if(!list.length&&!nurtureCards.length){el.innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No clients yet.<br>Use "+ Add client" to get started.</p></div>`;return;}
+
+  let html='';
+  if(list.length){
+    html+=`<div class="sec-hdr"><div class="sec-title">New guest outreach</div><div class="sec-ct">${list.length}</div></div><div class="clist">${list.map(c=>renderGuestCard(c,true)).join('')}</div>`;
+  }
+  if(nurtureCards.length){
+    nurtureCards.sort((a,b)=>a.urgency-b.urgency);
+    html+=`<div class="sec-hdr" style="margin-top:22px;"><div class="sec-title">Tier change nurture</div><div class="sec-ct">${nurtureCards.length}</div></div><div class="clist">${nurtureCards.map(n=>n.html).join('')}</div>`;
+  }
+  el.innerHTML=html;
   restoreExpanded();
 }
 
