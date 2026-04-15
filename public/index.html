@@ -1184,7 +1184,22 @@ function renderGuests(){
   else if(fil==='at-risk')list=mine.filter(c=>c.visitStatus==='at-risk');
   else if(fil==='due-soon')list=mine.filter(c=>guestStatus(c)==='due-now');
   else if(fil==='between')list=mine.filter(c=>{const s=guestStatus(c);return(s==='on-track'||s==='complete')&&daysSince(c.contractStartDate)<=95;});
-  list.sort((a,b)=>{const o={overdue:0,'due-now':1,'on-track':2,complete:3};return(o[guestStatus(a)]||2)-(o[guestStatus(b)]||2);});
+  function nextTpUrgency(c){
+    const tps=getTPs(c.type),wins=getWins(c.type),d=daysSince(c.contractStartDate);
+    for(let i=0;i<tps.length;i++){
+      const s=tpStatus(c,i);
+      if(s==='overdue')return d-wins[i][1];// how many days overdue (higher = more urgent)
+      if(s==='due-now')return-(wins[i][1]-d);// negative = due sooner
+      if(s==='future')return-(wins[i][0]-d);// negative = closer future date
+    }
+    return 999;// all complete
+  }
+  list.sort((a,b)=>{
+    const o={overdue:0,'due-now':1,'on-track':2,complete:3};
+    const statusDiff=(o[guestStatus(a)]??2)-(o[guestStatus(b)]??2);
+    if(statusDiff!==0)return statusDiff;
+    return nextTpUrgency(b)-nextTpUrgency(a);// within same status, most urgent first
+  });
   const el=document.getElementById('guest-list');
   if(!list.length){el.innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No clients yet.<br>Use "+ Add client" to get started.</p></div>`;return;}
   el.innerHTML=`<div class="sec-hdr"><div class="sec-title">Your clients</div><div class="sec-ct">${list.length}</div></div><div class="clist">${list.map(c=>renderGuestCard(c,true)).join('')}</div>`;
