@@ -60,7 +60,7 @@ module.exports = async function handler(req, res) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          from: process.env.RESEND_FROM_EMAIL || 'Perspire Tracker <notifications@resend.dev>',
+          from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
           to: recipients,
           subject: `⚠️ Perspire: ${summary}`,
           text: emailBody
