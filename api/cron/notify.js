@@ -14,14 +14,11 @@ module.exports = async function handler(req, res) {
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
 
-  // Also check for today (in case something was missed)
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-
-  // Query open change requests with bill date of today or tomorrow
+  // Query open change requests with bill date of tomorrow
   const { data: urgent, error } = await supabase
     .from('changes')
     .select('*')
-    .in('bill_date', [todayStr, tomorrowStr])
+    .eq('bill_date', tomorrowStr)
     .eq('status', 'open');
 
   if (error) {
@@ -35,11 +32,10 @@ module.exports = async function handler(req, res) {
 
   // Format the list
   const lines = urgent.map(c => {
-    const billLabel = c.bill_date === todayStr ? 'TODAY' : 'TOMORROW';
-    return `- ${c.guest_name} (${c.type}) — bill date ${billLabel} (${c.bill_date})`;
+    return `- ${c.guest_name} (${c.type}) — bill date tomorrow (${c.bill_date})`;
   });
 
-  const summary = `${urgent.length} unprocessed request${urgent.length !== 1 ? 's' : ''} due TODAY or TOMORROW`;
+  const summary = `${urgent.length} unprocessed request${urgent.length !== 1 ? 's' : ''} due tomorrow`;
   const details = lines.join('\n');
 
   // ── SEND EMAIL via Resend ──────────────────────────────────────────────
