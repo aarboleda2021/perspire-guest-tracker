@@ -633,6 +633,7 @@ function cadenceGuide(tier){
   const t=tier.toLowerCase();
   if(t.includes('iritual'))return{ideal:'3–4 visits/week',risk:'7+ days no visit',tip:'Anchor to specific days — e.g. Mon/Wed/Fri/Sun — to build a true ritual.'};
   if(t.includes('irecover'))return{ideal:'2 visits/week',risk:'7+ days no visit',tip:'Twice a week, spaced 3–4 days apart for best recovery benefits.'};
+  if(t.includes('irevive'))return{ideal:'1 visit every 2 weeks',risk:'21+ days no visit',tip:'Twice a month keeps the routine alive and sets you up for a future upgrade.'};
   if(t.includes('irelax'))return{ideal:'1 visit/week',risk:'14+ days no visit',tip:'Same day each week is the easiest habit to build.'};
   if(t.includes('20 pack'))return{ideal:'Every 2 weeks',risk:'28+ days in first 60 days',tip:'Bi-weekly rhythm locks in the habit before sessions pile up.'};
   if(t.includes('8 pack'))return{ideal:'Every 3 weeks',risk:'28+ days in first 60 days',tip:'Once every 3 weeks in the first 3 months.'};
@@ -1272,12 +1273,14 @@ function renderGuests(){
     return hasOverdue?0:hasDue?1:2;
   }
   function nurtureTpUrgency(n){
-    const d=daysSince(n.startDate);
-    for(let i=0;i<NURTURE_TPS.length;i++){
+    const tps=getNurtureTPs(n),wins=getNurtureWins(n);
+    const sd=parseDate(n.startDate);
+    const d=sd?Math.floor((today()-sd)/86400000):0;
+    for(let i=0;i<tps.length;i++){
       const s=nurtureStatus(n,i);
-      if(s==='overdue')return d-NURTURE_WINS[i][1];
-      if(s==='due-now')return-(NURTURE_WINS[i][1]-d);
-      if(s==='future')return-(NURTURE_WINS[i][0]-d);
+      if(s==='overdue')return d-wins[i][1];
+      if(s==='due-now')return-(wins[i][1]-d);
+      if(s==='future')return-(wins[i][0]-d);
     }
     return 999;
   }
@@ -1642,7 +1645,7 @@ async function saveLog(){
     if(useLocalStorage){lsSave();}
     else{await api('nurtures/'+n.id,{method:'PUT',body:{logs:n.logs,status:n.status}});}
     closeModal('log-modal');nurtureLogId=null;nurtureLogIdx=null;
-    renderMgrNurture();
+    renderMgrNurture();renderGuests();
     return;
   }
   const c=guests.find(x=>x.id===mId);if(!c)return;
@@ -1761,13 +1764,13 @@ function toggleDeactivate(id){
     // Reactivate — no modal needed
     c.deactivated=false;c.deactivatedReason=null;c.deactivatedNotes=null;
     if(useLocalStorage){lsSave();}
-    else{api('guests/'+id,{method:'PUT',body:{deactivated:false}});}
+    else{await api('guests/'+id,{method:'PUT',body:{deactivated:false}});}
     renderGuests();return;
   }
   // Open deactivation modal
   deactivateGuestId=id;
   document.getElementById('deact-sub').textContent=`${c.name} will be removed from active outreach and hidden from the default view.`;
-  document.getElementById('deact-reason').value='cancelled';
+  document.getElementById('deact-reason').value='membership-change';
   document.getElementById('deact-notes').value='';
   document.getElementById('deactivate-modal').classList.add('open');
 }
@@ -1993,30 +1996,6 @@ async function toggleOverride(id){
   else{await api('changes/'+id,{method:'PUT',body:{freezeOverride:c.freezeOverride}});}
 }
 
-// Edit change — reuse the same form
-function openEditChange(id){
-  const c=changes.find(x=>x.id===id);if(!c)return;
-  editingChangeId=id;
-  document.getElementById('chg-form-title').textContent='Editing: '+c.guestName;
-  document.getElementById('chg-submit-btn').textContent='Save changes';
-  document.getElementById('add-change-form').classList.add('editing');
-  const f=document.getElementById('add-change-form');f.classList.add('open');
-  document.getElementById('mc-name').value=c.guestName;
-  document.getElementById('mc-type').value=c.type;
-  onTypeChange();
-  document.getElementById('mc-req-date').value=toInputDate(c.dateRequested);
-  document.getElementById('mc-bill-date').value=toInputDate(c.billDate);
-  document.getElementById('mc-cur-tier').value=c.currentTier||'IRelax 4x';
-  if(c.newTier)document.getElementById('mc-new-tier').value=c.newTier;
-  if(c.freezeDuration){const fd=document.getElementById('mc-freeze-dur');if(fd)fd.value=c.freezeDuration;if(c.freezeDuration==='other'){const fw=document.getElementById('mc-freeze-other-wrap');if(fw)fw.style.display='block';const fo=document.getElementById('mc-freeze-other');if(fo)fo.value=c.freezeOtherNote||'';}}
-  document.getElementById('mc-notes').value=c.notes||'';
-  // Pre-check required checkboxes since they were already validated on initial submission
-  ['chk-mb','chk-out','chk-mb-tc','chk-mb-susp'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=true;});
-  // Restore outreach outcome if applicable
-  if(c.outreachOutcome){const oo=document.getElementById('mc-out-outcome');if(oo)oo.value=c.outreachOutcome;}
-  f.scrollIntoView({behavior:'smooth',block:'start'});
-}
-
 // Edit guest modal
 let editGuestId=null;
 function openEditGuest(id){
@@ -2157,8 +2136,8 @@ async function toggleStaffActive(sid){
 
 function closeModal(id){
   document.getElementById(id).classList.remove('open');
-  if(id==='log-modal'){mId=null;mIdx=null;}
-  if(id==='rassign-modal'){rStaff=null;rClient=null;}
+  if(id==='log-modal'){mId=null;mIdx=null;nurtureLogId=null;nurtureLogIdx=null;}
+  if(id==='rassign-modal'){rStaff=null;rClient=null;reassignNurtureId=null;}
   if(id==='edit-guest-modal')editGuestId=null;
   if(id==='edit-change-modal')editChangeId=null;
 }
@@ -2170,9 +2149,9 @@ function downloadCSV(filename,rows){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();
 }
 function exportGuests(){
-  const rows=[['Name','Type','Tier','Contract Start','Assigned Staff','Visit Status','Day','Status','Touchpoints Completed']];
+  const rows=[['Name','Type','Tier','Contract Start','Assigned Staff','Visit Status','Day','Status','Touchpoints Completed','Active']];
   guests.forEach(c=>{const tps=getTPs(c.type);const done=tps.filter((_,i)=>tpStatus(c,i)==='completed').length;
-    rows.push([c.name,c.type,c.tier,toInputDate(c.contractStartDate),sName(c.assignedStaff),c.visitStatus,daysSince(c.contractStartDate),guestStatus(c),`${done}/${tps.length}`]);
+    rows.push([c.name,c.type,c.tier,toInputDate(c.contractStartDate),sName(c.assignedStaff),c.visitStatus,daysSince(c.contractStartDate),guestStatus(c),`${done}/${tps.length}`,c.deactivated?'Deactivated':'Active']);
   });
   downloadCSV('perspire-new-guests.csv',rows);
 }
@@ -2182,8 +2161,8 @@ function exportChanges(){
   downloadCSV('perspire-membership-changes.csv',rows);
 }
 function exportNurtures(){
-  const rows=[['Guest Name','Type','Old Tier','New Tier','Start Date','Assigned Staff','Status','TP1 Done','TP2 Done']];
-  nurtures.forEach(n=>{rows.push([n.guestName,n.type,n.oldTier,n.newTier,toInputDate(n.startDate),sName(n.assignedStaff||'mohogany'),n.status,n.logs?.[0]?'Yes':'No',n.logs?.[1]?'Yes':'No']);});
+  const rows=[['Guest Name','Type','Old Tier','New Tier','Start Date','Assigned Staff','Status','Freeze Duration','TP1 Done','TP2 Done','TP3 Done']];
+  nurtures.forEach(n=>{rows.push([n.guestName,n.type,n.oldTier,n.newTier,toInputDate(n.startDate),sName(n.assignedStaff||'mohogany'),n.status,n.freezeDuration||'',n.logs?.[0]?'Yes':'No',n.logs?.[1]?'Yes':'No',n.logs?.[2]?'Yes':'No']);});
   downloadCSV('perspire-nurtures.csv',rows);
 }
 
