@@ -578,7 +578,7 @@
       <select class="fi" id="deact-reason">
         <option value="cancelled">Cancelled membership</option>
         <option value="requested-no-contact">Requested no further contact</option>
-        <option value="converted-change">Converted to membership change</option>
+        <option value="membership-change">Membership change submitted</option>
         <option value="duplicate">Duplicate entry</option>
         <option value="other">Other</option>
       </select>
@@ -1233,7 +1233,7 @@ function renderGuestCard(c,actions,prefix=''){
     </div>
     <div class="cbody">
       <div class="tpg">${tpHtml}</div>
-      ${c.deactivated?`<div style="background:var(--errp);border:1.5px solid #E8A8A3;border-radius:10px;padding:11px 14px;margin-top:12px;"><div style="font-size:11px;font-weight:600;color:var(--err);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Deactivated</div><p style="font-size:12px;color:#6B1A0A;line-height:1.5;"><strong>Reason:</strong> ${({cancelled:'Cancelled membership','requested-no-contact':'Requested no further contact','converted-change':'Converted to membership change',duplicate:'Duplicate entry',other:'Other'})[c.deactivatedReason]||c.deactivatedReason||'Not specified'}${c.deactivatedNotes?` — ${c.deactivatedNotes}`:''}</p></div>`:`<div class="cadbox"><div class="cadbox-t">Cadence guidance — ${c.tier}</div><p><strong>Ideal:</strong> ${g.ideal} · <strong>At-risk:</strong> ${g.risk}<br><strong>Tip:</strong> ${g.tip}</p></div>`}
+      ${c.deactivated?`<div style="background:var(--errp);border:1.5px solid #E8A8A3;border-radius:10px;padding:11px 14px;margin-top:12px;"><div style="font-size:11px;font-weight:600;color:var(--err);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Deactivated</div><p style="font-size:12px;color:#6B1A0A;line-height:1.5;"><strong>Reason:</strong> ${({cancelled:'Cancelled membership','requested-no-contact':'Requested no further contact','membership-change':'Membership change submitted',duplicate:'Duplicate entry',other:'Other'})[c.deactivatedReason]||c.deactivatedReason||'Not specified'}${c.deactivatedNotes?` — ${c.deactivatedNotes}`:''}</p></div>`:`<div class="cadbox"><div class="cadbox-t">Cadence guidance — ${c.tier}</div><p><strong>Ideal:</strong> ${g.ideal} · <strong>At-risk:</strong> ${g.risk}<br><strong>Tip:</strong> ${g.tip}</p></div>`}
       ${actHtml}
     </div>
   </div>`;
@@ -1798,7 +1798,7 @@ async function toggleClose(id){
   if(wasOpen&&c.status==='closed'){
     const match=guests.find(g=>!g.deactivated&&g.name.toLowerCase()===c.guestName.toLowerCase());
     if(match){
-      const reasonMap={termination:'cancelled',suspension:'cancelled',downgrade:'converted-change',upgrade:'converted-change'};
+      const reasonMap={termination:'cancelled',suspension:'cancelled',downgrade:'membership-change',upgrade:'membership-change'};
       if(confirm(`"${match.name}" is in the New Guests tracker (assigned to ${sName(match.assignedStaff)}). Would you like to deactivate their outreach journey?`)){
         match.deactivated=true;match.deactivatedReason=reasonMap[c.type]||'other';match.deactivatedNotes=`Auto-prompted: ${c.type} processed on ${new Date().toLocaleDateString('en-US')}`;
         if(useLocalStorage){lsSave();}
