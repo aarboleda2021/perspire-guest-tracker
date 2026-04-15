@@ -988,7 +988,10 @@ function showNurtureScript(type,idx,ch,btn){
 function nurtureStatus(n,i){
   const wins=getNurtureWins(n);
   if(!wins[i])return'future';
-  const[ws,we]=wins[i],d=daysSince(n.startDate);
+  const[ws,we]=wins[i];
+  // Use raw days (can be negative for future start dates)
+  const sd=parseDate(n.startDate);
+  const d=sd?Math.floor((today()-sd)/86400000):0;
   if(n.logs?.[i]?.date)return'completed';
   if(d<ws)return'future';
   if(d<=we+3)return'due-now';
@@ -1558,16 +1561,16 @@ function renderMgrNurture(){
 
   let html='';
   if(sorted.length){
-    html+=`<div class="sec-hdr"><div class="sec-title">Active</div><div class="sec-ct">${sorted.length}</div></div><div class="clist">${sorted.map(n=>renderNurtureCard(n)).join('')}</div>`;
+    html+=`<div class="sec-hdr"><div class="sec-title">Active</div><div class="sec-ct">${sorted.length}</div></div><div class="clist">${sorted.map(n=>renderNurtureCard(n,'mgr-')).join('')}</div>`;
   }
   if(completed.length){
-    html+=`<div class="sec-hdr" style="margin-top:22px;"><div class="sec-title">Completed</div><div class="sec-ct">${completed.length}</div></div><div class="clist">${completed.map(n=>renderNurtureCard(n)).join('')}</div>`;
+    html+=`<div class="sec-hdr" style="margin-top:22px;"><div class="sec-title">Completed</div><div class="sec-ct">${completed.length}</div></div><div class="clist">${completed.map(n=>renderNurtureCard(n,'mgr-')).join('')}</div>`;
   }
   el.innerHTML=html;
   restoreExpanded();
 }
 
-function renderNurtureCard(n){
+function renderNurtureCard(n,prefix=''){
   const days=daysSince(n.startDate);
   const tps=getNurtureTPs(n),wins=getNurtureWins(n);
   const done=tps.filter((_,i)=>nurtureStatus(n,i)==='completed').length;
@@ -1591,8 +1594,8 @@ function renderNurtureCard(n){
     ?`<div class="reactiv" style="margin-bottom:12px;"><p>🔔 <strong>Membership reactivation</strong> — ${n.freezeDuration==='other'?'Open-ended freeze (checking in monthly)':`${n.freezeDuration}-day freeze`}<br>Tier: ${n.oldTier} · Cadence on return: ${cadenceGuide(n.oldTier).ideal}</p></div>`
     :`<div class="tier-box" style="margin-bottom:12px;"><strong>Tier change:</strong> ${n.oldTier} → ${n.newTier}<br><span style="opacity:.8">Target cadence: ${cadenceGuide(n.newTier).ideal}</span></div>`;
 
-  return`<div class="ccard ${st==='overdue'?'isod':st==='due-now'?'isdu':''}" id="nur-${n.id}">
-    <div class="chdr" onclick="toggleCard('nur-${n.id}')">
+  return`<div class="ccard ${st==='overdue'?'isod':st==='due-now'?'isdu':''}" id="${prefix}nur-${n.id}">
+    <div class="chdr" onclick="toggleCard('${prefix}nur-${n.id}')">
       <div class="cav">${initials(n.guestName)}</div>
       <div class="ci"><div class="cn">${n.guestName}</div><div class="cm">${isReact?(n.freezeDuration==='other'?'Open-ended freeze':'Reactivation reminder'):n.oldTier+' → '+n.newTier} · Day ${days} · ${done}/${tps.length} touchpoints · Assigned: ${sName(n.assignedStaff||'mohogany')}</div></div>
       <div class="cbdg">${tBdg}${sBdg}</div>
