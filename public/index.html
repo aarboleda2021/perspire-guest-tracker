@@ -1758,7 +1758,7 @@ async function toggleRisk(id){
   renderGuests();
 }
 let deactivateGuestId=null;
-function toggleDeactivate(id){
+async function toggleDeactivate(id){
   const c=guests.find(x=>x.id===id);if(!c)return;
   if(c.deactivated){
     // Reactivate — no modal needed
