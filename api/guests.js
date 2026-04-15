@@ -37,6 +37,7 @@ module.exports = async function handler(req, res) {
       contractStartDate: g.contract_start_date,
       assignedStaff: g.assigned_staff,
       visitStatus: g.visit_status,
+      deactivated: g.deactivated || false,
       logs: logsByGuest[g.id] || {},
       createdAt: g.created_at
     }));

@@ -236,6 +236,7 @@
       <option value="at-risk">At-risk visit status</option>
       <option value="due-soon">Due this week</option>
       <option value="between">Between touchpoints</option>
+      <option value="deactivated">Deactivated</option>
     </select>
     <button class="btn btn-p" onclick="toggleAddGuest()">+ Add client</button>
   </div>
@@ -1143,17 +1144,21 @@ function cardScript(cid,key,type,btn){
 function renderGuests(){
   const sid=document.getElementById('staff-sel').value;
   const fil=document.getElementById('filter-sel').value;
-  const mine=sid==='all'?guests:guests.filter(c=>c.assignedStaff===sid);
-  const ov=mine.filter(c=>guestStatus(c)==='overdue').length;
-  const dn=mine.filter(c=>guestStatus(c)==='due-now').length;
-  const ot=mine.filter(c=>guestStatus(c)==='on-track').length;
+  const mineAll=sid==='all'?guests:guests.filter(c=>c.assignedStaff===sid);
+  const mine=fil==='deactivated'?mineAll.filter(c=>c.deactivated):mineAll.filter(c=>!c.deactivated);
+  const active=mineAll.filter(c=>!c.deactivated);
+  const ov=active.filter(c=>guestStatus(c)==='overdue').length;
+  const dn=active.filter(c=>guestStatus(c)==='due-now').length;
+  const ot=active.filter(c=>guestStatus(c)==='on-track').length;
+  const deactCt=mineAll.filter(c=>c.deactivated).length;
   document.getElementById('guest-stats').innerHTML=`
-    <div class="sc"><div class="scl">Active clients</div><div class="scv">${mine.length}</div></div>
+    <div class="sc"><div class="scl">Active clients</div><div class="scv">${active.length}</div></div>
     <div class="sc"><div class="scl">Overdue</div><div class="scv ${ov>0?'d':''}">${ov}</div></div>
     <div class="sc"><div class="scl">Due this week</div><div class="scv ${dn>0?'w':''}">${dn}</div></div>
     <div class="sc"><div class="scl">On track</div><div class="scv ${ot>0?'s':''}">${ot}</div></div>`;
   let list=mine;
-  if(fil==='overdue')list=mine.filter(c=>guestStatus(c)==='overdue');
+  if(fil==='deactivated')list=mine;
+  else if(fil==='overdue')list=mine.filter(c=>guestStatus(c)==='overdue');
   else if(fil==='at-risk')list=mine.filter(c=>c.visitStatus==='at-risk');
   else if(fil==='due-soon')list=mine.filter(c=>guestStatus(c)==='due-now');
   else if(fil==='between')list=mine.filter(c=>{const s=guestStatus(c);return(s==='on-track'||s==='complete')&&daysSince(c.contractStartDate)<=95;});
@@ -1192,15 +1197,16 @@ function renderGuestCard(c,actions,prefix=''){
   }).join('');
   const actHtml=actions?`<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
     <button class="btn btn-g btn-sm" onclick="openEditGuest('${c.id}')">Edit</button>
-    <button class="btn btn-g btn-sm" onclick="toggleRisk('${c.id}')">${c.visitStatus==='at-risk'?'✓ Mark healthy':'Mark at-risk'}</button>
+    ${!c.deactivated?`<button class="btn btn-g btn-sm" onclick="toggleRisk('${c.id}')">${c.visitStatus==='at-risk'?'✓ Mark healthy':'Mark at-risk'}</button>`:''}
     <button class="btn btn-g btn-sm" onclick="openReassignSingle('${c.id}')">Reassign</button>
+    <button class="btn btn-g btn-sm" style="${c.deactivated?'color:var(--ok);border-color:var(--ok);':'color:var(--muted);border-color:var(--muted);'}" onclick="toggleDeactivate('${c.id}')">${c.deactivated?'Reactivate':'Deactivate'}</button>
     <button class="btn btn-sm btn-do" onclick="removeGuest('${c.id}')">Remove</button>
   </div>`:'';
   return`<div class="ccard ${st==='overdue'?'isod':st==='due-now'?'isdu':''}" id="${prefix}ccard-${c.id}">
     <div class="chdr" onclick="toggleCard('${prefix}ccard-${c.id}')">
       <div class="cav">${initials(c.name)}</div>
       <div class="ci"><div class="cn">${c.name}</div><div class="cm">${c.tier} · Day ${days} · ${done}/${tps.length} touchpoints${nxtTxt} · ${sName(c.assignedStaff)}</div></div>
-      <div class="cbdg">${tBdg}${sBdg}${c.visitStatus==='at-risk'?`<span class="badge bod">At-risk</span>`:''}</div>
+      <div class="cbdg">${tBdg}${c.deactivated?`<span class="badge bia">Deactivated</span>`:sBdg}${!c.deactivated&&c.visitStatus==='at-risk'?`<span class="badge bod">At-risk</span>`:''}</div>
       <svg class="xic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
     </div>
     <div class="cbody">
@@ -1369,19 +1375,20 @@ function buildPostChecklist(c){
 // ── RENDER: MANAGER VIEW ──────────────────────────────────────────────────
 
 function renderMgrOverview(){
-  const ov=guests.filter(c=>guestStatus(c)==='overdue').length;
-  const dn=guests.filter(c=>guestStatus(c)==='due-now').length;
-  const ot=guests.filter(c=>guestStatus(c)==='on-track').length;
-  const ar=guests.filter(c=>c.visitStatus==='at-risk').length;
+  const activeGuests=guests.filter(c=>!c.deactivated);
+  const ov=activeGuests.filter(c=>guestStatus(c)==='overdue').length;
+  const dn=activeGuests.filter(c=>guestStatus(c)==='due-now').length;
+  const ot=activeGuests.filter(c=>guestStatus(c)==='on-track').length;
+  const ar=activeGuests.filter(c=>c.visitStatus==='at-risk').length;
   document.getElementById('mgr-stats').innerHTML=`
-    <div class="sc"><div class="scl">Total new guests</div><div class="scv">${guests.length}</div></div>
+    <div class="sc"><div class="scl">Active new guests</div><div class="scv">${activeGuests.length}</div></div>
     <div class="sc"><div class="scl">Overdue touchpoints</div><div class="scv ${ov>0?'d':''}">${ov}</div></div>
     <div class="sc"><div class="scl">Due this week</div><div class="scv ${dn>0?'w':''}">${dn}</div></div>
     <div class="sc"><div class="scl">At-risk members</div><div class="scv ${ar>0?'d':''}">${ar}</div></div>`;
   document.getElementById('mgr-stats').innerHTML+=`<div style="grid-column:1/-1;text-align:right;"><button class="btn btn-g btn-sm" onclick="exportGuests()">Export CSV</button></div>`;
-  if(!guests.length){document.getElementById('mgr-list').innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No clients yet.</p></div>`;return;}
+  if(!activeGuests.length){document.getElementById('mgr-list').innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No active clients.</p></div>`;return;}
   document.getElementById('mgr-list').innerHTML=staffList.map(s=>{
-    const sc=guests.filter(c=>c.assignedStaff===s.id);if(!sc.length)return'';
+    const sc=activeGuests.filter(c=>c.assignedStaff===s.id);if(!sc.length)return'';
     const ovs=sc.filter(c=>guestStatus(c)==='overdue').length;
     const flag=ovs>0?`<span class="badge bod">${ovs} overdue</span>`:`<span class="badge bhlt">All on track</span>`;
     return`<div class="staff-sec"><div class="staff-hdr"><div class="sav">${s.name[0]}</div><div class="snlbl">${s.name}</div>${!s.active?`<span class="badge bia">Inactive</span>`:''}${flag}<div class="ssum">${sc.length} client${sc.length!==1?'s':''}</div></div><div class="clist">${sc.map(c=>renderGuestCard(c,false,'mgr-')).join('')}</div></div>`;
@@ -1613,6 +1620,15 @@ async function toggleRisk(id){
   c.visitStatus=c.visitStatus==='at-risk'?'healthy':'at-risk';
   if(useLocalStorage){lsSave();}
   else{await api('guests/'+id,{method:'PUT',body:{visitStatus:c.visitStatus}});await loadGuests();}
+  renderGuests();
+}
+async function toggleDeactivate(id){
+  const c=guests.find(x=>x.id===id);if(!c)return;
+  const action=c.deactivated?'reactivate':'deactivate';
+  if(!c.deactivated&&!confirm(`Deactivate ${c.name}? They will be removed from active outreach and hidden from the default view.`))return;
+  c.deactivated=!c.deactivated;
+  if(useLocalStorage){lsSave();}
+  else{await api('guests/'+id,{method:'PUT',body:{deactivated:c.deactivated}});await loadGuests();}
   renderGuests();
 }
 
