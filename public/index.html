@@ -959,12 +959,15 @@ function getNurtureScripts(n){
   return NURTURE_SCRIPTS[n.type]||[];
 }
 
-let _nurtureScriptData={};
+let _nurtureScriptData={},_nurtureScriptSet=[];
 function openNurtureScript(type,idx,nurtureId){
   const n=nurtureId?nurtures.find(x=>x.id===nurtureId):null;
   const scripts=n?getNurtureScripts(n):(NURTURE_SCRIPTS[type]||[]);
-  if(!scripts[idx])return;
-  const s=scripts[idx];
+  // For open-ended freezes, reuse the single script for all check-in touchpoints
+  const scriptIdx=(n&&n.type==='reactivation'&&n.freezeDuration==='other')?0:idx;
+  if(!scripts[scriptIdx])return;
+  _nurtureScriptSet=scripts;
+  const s=scripts[scriptIdx];
   const tps=n?getNurtureTPs(n):NURTURE_TPS;
   const tp=tps[idx];if(!tp)return;
   _nurtureScriptData=n?{name:n.guestName,newTier:n.newTier,tier:n.oldTier||n.newTier}:{};
@@ -972,14 +975,14 @@ function openNurtureScript(type,idx,nurtureId){
   document.getElementById('tp-script-sub').textContent=`${tp.window} · ${tp.goal}`;
   document.getElementById('tp-script-body').textContent=fillScript(s.call,_nurtureScriptData);
   document.getElementById('tp-script-tabs').innerHTML=
-    `<button class="stab active" onclick="showNurtureScript('${type}',${idx},'call',this)">Phone call</button>`+
-    `<button class="stab" onclick="showNurtureScript('${type}',${idx},'voicemail',this)">Voicemail</button>`+
-    `<button class="stab" onclick="showNurtureScript('${type}',${idx},'text',this)">Text</button>`+
-    `<button class="stab" onclick="showNurtureScript('${type}',${idx},'email',this)">Email</button>`;
+    `<button class="stab active" onclick="showNurtureScript(${scriptIdx},'call',this)">Phone call</button>`+
+    `<button class="stab" onclick="showNurtureScript(${scriptIdx},'voicemail',this)">Voicemail</button>`+
+    `<button class="stab" onclick="showNurtureScript(${scriptIdx},'text',this)">Text</button>`+
+    `<button class="stab" onclick="showNurtureScript(${scriptIdx},'email',this)">Email</button>`;
   document.getElementById('tp-script-modal').classList.add('open');
 }
-function showNurtureScript(type,idx,ch,btn){
-  const s=NURTURE_SCRIPTS[type]?.[idx];if(!s)return;
+function showNurtureScript(idx,ch,btn){
+  const s=_nurtureScriptSet[idx];if(!s)return;
   document.getElementById('tp-script-body').textContent=fillScript(s[ch]||'',_nurtureScriptData);
   btn.closest('.stabs').querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
   btn.classList.add('active');
