@@ -49,11 +49,23 @@ module.exports = async function handler(req, res) {
 
   if (resource === 'logs') {
     if (req.method === 'GET') {
-      if (!date) return res.status(400).json({ error: 'Missing date' });
-      const { data, error } = await supabase
-        .from('daily_logs')
-        .select('*')
-        .eq('log_date', date);
+      const { month, dateFrom, dateTo } = req.query;
+      let query = supabase.from('daily_logs').select('*');
+      if (month) {
+        // month is YYYY-MM. Fetch all dates in that month.
+        const [y, m] = month.split('-');
+        const first = `${y}-${m}-01`;
+        const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+        const last = `${y}-${m}-${String(lastDay).padStart(2,'0')}`;
+        query = query.gte('log_date', first).lte('log_date', last);
+      } else if (dateFrom && dateTo) {
+        query = query.gte('log_date', dateFrom).lte('log_date', dateTo);
+      } else if (date) {
+        query = query.eq('log_date', date);
+      } else {
+        return res.status(400).json({ error: 'Missing date, month, or dateFrom/dateTo' });
+      }
+      const { data, error } = await query;
       if (error) return res.status(500).json({ error: error.message });
       const result = data.map(l => ({
         staffId: l.staff_id,
