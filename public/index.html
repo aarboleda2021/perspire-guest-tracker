@@ -1942,15 +1942,21 @@ function renderMgrDashboard(){
     return getNurtureTPs(n).some((_,i)=>['due-now','overdue'].includes(nurtureStatus(n,i)));
   });
 
-  // Build alert cards
-  const alerts=[];
-  if(urgentChanges.length)alerts.push({count:urgentChanges.length,label:`Urgent bill date${urgentChanges.length!==1?'s':''}`,sub:'Process before close of business',color:'var(--urg)',bg:'var(--urgp)',tab:'changes'});
-  if(followUpChanges.length)alerts.push({count:followUpChanges.length,label:`Follow-up${followUpChanges.length!==1?'s':''} needed`,sub:'Second outreach required',color:'#856404',bg:'#FFF8E1',tab:'changes'});
-  if(pendingGrads.length)alerts.push({count:pendingGrads.length,label:`Pending graduation${pendingGrads.length!==1?'s':''}`,sub:'Ready to celebrate 🎓',color:'var(--ok)',bg:'var(--okp)',tab:'graduated'});
-  if(overdueNurtures.length)alerts.push({count:overdueNurtures.length,label:`Overdue tier nurture${overdueNurtures.length!==1?'s':''}`,sub:'Need outreach now',color:'var(--err)',bg:'var(--errp)',tab:'nurture'});
-  if(dueNowNurtures.length)alerts.push({count:dueNowNurtures.length,label:`Nurture${dueNowNurtures.length!==1?'s':''} due this week`,sub:'Touchpoint window open',color:'var(--warn)',bg:'var(--warnp)',tab:'nurture'});
-  if(upcomingReacts.length)alerts.push({count:upcomingReacts.length,label:`Reactivation${upcomingReacts.length!==1?'s':''} coming up`,sub:'Send welcome-back outreach',color:'var(--ok)',bg:'var(--okp)',tab:'nurture'});
-  if(urgentNotes.length)alerts.push({count:urgentNotes.length,label:`Urgent shift note${urgentNotes.length!==1?'s':''}`,sub:'Unresolved and flagged',color:'var(--urg)',bg:'var(--urgp)',tab:null,goto:'daily-notes'});
+  // Build alert cards — always show all categories, with 0 if nothing
+  const alertDef=[
+    {count:urgentChanges.length,label:'Urgent bill dates',sub:'Process before close of business',urgentColor:'var(--urg)',urgentBg:'var(--urgp)',tab:'changes'},
+    {count:followUpChanges.length,label:'Follow-ups needed',sub:'Second outreach required',urgentColor:'#856404',urgentBg:'#FFF8E1',tab:'changes'},
+    {count:pendingGrads.length,label:'Pending graduations',sub:'Ready to celebrate 🎓',urgentColor:'var(--ok)',urgentBg:'var(--okp)',tab:'graduated'},
+    {count:overdueNurtures.length,label:'Overdue tier nurtures',sub:'Need outreach now',urgentColor:'var(--err)',urgentBg:'var(--errp)',tab:'nurture'},
+    {count:dueNowNurtures.length,label:'Nurtures due this week',sub:'Touchpoint window open',urgentColor:'var(--warn)',urgentBg:'var(--warnp)',tab:'nurture'},
+    {count:upcomingReacts.length,label:'Reactivations coming up',sub:'Send welcome-back outreach',urgentColor:'var(--ok)',urgentBg:'var(--okp)',tab:'nurture'},
+    {count:urgentNotes.length,label:'Urgent shift notes',sub:'Unresolved and flagged',urgentColor:'var(--urg)',urgentBg:'var(--urgp)',tab:null,goto:'daily-notes'},
+  ];
+  const alerts=alertDef.map(a=>({
+    ...a,
+    color:a.count>0?a.urgentColor:'var(--muted)',
+    bg:a.count>0?a.urgentBg:'white'
+  }));
 
   // Status counts
   const statusCards=[
@@ -1963,71 +1969,44 @@ function renderMgrDashboard(){
   let html=`<div style="font-family:'DM Serif Display',serif;font-size:22px;margin-bottom:4px;">Dashboard</div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:22px;">${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})} · At-a-glance view of what needs attention</div>`;
 
-  // Visits upload prompt (escalating: none<3d, gentle 3-4d, urgent 5d+, never-uploaded)
+  // Visits upload prompt — always shown with appropriate state
+  let uploadCard;
   if(lastUpload===undefined||lastUpload===null){
-    html+=`<div style="background:var(--warnp);border:2px solid #E8C07A;border-radius:12px;padding:16px 18px;margin-bottom:18px;">
-      <div style="font-weight:600;color:var(--warn);font-size:14px;margin-bottom:4px;">📤 Upload the attendance analysis report</div>
-      <div style="font-size:13px;color:var(--mid);line-height:1.5;margin-bottom:10px;">No visits report has been uploaded yet. Uploading keeps session milestones accurate for all members.</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-g btn-sm" onclick="openModal('upload-instructions-modal')">📖 How to pull this report</button><button class="btn btn-p btn-sm" onclick="openUploadVisits()">📤 Upload now</button></div>
-    </div>`;
+    uploadCard={bg:'var(--warnp)',border:'2px solid #E8C07A',color:'var(--warn)',title:'📤 Upload the attendance analysis report',msg:'No visits report has been uploaded yet. Uploading keeps session milestones accurate for all members.'};
   } else if(daysSinceUpload>=5){
-    html+=`<div style="background:var(--errp);border:2px solid var(--err);border-radius:12px;padding:16px 18px;margin-bottom:18px;">
-      <div style="font-weight:600;color:var(--err);font-size:14px;margin-bottom:4px;">⚠ Overdue: upload the attendance analysis report</div>
-      <div style="font-size:13px;color:var(--mid);line-height:1.5;margin-bottom:10px;">Last upload was <strong>${daysSinceUpload} days ago</strong>. Milestone tracking may be outdated — please pull the latest report and upload.</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-g btn-sm" onclick="openModal('upload-instructions-modal')">📖 How to pull this report</button><button class="btn btn-p btn-sm" onclick="openUploadVisits()">📤 Upload now</button></div>
-    </div>`;
+    uploadCard={bg:'var(--errp)',border:'2px solid var(--err)',color:'var(--err)',title:'⚠ Overdue: upload the attendance analysis report',msg:`Last upload was <strong>${daysSinceUpload} days ago</strong>. Milestone tracking may be outdated — please pull the latest report and upload.`};
   } else if(daysSinceUpload>=3){
-    html+=`<div style="background:var(--warnp);border:1.5px solid #E8C07A;border-radius:12px;padding:14px 16px;margin-bottom:18px;">
-      <div style="font-weight:600;color:var(--warn);font-size:13px;margin-bottom:4px;">📤 Time to upload the attendance analysis report</div>
-      <div style="font-size:12px;color:var(--mid);line-height:1.5;margin-bottom:10px;">Last upload was ${daysSinceUpload} days ago. Pull the latest report every 3 days to keep milestones fresh.</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-g btn-sm" onclick="openModal('upload-instructions-modal')">📖 How to pull this report</button><button class="btn btn-p btn-sm" onclick="openUploadVisits()">📤 Upload now</button></div>
-    </div>`;
-  }
-
-  if(!alerts.length){
-    html+=`<div style="background:var(--okp);border:1.5px solid #9ECDB5;border-radius:12px;padding:22px;text-align:center;margin-bottom:22px;">
-      <div style="font-size:30px;margin-bottom:8px;">✨</div>
-      <div style="font-weight:600;color:var(--ok);font-size:16px;margin-bottom:4px;">All caught up!</div>
-      <div style="font-size:13px;color:var(--mid);">No urgent items needing your attention right now.</div>
-    </div>`;
+    uploadCard={bg:'var(--warnp)',border:'1.5px solid #E8C07A',color:'var(--warn)',title:'📤 Time to upload the attendance analysis report',msg:`Last upload was ${daysSinceUpload} days ago. Pull the latest report every 3 days to keep milestones fresh.`};
   } else {
-    html+=`<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 10px;">Needs attention</div>`;
-    html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-bottom:22px;">`;
-    html+=alerts.map(a=>{
-      const onclick=a.tab?`onclick="setMgrTab('${a.tab}')"`:(a.goto?`onclick="setView('daily');setDailyTab('notes')"`:'');
-      return`<div style="background:${a.bg};border:1.5px solid ${a.color};border-radius:12px;padding:14px 16px;cursor:pointer;transition:transform .1s;" ${onclick} onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
-        <div style="display:flex;align-items:center;gap:12px;">
-          <div style="font-family:'DM Serif Display',serif;font-size:32px;color:${a.color};line-height:1;">${a.count}</div>
-          <div style="flex:1;">
-            <div style="font-weight:600;font-size:13px;color:${a.color};">${a.label}</div>
-            <div style="font-size:11px;color:var(--mid);margin-top:2px;">${a.sub}</div>
-          </div>
-          <div style="color:${a.color};font-size:18px;">→</div>
-        </div>
-      </div>`;
-    }).join('');
-    html+=`</div>`;
+    uploadCard={bg:'var(--okp)',border:'1.5px solid #9ECDB5',color:'var(--ok)',title:'✓ Attendance report up to date',msg:`Last uploaded ${daysSinceUpload===0?'today':daysSinceUpload===1?'yesterday':`${daysSinceUpload} days ago`}. Next upload due in ${3-daysSinceUpload} day${3-daysSinceUpload!==1?'s':''}.`};
   }
+  html+=`<div style="background:${uploadCard.bg};border:${uploadCard.border};border-radius:12px;padding:14px 16px;margin-bottom:18px;">
+    <div style="font-weight:600;color:${uploadCard.color};font-size:13px;margin-bottom:4px;">${uploadCard.title}</div>
+    <div style="font-size:12px;color:var(--mid);line-height:1.5;margin-bottom:10px;">${uploadCard.msg}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-g btn-sm" onclick="openModal('upload-instructions-modal')">📖 How to pull this report</button><button class="btn btn-p btn-sm" onclick="openUploadVisits()">📤 Upload now</button></div>
+  </div>`;
+
+  html+=`<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 10px;">Needs attention</div>`;
+  html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-bottom:22px;">`;
+  html+=alerts.map(a=>{
+    const onclick=a.tab?`onclick="setMgrTab('${a.tab}')"`:(a.goto?`onclick="setView('daily');setDailyTab('notes')"`:'');
+    return`<div style="background:${a.bg};border:1.5px solid ${a.color};border-radius:12px;padding:14px 16px;cursor:pointer;transition:transform .1s;" ${onclick} onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="font-family:'DM Serif Display',serif;font-size:32px;color:${a.color};line-height:1;">${a.count}</div>
+        <div style="flex:1;">
+          <div style="font-weight:600;font-size:13px;color:${a.color};">${a.label}</div>
+          <div style="font-size:11px;color:var(--mid);margin-top:2px;">${a.sub}</div>
+        </div>
+        <div style="color:${a.color};font-size:18px;">→</div>
+      </div>
+    </div>`;
+  }).join('');
+  html+=`</div>`;
 
   html+=`<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 10px;">Studio status</div>`;
   html+=`<div class="srow" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr));">`;
   html+=statusCards.map(s=>`<div class="sc" style="cursor:pointer;" onclick="setMgrTab('${s.tab}')"><div class="scl">${s.label}</div><div class="scv">${s.count}</div></div>`).join('');
   html+=`</div>`;
-
-  // Recent shift notes (active)
-  const recentNotes=shiftNotes.filter(n=>isNoteActive(n)).slice(0,3);
-  if(recentNotes.length){
-    html+=`<div style="margin-top:22px;"><div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 10px;">Recent shift notes</div>`;
-    html+=recentNotes.map(n=>{
-      const urgent=n.priority==='urgent';
-      const created=new Date(n.createdAt).toLocaleString('en-US',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});
-      return`<div class="mccard" style="padding:12px 14px;margin-bottom:6px;${urgent?'border:2px solid var(--urg);background:var(--urgp);':''}">
-        <div style="font-size:13px;white-space:pre-wrap;">${n.content}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:4px;">${urgent?'⚠ Urgent · ':''}${sName(n.createdBy)||'—'} · ${created}</div>
-      </div>`;
-    }).join('');
-    html+=`<div style="margin-top:6px;"><a href="#" onclick="event.preventDefault();setView('daily');setDailyTab('notes')" style="font-size:12px;color:var(--info);">View all shift notes →</a></div></div>`;
-  }
 
   document.getElementById('dashboard-content').innerHTML=html;
 }
