@@ -92,7 +92,7 @@
   .dlg{border-collapse:collapse;width:100%;font-size:13px;}
   .dlg th,.dlg td{padding:8px 10px;text-align:center;border-right:1px solid var(--border);border-bottom:1px solid var(--border);}
   .dlg th{background:var(--sand);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--mid);position:sticky;top:0;z-index:2;}
-  .dlg th[title]{cursor:help;border-bottom:2px dotted var(--muted);}
+  .dlg th[title]{border-bottom:2px dotted var(--muted);}
   .dlg th.dlg-staff{text-align:left;position:sticky;left:0;z-index:3;background:var(--sand);}
   .dlg td.dlg-staff{text-align:left;font-weight:600;background:white;position:sticky;left:0;z-index:1;border-right:2px solid var(--border);}
   .dlg tr:last-child td{border-bottom:none;}
@@ -3473,22 +3473,98 @@ function initPerformance(){
   const staffSel=document.getElementById('perf-staff');
   const monthInput=document.getElementById('perf-month');
   if(!staffSel||!monthInput)return;
-  staffSel.innerHTML=activeStaff().filter(s=>s.id!=='mohogany').map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  const current=staffSel.value||'__team';
+  staffSel.innerHTML=`<option value="__team">Team comparison</option>`+activeStaff().filter(s=>s.id!=='mohogany').map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  staffSel.value=current;
   if(!monthInput.value)monthInput.value=currentMonthStr();
   renderPerformance();
 }
 
+function formatMonth(monthStr){
+  const[y,m]=monthStr.split('-');
+  const d=new Date(parseInt(y),parseInt(m)-1,1);
+  const monthName=d.toLocaleString('en-US',{month:'long'});
+  const isCurrent=monthStr===currentMonthStr();
+  return`${monthName} ${y}${isCurrent?' | Month to Date':''}`;
+}
+
+function computeConversions(mtd){
+  const membershipConv=mtd.opportunities>0?Math.round((mtd.membershipSales/mtd.opportunities)*100):0;
+  const packageConv=mtd.opportunities>0?Math.round((mtd.packageSales/mtd.opportunities)*100):0;
+  const purchaseConv=mtd.opportunities>0?Math.round(((mtd.membershipSales+mtd.packageSales)/mtd.opportunities)*100):0;
+  return{membershipConv,packageConv,purchaseConv};
+}
+
 async function renderPerformance(){
-  const staffId=document.getElementById('perf-staff').value;
+  const staffId=document.getElementById('perf-staff').value||'__team';
   const month=document.getElementById('perf-month').value||currentMonthStr();
   const el=document.getElementById('perf-content');
   el.innerHTML=`<div style="padding:30px;text-align:center;color:var(--muted);">Loading...</div>`;
 
   const logs=await fetchMonthLogs(month);
+  const monthLbl=formatMonth(month);
+
+  if(staffId==='__team'){
+    renderTeamComparison(logs,month,monthLbl,el);
+  } else {
+    renderIndividualPerformance(logs,month,monthLbl,staffId,el);
+  }
+}
+
+function renderTeamComparison(logs,month,monthLbl,el){
+  const teamStaff=activeStaff().filter(s=>s.id!=='mohogany');
+  const teamTotals={o:0,fv:0,m:0,p:0,c:0,pb:0};
+  const teamRows=teamStaff.map(s=>{
+    const sLogs=logs.filter(l=>l.staffId===s.id);
+    const sMtd=sLogs.reduce((acc,l)=>{acc.o+=l.opportunities||0;acc.m+=l.membershipSales||0;acc.p+=l.packageSales||0;acc.c+=l.outboundCalls||0;acc.pb+=l.preBooked||0;acc.fv+=l.firstVisitsBooked||0;return acc;},{o:0,m:0,p:0,c:0,pb:0,fv:0});
+    teamTotals.o+=sMtd.o;teamTotals.fv+=sMtd.fv;teamTotals.m+=sMtd.m;teamTotals.p+=sMtd.p;teamTotals.c+=sMtd.c;teamTotals.pb+=sMtd.pb;
+    const sGoalM=s.membershipGoal??(s.id==='victor'?5:10);
+    const sGoalP=s.packageGoal??(s.id==='victor'?3:5);
+    const mConv=sMtd.o>0?Math.round((sMtd.m/sMtd.o)*100):0;
+    const pConv=sMtd.o>0?Math.round((sMtd.p/sMtd.o)*100):0;
+    const allConv=sMtd.o>0?Math.round(((sMtd.m+sMtd.p)/sMtd.o)*100):0;
+    return`<tr><td class="dlg-staff">${s.name}</td><td>${sMtd.o}</td><td>${sMtd.fv}</td><td>${sMtd.m}/${sGoalM}</td><td>${sMtd.p}/${sGoalP}</td><td>${sMtd.c}</td><td>${sMtd.pb}</td><td>${mConv}%</td><td>${pConv}%</td><td>${allConv}%</td></tr>`;
+  }).join('');
+  const teamM=activeStaff().filter(s=>s.id!=='mohogany').reduce((a,s)=>a+(s.membershipGoal??(s.id==='victor'?5:10)),0);
+  const teamP=activeStaff().filter(s=>s.id!=='mohogany').reduce((a,s)=>a+(s.packageGoal??(s.id==='victor'?3:5)),0);
+  const teamMConv=teamTotals.o>0?Math.round((teamTotals.m/teamTotals.o)*100):0;
+  const teamPConv=teamTotals.o>0?Math.round((teamTotals.p/teamTotals.o)*100):0;
+  const teamAllConv=teamTotals.o>0?Math.round(((teamTotals.m+teamTotals.p)/teamTotals.o)*100):0;
+
+  el.innerHTML=`
+    <div style="font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:4px;">${monthLbl}</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:18px;">Team-wide performance comparison</div>
+
+    <div class="pgrid">
+      <div class="pstat"><div class="pstat-lbl">Team Memberships</div><div class="pstat-val">${teamTotals.m}<span style="font-size:14px;color:var(--muted);"> / ${teamM}</span></div><div class="progbar"><div class="progbar-fill ${teamTotals.m>=teamM?'ok':''}" style="width:${Math.min(100,Math.round((teamTotals.m/teamM)*100)||0)}%;"></div></div></div>
+      <div class="pstat"><div class="pstat-lbl">Team Packages</div><div class="pstat-val">${teamTotals.p}<span style="font-size:14px;color:var(--muted);"> / ${teamP}</span></div><div class="progbar"><div class="progbar-fill ${teamTotals.p>=teamP?'ok':''}" style="width:${Math.min(100,Math.round((teamTotals.p/teamP)*100)||0)}%;"></div></div></div>
+      <div class="pstat"><div class="pstat-lbl">Team Opportunities</div><div class="pstat-val">${teamTotals.o}</div></div>
+      <div class="pstat"><div class="pstat-lbl">Team First Visits Booked</div><div class="pstat-val">${teamTotals.fv}</div></div>
+      <div class="pstat"><div class="pstat-lbl">Team Outbound Calls</div><div class="pstat-val">${teamTotals.c}</div></div>
+      <div class="pstat"><div class="pstat-lbl">Team Pre-booked</div><div class="pstat-val">${teamTotals.pb}</div></div>
+      <div class="pstat"><div class="pstat-lbl">Membership Conv. %</div><div class="pstat-val">${teamMConv}%</div><div class="pstat-sub">Memberships ÷ Opps</div></div>
+      <div class="pstat"><div class="pstat-lbl">Package Conv. %</div><div class="pstat-val">${teamPConv}%</div><div class="pstat-sub">Packages ÷ Opps</div></div>
+      <div class="pstat"><div class="pstat-lbl">Purchase Conv. %</div><div class="pstat-val">${teamAllConv}%</div><div class="pstat-sub">All purchases ÷ Opps</div></div>
+    </div>
+
+    <div style="background:var(--sand);border:1.5px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:12px;line-height:1.7;color:var(--mid);">
+      <div style="font-weight:600;color:var(--dark);margin-bottom:6px;">Individual monthly goals (per non-lead MSA):</div>
+      • <strong>10 memberships</strong>: 5 IRitual · 3 IRecover · 2 IRelax<br>
+      • <strong>5 packages</strong>: 1 X20 · 2 X8 · 2 X4<br>
+      • <strong>Victor's goals</strong>: 5 memberships + 3 packages (works approximately half as much)
+    </div>
+
+    <div class="sec-hdr"><div class="sec-title">Per-staff breakdown</div></div>
+    <div class="dlg-wrap"><table class="dlg">
+      <thead><tr><th class="dlg-staff">Staff</th><th>Opps</th><th>FV Bkd</th><th>Memb</th><th>Packs</th><th>Calls</th><th>Pre-bk</th><th>Memb Conv.</th><th>Pkg Conv.</th><th>Purchase Conv.</th></tr></thead>
+      <tbody>${teamRows}</tbody>
+    </table></div>
+  `;
+}
+
+function renderIndividualPerformance(logs,month,monthLbl,staffId,el){
   const staff=staffList.find(s=>s.id===staffId)||{};
   const myLogs=logs.filter(l=>l.staffId===staffId);
-
-  // MTD totals
   const mtd=myLogs.reduce((acc,l)=>{
     acc.opportunities+=l.opportunities||0;
     acc.firstVisitsBooked+=l.firstVisitsBooked||0;
@@ -3503,11 +3579,9 @@ async function renderPerformance(){
   const pkGoal=staff.packageGoal??(staffId==='victor'?3:5);
   const msPct=Math.min(100,Math.round((mtd.membershipSales/msGoal)*100)||0);
   const pkPct=Math.min(100,Math.round((mtd.packageSales/pkGoal)*100)||0);
-  const membershipConv=mtd.opportunities>0?Math.round((mtd.membershipSales/mtd.opportunities)*100):0;
-  const purchaseConv=mtd.opportunities>0?Math.round(((mtd.membershipSales+mtd.packageSales)/mtd.opportunities)*100):0;
+  const{membershipConv,packageConv,purchaseConv}=computeConversions(mtd);
 
-  // Build bar chart — last 14 days of current/selected month
-  const [y,m]=month.split('-');
+  const[y,m]=month.split('-');
   const lastDay=new Date(parseInt(y),parseInt(m),0).getDate();
   const todayET=new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'}));
   const isCurrentMonth=month===currentMonthStr();
@@ -3519,7 +3593,7 @@ async function renderPerformance(){
     const log=myLogs.find(l=>l.date===dateStr)||{};
     days.push({day:d,total:(log.membershipSales||0)+(log.packageSales||0),opportunities:log.opportunities||0,memberships:log.membershipSales||0,packages:log.packageSales||0});
   }
-  const maxBar=Math.max(...days.map(d=>Math.max(d.opportunities,d.memberships+d.packages)),1);
+  const maxBar=Math.max(...days.map(d=>d.memberships+d.packages),1);
   const barsHtml=days.map(d=>{
     const salesWidth=((d.memberships+d.packages)/maxBar*100)||0;
     return`<div class="barchart-row" title="Day ${d.day}: ${d.opportunities} opps, ${d.memberships} memb, ${d.packages} pack">
@@ -3528,40 +3602,33 @@ async function renderPerformance(){
     </div>`;
   }).join('');
 
-  // Team comparison table
-  const teamStaff=activeStaff().filter(s=>s.id!=='mohogany');
-  const teamRows=teamStaff.map(s=>{
-    const sLogs=logs.filter(l=>l.staffId===s.id);
-    const sMtd=sLogs.reduce((acc,l)=>{acc.o+=l.opportunities||0;acc.m+=l.membershipSales||0;acc.p+=l.packageSales||0;acc.c+=l.outboundCalls||0;acc.pb+=l.preBooked||0;acc.fv+=l.firstVisitsBooked||0;return acc;},{o:0,m:0,p:0,c:0,pb:0,fv:0});
-    const sGoalM=s.membershipGoal??(s.id==='victor'?5:10);
-    const sGoalP=s.packageGoal??(s.id==='victor'?3:5);
-    const conv=sMtd.o>0?Math.round(((sMtd.m+sMtd.p)/sMtd.o)*100):0;
-    const highlight=s.id===staffId?'background:var(--tcp);font-weight:600;':'';
-    return`<tr style="${highlight}"><td class="dlg-staff">${s.name}${s.id===staffId?' ← you':''}</td><td>${sMtd.o}</td><td>${sMtd.fv}</td><td>${sMtd.m}/${sGoalM}</td><td>${sMtd.p}/${sGoalP}</td><td>${sMtd.c}</td><td>${sMtd.pb}</td><td>${conv}%</td></tr>`;
-  }).join('');
+  const isVictor=staffId==='victor';
+  const msBreakdown=isVictor?'Goal breakdown TBD':'5 IRitual · 3 IRecover · 2 IRelax';
+  const pkBreakdown=isVictor?'Goal breakdown TBD':'1 X20 · 2 X8 · 2 X4';
 
   el.innerHTML=`
     <div style="font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:4px;">${staff.name||'—'}'s performance</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:18px;">${month} · Monthly goal: ${msGoal} memberships + ${pkGoal} packages</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:18px;">${monthLbl} · Monthly goal: ${msGoal} memberships + ${pkGoal} packages</div>
 
     <div class="pgrid">
       <div class="pstat">
         <div class="pstat-lbl">Memberships</div>
         <div class="pstat-val">${mtd.membershipSales}<span style="font-size:14px;color:var(--muted);"> / ${msGoal}</span></div>
         <div class="progbar"><div class="progbar-fill ${msPct>=100?'ok':''}" style="width:${msPct}%;"></div></div>
-        <div class="pstat-sub">${msPct}% to goal${msPct>=100?' 🎉':''}</div>
+        <div class="pstat-sub">${msPct}% to goal${msPct>=100?' 🎉':''} · ${msBreakdown}</div>
       </div>
       <div class="pstat">
         <div class="pstat-lbl">Packages</div>
         <div class="pstat-val">${mtd.packageSales}<span style="font-size:14px;color:var(--muted);"> / ${pkGoal}</span></div>
         <div class="progbar"><div class="progbar-fill ${pkPct>=100?'ok':''}" style="width:${pkPct}%;"></div></div>
-        <div class="pstat-sub">${pkPct}% to goal${pkPct>=100?' 🎉':''}</div>
+        <div class="pstat-sub">${pkPct}% to goal${pkPct>=100?' 🎉':''} · ${pkBreakdown}</div>
       </div>
       <div class="pstat"><div class="pstat-lbl">Opportunities</div><div class="pstat-val">${mtd.opportunities}</div><div class="pstat-sub">Green ⭐ assisted</div></div>
       <div class="pstat"><div class="pstat-lbl">First Visits Booked</div><div class="pstat-val">${mtd.firstVisitsBooked}</div><div class="pstat-sub">Scheduled</div></div>
       <div class="pstat"><div class="pstat-lbl">Outbound Calls</div><div class="pstat-val">${mtd.outboundCalls}</div><div class="pstat-sub">Lead calls logged</div></div>
       <div class="pstat"><div class="pstat-lbl">Pre-booked Guests</div><div class="pstat-val">${mtd.preBooked}</div><div class="pstat-sub">Future appointments</div></div>
       <div class="pstat"><div class="pstat-lbl">Membership Conv. %</div><div class="pstat-val">${membershipConv}%</div><div class="pstat-sub">Memberships ÷ Opps</div></div>
+      <div class="pstat"><div class="pstat-lbl">Package Conv. %</div><div class="pstat-val">${packageConv}%</div><div class="pstat-sub">Packages ÷ Opps</div></div>
       <div class="pstat"><div class="pstat-lbl">Purchase Conv. %</div><div class="pstat-val">${purchaseConv}%</div><div class="pstat-sub">All purchases ÷ Opps</div></div>
     </div>
 
@@ -3569,12 +3636,6 @@ async function renderPerformance(){
       <div class="barchart-title">Last ${days.length} days — daily sales</div>
       ${barsHtml}
     </div>
-
-    <div class="sec-hdr"><div class="sec-title">Team comparison — ${month}</div></div>
-    <div class="dlg-wrap"><table class="dlg">
-      <thead><tr><th class="dlg-staff">Staff</th><th>Opps</th><th>FV Bkd</th><th>Memb</th><th>Packs</th><th>Calls</th><th>Pre-bk</th><th>Conv %</th></tr></thead>
-      <tbody>${teamRows}</tbody>
-    </table></div>
   `;
 }
 
