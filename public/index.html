@@ -247,6 +247,7 @@
   <div class="vtog">
     <button class="vbtn active" onclick="setView('guests')" id="btn-guests">New Guests</button>
     <button class="vbtn" onclick="setView('changes')" id="btn-changes">Membership Changes</button>
+    <button class="vbtn" onclick="setView('daily')" id="btn-daily">Daily Hub</button>
     <button class="vbtn" onclick="setView('manager')" id="btn-manager">Manager View</button>
   </div>
 </div>
@@ -475,6 +476,102 @@
         <button class="btn btn-p" onclick="addStaff()">Add staff</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ══ DAILY HUB ══════════════════════════════════════════════════════════ -->
+<div id="view-daily" style="display:none;">
+  <div class="toolbar">
+    <span class="tlbl">I am</span>
+    <select id="acting-as-sel" onchange="setActingAs(this.value)"></select>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="setDailyTab('notes')" id="tab-notes">Shift Notes</button>
+    <button class="tab" onclick="setDailyTab('events')" id="tab-events">Events</button>
+    <button class="tab" onclick="setDailyTab('today')" id="tab-today">Today</button>
+    <button class="tab" onclick="setDailyTab('perf')" id="tab-perf">Performance</button>
+  </div>
+
+  <div id="daily-notes">
+    <div class="toolbar" style="margin-bottom:14px;">
+      <span class="tlbl">Filter</span>
+      <select id="notes-filter" onchange="renderShiftNotes()">
+        <option value="active">Active</option>
+        <option value="resolved">Resolved</option>
+        <option value="all">All</option>
+      </select>
+      <button class="btn btn-p" onclick="toggleAddNote()">+ Add note</button>
+    </div>
+    <div class="aform" id="add-note-form">
+      <div class="aft">Add shift note</div>
+      <div class="fg"><label class="fl">Note<span class="req">*</span></label><textarea class="fi" id="note-content" placeholder="e.g. Sarah Smith called to be waitlisted for 4/16 4pm..."></textarea></div>
+      <div class="frow">
+        <div class="fg"><label class="fl">Priority</label>
+          <select class="fi" id="note-priority">
+            <option value="fyi">FYI</option>
+            <option value="urgent">⚠ Urgent</option>
+          </select>
+        </div>
+        <div class="fg"><label class="fl">Keep visible until (optional)</label><input type="date" class="fi" id="note-keep-until"></div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:13px;">Notes auto-archive 48 hours after creation unless a "Keep visible until" date is set.</div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-g" onclick="toggleAddNote()">Cancel</button>
+        <button class="btn btn-p" onclick="addShiftNote()">Add note</button>
+      </div>
+    </div>
+    <div id="notes-list"></div>
+  </div>
+
+  <div id="daily-events" style="display:none;">
+    <div class="toolbar" style="margin-bottom:14px;">
+      <span class="tlbl">Filter</span>
+      <select id="events-filter" onchange="renderEvents()">
+        <option value="upcoming">Upcoming</option>
+        <option value="past">Past</option>
+        <option value="all">All</option>
+      </select>
+      <button class="btn btn-p" onclick="toggleAddEvent()">+ Add event</button>
+    </div>
+    <div class="aform" id="add-event-form">
+      <div class="aft">Add studio event</div>
+      <div class="fg"><label class="fl">Title<span class="req">*</span></label><input type="text" class="fi" id="event-title" placeholder="e.g. Mother's Day giveaway tabling"></div>
+      <div class="frow">
+        <div class="fg"><label class="fl">Type<span class="req">*</span></label>
+          <select class="fi" id="event-type">
+            <option value="in-studio">In-studio tabling</option>
+            <option value="external">External tabling</option>
+            <option value="promo">Sales promotion</option>
+            <option value="closure">Studio closure</option>
+            <option value="early-close">Early closure</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="fg"><label class="fl">Start date<span class="req">*</span></label><input type="date" class="fi" id="event-start-date"></div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label class="fl">End date (optional, for multi-day)</label><input type="date" class="fi" id="event-end-date"></div>
+        <div class="fg"><label class="fl">Assigned staff (optional)</label><select class="fi" id="event-assigned"></select></div>
+      </div>
+      <div class="fg"><label class="fl">Description</label><textarea class="fi" id="event-desc" placeholder="Any additional details..."></textarea></div>
+      <div class="fci">
+        <input type="checkbox" class="fchk" id="event-volunteer">
+        <div><div class="fchk-lbl">Volunteer needed</div><div class="fchk-desc">Check if staff volunteers are needed. Can be updated once someone is assigned.</div></div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:13px;">
+        <button class="btn btn-g" onclick="toggleAddEvent()">Cancel</button>
+        <button class="btn btn-p" onclick="addEvent()">Add event</button>
+      </div>
+    </div>
+    <div id="events-list"></div>
+  </div>
+
+  <div id="daily-today" style="display:none;">
+    <div class="empty"><div class="empty-icon">○</div><p>Coming soon — studio tasks, team daily log grid, and sales entry.</p></div>
+  </div>
+
+  <div id="daily-perf" style="display:none;">
+    <div class="empty"><div class="empty-icon">○</div><p>Coming soon — team performance stats, goal progress, and conversion rates.</p></div>
   </div>
 </div>
 
@@ -1128,7 +1225,8 @@ function showChangeScript(key,ch,btn){
 
 // ── STATE ─────────────────────────────────────────────────────────────────
 
-let guests=[],changes=[],staffList=[],nurtures=[];
+let guests=[],changes=[],staffList=[],nurtures=[],shiftNotes=[],events=[];
+let actingAs=localStorage.getItem('psp-v7-actingAs')||'';
 
 const DEFAULT_STAFF=[
   {id:'crystal', name:'Crystal', active:true},{id:'hannah',  name:'Hannah',  active:true},
@@ -1138,7 +1236,7 @@ const DEFAULT_STAFF=[
 ];
 
 // Storage keys for local fallback mode
-const LS_GUESTS='psp-v7-guests',LS_CHANGES='psp-v7-changes',LS_STAFF='psp-v7-staff',LS_NURTURES='psp-v7-nurtures';
+const LS_GUESTS='psp-v7-guests',LS_CHANGES='psp-v7-changes',LS_STAFF='psp-v7-staff',LS_NURTURES='psp-v7-nurtures',LS_NOTES='psp-v7-notes',LS_EVENTS='psp-v7-events';
 let useLocalStorage=false;
 
 // ── API HELPERS ───────────────────────────────────────────────────────────
@@ -1166,6 +1264,8 @@ function lsSave(){
     localStorage.setItem(LS_CHANGES,JSON.stringify(changes));
     localStorage.setItem(LS_STAFF,JSON.stringify(staffList));
     localStorage.setItem(LS_NURTURES,JSON.stringify(nurtures));
+    localStorage.setItem(LS_NOTES,JSON.stringify(shiftNotes));
+    localStorage.setItem(LS_EVENTS,JSON.stringify(events));
   }catch(e){}
 }
 
@@ -1185,9 +1285,17 @@ async function loadNurtures(){
   if(useLocalStorage){nurtures=lsGet(LS_NURTURES,[]);return;}
   nurtures=await api('nurtures');
 }
+async function loadShiftNotes(){
+  if(useLocalStorage){shiftNotes=lsGet(LS_NOTES,[]);return;}
+  shiftNotes=await api('shift-notes');
+}
+async function loadEvents(){
+  if(useLocalStorage){events=lsGet(LS_EVENTS,[]);return;}
+  events=await api('events');
+}
 async function loadAll(){
   try{
-    await Promise.all([loadGuests(),loadChanges(),loadStaff(),loadNurtures()]);
+    await Promise.all([loadGuests(),loadChanges(),loadStaff(),loadNurtures(),loadShiftNotes(),loadEvents()]);
   }catch(e){
     console.warn('API unavailable, using local storage fallback.',e.message);
     useLocalStorage=true;
@@ -1195,6 +1303,8 @@ async function loadAll(){
     changes=lsGet(LS_CHANGES,[]);
     staffList=lsGet(LS_STAFF,DEFAULT_STAFF);
     nurtures=lsGet(LS_NURTURES,[]);
+    shiftNotes=lsGet(LS_NOTES,[]);
+    events=lsGet(LS_EVENTS,[]);
   }
 }
 
@@ -2429,13 +2539,205 @@ function exportNurtures(){
   downloadCSV('perspire-nurtures.csv',rows);
 }
 
+// ── DAILY HUB ─────────────────────────────────────────────────────────────
+
+let currentDailyTab='notes';
+
+function setActingAs(id){
+  actingAs=id;
+  localStorage.setItem('psp-v7-actingAs',id);
+}
+
+function fillActingAs(){
+  const el=document.getElementById('acting-as-sel');if(!el)return;
+  const opts=activeStaff().map(s=>`<option value="${s.id}" ${s.id===actingAs?'selected':''}>${s.name}</option>`).join('');
+  el.innerHTML=`<option value="">— Select —</option>${opts}`;
+  if(!actingAs&&activeStaff().length){actingAs=activeStaff()[0].id;el.value=actingAs;localStorage.setItem('psp-v7-actingAs',actingAs);}
+}
+
+function setDailyTab(tab){
+  currentDailyTab=tab;
+  const map={notes:'daily-notes',events:'daily-events',today:'daily-today',perf:'daily-perf'};
+  Object.entries(map).forEach(([k,id])=>document.getElementById(id).style.display=k===tab?'block':'none');
+  ['notes','events','today','perf'].forEach(s=>document.getElementById('tab-'+s).classList.toggle('active',s===tab));
+  if(tab==='notes')renderShiftNotes();
+  else if(tab==='events')renderEvents();
+}
+
+// Shift Notes
+function isNoteActive(n){
+  if(n.resolvedAt)return false;
+  const created=new Date(n.createdAt);
+  const now=new Date();
+  const hoursSince=(now-created)/3600000;
+  if(n.keepUntil){
+    const ku=parseDate(n.keepUntil);
+    if(ku&&ku>=today())return true;
+    if(ku&&ku<today())return false;
+  }
+  return hoursSince<48;
+}
+
+function toggleAddNote(){
+  const f=document.getElementById('add-note-form');f.classList.toggle('open');
+  if(f.classList.contains('open')){
+    document.getElementById('note-content').value='';
+    document.getElementById('note-priority').value='fyi';
+    document.getElementById('note-keep-until').value='';
+  }
+}
+
+async function addShiftNote(){
+  if(!actingAs){alert('Please select who you are from the "I am" dropdown at the top first.');return;}
+  const content=document.getElementById('note-content').value.trim();
+  if(!content){alert('Please enter a note.');return;}
+  const priority=document.getElementById('note-priority').value;
+  const keepUntil=document.getElementById('note-keep-until').value||null;
+  const id=Date.now().toString();
+  const rec={id,content,priority,createdBy:actingAs,keepUntil,createdAt:new Date().toISOString(),resolvedAt:null,resolvedBy:null};
+  if(useLocalStorage){shiftNotes.unshift(rec);lsSave();}
+  else{await api('shift-notes',{method:'POST',body:rec});await loadShiftNotes();}
+  toggleAddNote();renderShiftNotes();
+}
+
+async function resolveNote(id){
+  const n=shiftNotes.find(x=>x.id===id);if(!n)return;
+  n.resolvedAt=new Date().toISOString();n.resolvedBy=actingAs||null;
+  if(useLocalStorage){lsSave();}
+  else{await api('shift-notes/'+id,{method:'PUT',body:{resolvedAt:n.resolvedAt,resolvedBy:n.resolvedBy}});}
+  renderShiftNotes();
+}
+
+async function unresolveNote(id){
+  const n=shiftNotes.find(x=>x.id===id);if(!n)return;
+  n.resolvedAt=null;n.resolvedBy=null;
+  if(useLocalStorage){lsSave();}
+  else{await api('shift-notes/'+id,{method:'PUT',body:{resolvedAt:null,resolvedBy:null}});}
+  renderShiftNotes();
+}
+
+async function removeNote(id){
+  if(!confirm('Delete this note permanently?'))return;
+  if(useLocalStorage){shiftNotes=shiftNotes.filter(x=>x.id!==id);lsSave();}
+  else{await api('shift-notes/'+id,{method:'DELETE'});await loadShiftNotes();}
+  renderShiftNotes();
+}
+
+function renderShiftNotes(){
+  const fil=document.getElementById('notes-filter').value;
+  let list=shiftNotes;
+  if(fil==='active')list=shiftNotes.filter(n=>isNoteActive(n));
+  else if(fil==='resolved')list=shiftNotes.filter(n=>n.resolvedAt);
+  const el=document.getElementById('notes-list');
+  if(!list.length){el.innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No notes${fil==='active'?' — you\'re all caught up!':''}.</p></div>`;return;}
+  el.innerHTML=list.map(n=>{
+    const urgent=n.priority==='urgent';
+    const resolved=!!n.resolvedAt;
+    const createdStr=new Date(n.createdAt).toLocaleString('en-US',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});
+    const keepLbl=n.keepUntil?` · keeping until ${fmtDate(n.keepUntil)}`:'';
+    return`<div class="mccard ${urgent&&!resolved?'isurg':''}" style="padding:14px 16px;margin-bottom:9px;${resolved?'opacity:.6;':''}">
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <div style="flex:1;">
+          <div style="font-size:13px;white-space:pre-wrap;">${n.content}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px;">${urgent?'<span class="badge bURG">URGENT</span> ':''}${sName(n.createdBy)||'Unknown'} · ${createdStr}${keepLbl}${resolved?` · ✓ Resolved by ${sName(n.resolvedBy)||'?'}`:''}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          ${resolved?`<button class="btn btn-g btn-sm" onclick="unresolveNote('${n.id}')">Reopen</button>`:`<button class="btn btn-g btn-sm" onclick="resolveNote('${n.id}')">Mark resolved ✓</button>`}
+          <button class="btn btn-sm btn-do" onclick="removeNote('${n.id}')">Delete</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Events
+function toggleAddEvent(){
+  const f=document.getElementById('add-event-form');f.classList.toggle('open');
+  if(f.classList.contains('open')){
+    document.getElementById('event-title').value='';
+    document.getElementById('event-type').value='in-studio';
+    document.getElementById('event-start-date').value=toInputDate(new Date());
+    document.getElementById('event-end-date').value='';
+    document.getElementById('event-desc').value='';
+    document.getElementById('event-volunteer').checked=false;
+    const sel=document.getElementById('event-assigned');
+    sel.innerHTML=`<option value="">Unassigned</option>${activeStaff().map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}`;
+  }
+}
+
+async function addEvent(){
+  if(!actingAs){alert('Please select who you are from the "I am" dropdown at the top first.');return;}
+  const title=document.getElementById('event-title').value.trim();
+  const eventType=document.getElementById('event-type').value;
+  const startDate=document.getElementById('event-start-date').value;
+  const endDate=document.getElementById('event-end-date').value||null;
+  const description=document.getElementById('event-desc').value.trim();
+  const volunteerNeeded=document.getElementById('event-volunteer').checked;
+  const assignedStaff=document.getElementById('event-assigned').value||null;
+  if(!title){alert('Please enter a title.');return;}
+  if(!startDate){alert('Please enter a start date.');return;}
+  const id=Date.now().toString();
+  const rec={id,title,eventType,startDate,endDate,description,volunteerNeeded,assignedStaff,createdBy:actingAs,createdAt:new Date().toISOString()};
+  if(useLocalStorage){events.push(rec);lsSave();}
+  else{await api('events',{method:'POST',body:rec});await loadEvents();}
+  toggleAddEvent();renderEvents();
+}
+
+async function updateEventAssignment(id,staffId){
+  const e=events.find(x=>x.id===id);if(!e)return;
+  e.assignedStaff=staffId||null;
+  if(useLocalStorage){lsSave();}
+  else{await api('events/'+id,{method:'PUT',body:{assignedStaff:e.assignedStaff}});}
+  renderEvents();
+}
+
+async function removeEvent(id){
+  if(!confirm('Delete this event?'))return;
+  if(useLocalStorage){events=events.filter(x=>x.id!==id);lsSave();}
+  else{await api('events/'+id,{method:'DELETE'});await loadEvents();}
+  renderEvents();
+}
+
+function renderEvents(){
+  const fil=document.getElementById('events-filter').value;
+  const todayD=today();
+  let list=events;
+  if(fil==='upcoming')list=events.filter(e=>{const sd=parseDate(e.startDate);const ed=parseDate(e.endDate||e.startDate);return ed&&ed>=todayD;});
+  else if(fil==='past')list=events.filter(e=>{const ed=parseDate(e.endDate||e.startDate);return ed&&ed<todayD;});
+  list=[...list].sort((a,b)=>{const da=parseDate(a.startDate),db=parseDate(b.startDate);return(da?.getTime()||0)-(db?.getTime()||0);});
+  const el=document.getElementById('events-list');
+  if(!list.length){el.innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No events${fil==='upcoming'?' upcoming.':'.'}</p></div>`;return;}
+  const typeLabels={'in-studio':'In-studio tabling','external':'External tabling','promo':'Sales promotion','closure':'Closure','early-close':'Early closure','other':'Other'};
+  const typeBadges={'in-studio':'bm','external':'bot','promo':'bUP','closure':'bod','early-close':'bdu','other':'bia'};
+  el.innerHTML=list.map(e=>{
+    const dateStr=e.endDate&&e.endDate!==e.startDate?`${fmtDate(e.startDate)} – ${fmtDate(e.endDate)}`:fmtDate(e.startDate);
+    const assignedLabel=e.assignedStaff?sName(e.assignedStaff):(e.volunteerNeeded?'<span style="color:var(--warn);font-weight:600;">Volunteer needed — let Amanda or Mohogany know</span>':'No assignment');
+    const assignOpts=`<option value="">Unassigned</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===e.assignedStaff?'selected':''}>${s.name}</option>`).join('')}`;
+    return`<div class="mccard" style="padding:14px 16px;margin-bottom:9px;">
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <div style="flex:1;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;"><span class="badge ${typeBadges[e.eventType]||'bia'}">${typeLabels[e.eventType]||e.eventType}</span><strong style="font-size:14px;">${e.title}</strong></div>
+          <div style="font-size:12px;color:var(--mid);">${dateStr}</div>
+          ${e.description?`<div style="font-size:13px;margin-top:6px;white-space:pre-wrap;">${e.description}</div>`:''}
+          <div style="font-size:12px;color:var(--muted);margin-top:8px;">Assigned: ${assignedLabel}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;min-width:140px;">
+          <select class="fi" style="font-size:12px;padding:5px 8px;" onchange="updateEventAssignment('${e.id}',this.value)">${assignOpts}</select>
+          <button class="btn btn-sm btn-do" onclick="removeEvent('${e.id}')">Delete</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 // View switching
 let currentView='guests',currentMgrTab='overview';
 function setView(v){
   currentView=v;
-  ['guests','changes','manager'].forEach(x=>{document.getElementById('view-'+x).style.display=x===v?'block':'none';document.getElementById('btn-'+x).classList.toggle('active',x===v);});
+  ['guests','changes','daily','manager'].forEach(x=>{document.getElementById('view-'+x).style.display=x===v?'block':'none';document.getElementById('btn-'+x).classList.toggle('active',x===v);});
   if(v==='manager'){renderMgrOverview();renderRoster();}
   else if(v==='changes')renderChanges();
+  else if(v==='daily'){fillActingAs();setDailyTab(currentDailyTab);}
   else renderGuests();
 }
 function setMgrTab(tab){
