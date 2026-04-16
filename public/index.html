@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Perspire · Guest Tracker</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root{
     --tc:#B85C38;--tcl:#D4714E;--tcp:#F5EDE8;
@@ -57,6 +58,34 @@
   .sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
   .sec-title{font-family:'DM Serif Display',serif;font-size:18px;}
   .sec-ct{font-size:12px;color:var(--muted);background:var(--border);padding:3px 10px;border-radius:20px;}
+
+  /* MILESTONES */
+  .ms-row{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 6px 0;align-items:center;}
+  .ms-lbl{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-right:4px;}
+  .ms-circle{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;cursor:pointer;border:2px solid var(--border);background:white;color:var(--muted);transition:all .15s;position:relative;}
+  .ms-circle:hover{transform:scale(1.08);}
+  .ms-circle.upcoming{border-color:var(--border);color:var(--muted);background:white;}
+  .ms-circle.approaching{border-color:#E8C07A;background:var(--warnp);color:var(--warn);animation:msPulse 2s infinite;}
+  .ms-circle.reached{border-color:var(--err);background:var(--errp);color:var(--err);animation:msPulse 1.5s infinite;}
+  .ms-circle.completed{border-color:var(--ok);background:var(--ok);color:white;}
+  @keyframes msPulse{0%,100%{box-shadow:0 0 0 0 rgba(196,123,26,.4);}50%{box-shadow:0 0 0 6px rgba(196,123,26,0);}}
+  .ms-circle.reached{animation-name:msPulseRed;}
+  @keyframes msPulseRed{0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,.4);}50%{box-shadow:0 0 0 6px rgba(192,57,43,0);}}
+  .ms-info{font-size:11px;color:var(--mid);margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .ms-info input[type="number"]{width:70px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:12px;}
+  .ms-action-box{background:var(--okp);border:1.5px solid #9ECDB5;border-radius:10px;padding:14px 16px;margin-top:10px;}
+  .ms-action-title{font-size:11px;font-weight:600;color:var(--ok);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
+  .ms-action-text{font-size:13px;color:var(--dark);line-height:1.5;}
+
+  /* UPLOAD MODAL */
+  .upload-zone{border:2px dashed var(--border);border-radius:10px;padding:30px;text-align:center;cursor:pointer;transition:border-color .15s;}
+  .upload-zone:hover{border-color:var(--tc);}
+  .upload-zone input{display:none;}
+  .upload-result{margin-top:14px;}
+  .upload-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;background:var(--sand);margin-bottom:6px;font-size:13px;}
+  .upload-row.matched{background:var(--okp);}
+  .upload-row.unmatched{background:var(--warnp);}
+  .upload-row select{flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;}
 
   /* CARDS */
   .clist,.mclist{display:flex;flex-direction:column;gap:9px;}
@@ -236,6 +265,7 @@
       <option value="at-risk">At-risk visit status</option>
       <option value="due-soon">Due this week</option>
       <option value="between">Between touchpoints</option>
+      <option value="milestones">Approaching milestones</option>
       <option value="deactivated">Deactivated</option>
     </select>
     <button class="btn btn-p" onclick="toggleAddGuest()">+ Add client</button>
@@ -570,6 +600,39 @@
   </div>
 </div>
 
+<!-- MILESTONE MODAL -->
+<div class="modal-ov" id="milestone-modal">
+  <div class="modal">
+    <div class="modal-title" id="ms-title">Session milestone</div>
+    <div class="modal-sub" id="ms-sub"></div>
+    <div class="ms-action-box"><div class="ms-action-title">Celebration action</div><div class="ms-action-text" id="ms-action"></div></div>
+    <div id="ms-status" style="margin-top:14px;font-size:13px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-g" onclick="closeModal('milestone-modal')">Close</button>
+      <button class="btn btn-p" id="ms-complete-btn" onclick="completeMilestone()">Mark celebrated ✓</button>
+      <button class="btn btn-g" id="ms-uncomplete-btn" onclick="uncompleteMilestone()" style="display:none;">Undo celebration</button>
+    </div>
+  </div>
+</div>
+
+<!-- UPLOAD VISITS MODAL -->
+<div class="modal-ov" id="upload-modal">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-title">Upload visits report</div>
+    <div class="modal-sub">Upload the Mindbody Attendance Analysis report (.xls or .xlsx). The "Signed-In Visits" column will be used to update visit counts.</div>
+    <label class="upload-zone" id="upload-zone">
+      <input type="file" id="upload-file" accept=".xls,.xlsx" onchange="handleVisitsUpload(event)">
+      <div style="font-size:14px;color:var(--mid);">📤 Click to choose file or drop here</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;">.xls or .xlsx</div>
+    </label>
+    <div class="upload-result" id="upload-result"></div>
+    <div class="modal-actions">
+      <button class="btn btn-g" onclick="closeModal('upload-modal')">Cancel</button>
+      <button class="btn btn-p" id="upload-apply-btn" onclick="applyUploadedVisits()" style="display:none;">Apply updates</button>
+    </div>
+  </div>
+</div>
+
 <!-- DEACTIVATE MODAL -->
 <div class="modal-ov" id="deactivate-modal">
   <div class="modal">
@@ -595,6 +658,29 @@
 // ── CONSTANTS ─────────────────────────────────────────────────────────────
 
 const MEMBER_TIERS=['IRelax 4x','IRecover 8x','IRitual Unlimited'];
+
+// Session milestones — only apply to new MEMBERS (not packages or nurtures)
+const MILESTONES=[
+  {n:3, action:'Leave an LMNT packet on their towel bundle with a notecard.'},
+  {n:5, action:'Leave a motivational card on their towel bundle. Axle review text fires automatically.'},
+  {n:8, action:'Hand them a complimentary guest pass at the front desk.'},
+  {n:10,action:'Have a PATH water with their name written on it waiting at the front desk.'},
+  {n:15,action:'Offer an elemental superfood bar in the suite or at the front desk.'},
+  {n:20,action:'Offer a complimentary Halo add-on at check-in.'},
+];
+
+function milestoneStatus(c,n){
+  if(!c||c.type!=='member')return null;
+  if(c.milestonesCompleted&&c.milestonesCompleted[n])return'completed';
+  const visits=c.totalVisits||0;
+  if(visits>=n)return'reached';
+  if(visits===n-1)return'approaching';
+  return'upcoming';
+}
+function hasApproachingOrReached(c){
+  if(c.type!=='member'||c.deactivated)return false;
+  return MILESTONES.some(m=>{const s=milestoneStatus(c,m.n);return s==='approaching'||s==='reached';});
+}
 const PACKAGE_TIERS=['4 Pack','8 Pack','20 Pack'];
 // Dynamic holiday calculation
 function easterDate(y){// Anonymous Gregorian algorithm
@@ -1237,17 +1323,19 @@ function renderGuests(){
   const dn=active.filter(c=>guestStatus(c)==='due-now').length;
   const ot=active.filter(c=>guestStatus(c)==='on-track').length;
   const deactCt=mineAll.filter(c=>c.deactivated).length;
+  const ms=active.filter(c=>hasApproachingOrReached(c)).length;
   document.getElementById('guest-stats').innerHTML=`
     <div class="sc"><div class="scl">Active clients</div><div class="scv">${active.length}</div></div>
     <div class="sc"><div class="scl">Overdue</div><div class="scv ${ov>0?'d':''}">${ov}</div></div>
     <div class="sc"><div class="scl">Due this week</div><div class="scv ${dn>0?'w':''}">${dn}</div></div>
-    <div class="sc"><div class="scl">On track</div><div class="scv ${ot>0?'s':''}">${ot}</div></div>`;
+    <div class="sc"><div class="scl">Approaching milestones</div><div class="scv ${ms>0?'u':''}">${ms}</div></div>`;
   let list=mine;
   if(fil==='deactivated')list=mine;
   else if(fil==='overdue')list=mine.filter(c=>guestStatus(c)==='overdue');
   else if(fil==='at-risk')list=mine.filter(c=>c.visitStatus==='at-risk');
   else if(fil==='due-soon')list=mine.filter(c=>guestStatus(c)==='due-now');
   else if(fil==='between')list=mine.filter(c=>{const s=guestStatus(c);return(s==='on-track'||s==='complete')&&daysSince(c.contractStartDate)<=95;});
+  else if(fil==='milestones')list=mine.filter(c=>hasApproachingOrReached(c));
   function nextTpUrgency(c){
     const tps=getTPs(c.type),wins=getWins(c.type),d=daysSince(c.contractStartDate);
     for(let i=0;i<tps.length;i++){
@@ -1332,16 +1420,28 @@ function renderGuestCard(c,actions,prefix=''){
   return`<div class="ccard ${st==='overdue'?'isod':st==='due-now'?'isdu':''}" id="${prefix}ccard-${c.id}">
     <div class="chdr" onclick="toggleCard('${prefix}ccard-${c.id}')">
       <div class="cav">${initials(c.name)}</div>
-      <div class="ci"><div class="cn">${c.name}</div><div class="cm">${c.tier} · Day ${days} · ${done}/${tps.length} touchpoints${nxtTxt} · ${sName(c.assignedStaff)}</div></div>
+      <div class="ci"><div class="cn">${c.name}</div><div class="cm">${c.tier} · Day ${days}${c.type==='member'?` · ${c.totalVisits||0} visits`:''} · ${done}/${tps.length} touchpoints${nxtTxt} · ${sName(c.assignedStaff)}</div></div>
       <div class="cbdg">${tBdg}${c.deactivated?`<span class="badge bia">Deactivated</span>`:sBdg}${!c.deactivated&&c.visitStatus==='at-risk'?`<span class="badge bod">At-risk</span>`:''}</div>
       <svg class="xic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
     </div>
     <div class="cbody">
+      ${c.type==='member'&&!c.deactivated&&actions?renderMilestonesBlock(c):''}
       <div class="tpg">${tpHtml}</div>
       ${c.deactivated?`<div style="background:var(--errp);border:1.5px solid #E8A8A3;border-radius:10px;padding:11px 14px;margin-top:12px;"><div style="font-size:11px;font-weight:600;color:var(--err);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Deactivated</div><p style="font-size:12px;color:#6B1A0A;line-height:1.5;"><strong>Reason:</strong> ${({'membership-change':'Membership change submitted','requested-no-contact':'Requested no further contact',duplicate:'Duplicate entry',other:'Other'})[c.deactivatedReason]||c.deactivatedReason||'Not specified'}${c.deactivatedNotes?` — ${c.deactivatedNotes}`:''}</p></div>`:`<div class="cadbox"><div class="cadbox-t">Cadence guidance — ${c.tier}</div><p><strong>Ideal:</strong> ${g.ideal} · <strong>At-risk:</strong> ${g.risk}<br><strong>Tip:</strong> ${g.tip}</p></div>`}
       ${actHtml}
     </div>
   </div>`;
+}
+
+function renderMilestonesBlock(c){
+  const v=c.totalVisits||0;
+  const updated=c.visitsUpdatedAt?` (updated ${new Date(c.visitsUpdatedAt).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'})})`:'';
+  const circles=MILESTONES.map(m=>{
+    const s=milestoneStatus(c,m.n);
+    return`<div class="ms-circle ${s}" onclick="event.stopPropagation();openMilestone('${c.id}',${m.n})" title="Session ${m.n} milestone">${m.n}</div>`;
+  }).join('');
+  return`<div class="ms-row"><span class="ms-lbl">Milestones:</span>${circles}</div>
+    <div class="ms-info">Last report: <strong>${v} visits</strong>${updated} · Update count: <input type="number" min="0" value="${v}" id="visits-${c.id}" onclick="event.stopPropagation()" onblur="updateVisitCount('${c.id}',this.value)"></div>`;
 }
 
 // ── RENDER: MEMBERSHIP CHANGES ────────────────────────────────────────────
@@ -1513,7 +1613,7 @@ function renderMgrOverview(){
     <div class="sc"><div class="scl">Overdue touchpoints</div><div class="scv ${ov>0?'d':''}">${ov}</div></div>
     <div class="sc"><div class="scl">Due this week</div><div class="scv ${dn>0?'w':''}">${dn}</div></div>
     <div class="sc"><div class="scl">At-risk members</div><div class="scv ${ar>0?'d':''}">${ar}</div></div>`;
-  document.getElementById('mgr-stats').innerHTML+=`<div style="grid-column:1/-1;text-align:right;"><button class="btn btn-g btn-sm" onclick="exportGuests()">Export CSV</button></div>`;
+  document.getElementById('mgr-stats').innerHTML+=`<div style="grid-column:1/-1;text-align:right;display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-p btn-sm" onclick="openUploadVisits()">📤 Upload visits report</button><button class="btn btn-g btn-sm" onclick="exportGuests()">Export CSV</button></div>`;
   if(!activeGuests.length){document.getElementById('mgr-list').innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No active clients.</p></div>`;return;}
   document.getElementById('mgr-list').innerHTML=staffList.map(s=>{
     const sc=activeGuests.filter(c=>c.assignedStaff===s.id);if(!sc.length)return'';
@@ -1758,6 +1858,169 @@ async function toggleRisk(id){
   renderGuests();
 }
 let deactivateGuestId=null;
+// ── MILESTONES & VISIT TRACKING ───────────────────────────────────────────
+
+let _msContext={guestId:null,n:null};
+function openMilestone(guestId,n){
+  const c=guests.find(x=>x.id===guestId);if(!c)return;
+  const m=MILESTONES.find(x=>x.n===n);if(!m)return;
+  _msContext={guestId,n};
+  const status=milestoneStatus(c,n);
+  const v=c.totalVisits||0;
+  const completed=c.milestonesCompleted&&c.milestonesCompleted[n];
+  document.getElementById('ms-title').textContent=`Session ${n} milestone — ${c.name}`;
+  document.getElementById('ms-sub').textContent=`Currently at ${v} visits`;
+  document.getElementById('ms-action').textContent=m.action;
+  let statusHtml='';
+  if(status==='completed'){
+    const d=completed.date?new Date(completed.date).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'}):'';
+    statusHtml=`<div style="background:var(--okp);padding:10px 14px;border-radius:8px;color:var(--ok);">✓ Celebrated on ${d}${completed.by?` by ${completed.by}`:''}</div>`;
+  } else if(status==='reached'){
+    statusHtml=`<div style="background:var(--errp);padding:10px 14px;border-radius:8px;color:var(--err);"><strong>⚠ Action needed:</strong> Member has reached this milestone — celebrate at next visit!</div>`;
+  } else if(status==='approaching'){
+    statusHtml=`<div style="background:var(--warnp);padding:10px 14px;border-radius:8px;color:var(--warn);"><strong>👀 Watch for next visit:</strong> Their next session will be #${n} — be ready with the celebration!</div>`;
+  } else {
+    statusHtml=`<div style="background:var(--sand);padding:10px 14px;border-radius:8px;color:var(--mid);">Currently at ${v} visits — ${n-v} more session${n-v!==1?'s':''} until this milestone.</div>`;
+  }
+  document.getElementById('ms-status').innerHTML=statusHtml;
+  document.getElementById('ms-complete-btn').style.display=status==='completed'?'none':'inline-block';
+  document.getElementById('ms-uncomplete-btn').style.display=status==='completed'?'inline-block':'none';
+  document.getElementById('milestone-modal').classList.add('open');
+}
+
+async function completeMilestone(){
+  const{guestId,n}=_msContext;
+  const c=guests.find(x=>x.id===guestId);if(!c)return;
+  if(!c.milestonesCompleted)c.milestonesCompleted={};
+  c.milestonesCompleted[n]={date:new Date().toISOString()};
+  if(useLocalStorage){lsSave();}
+  else{await api('guests/'+guestId,{method:'PUT',body:{milestonesCompleted:c.milestonesCompleted}});}
+  closeModal('milestone-modal');renderGuests();
+}
+
+async function uncompleteMilestone(){
+  const{guestId,n}=_msContext;
+  const c=guests.find(x=>x.id===guestId);if(!c)return;
+  if(c.milestonesCompleted&&c.milestonesCompleted[n]){delete c.milestonesCompleted[n];}
+  if(useLocalStorage){lsSave();}
+  else{await api('guests/'+guestId,{method:'PUT',body:{milestonesCompleted:c.milestonesCompleted||{}}});}
+  closeModal('milestone-modal');renderGuests();
+}
+
+async function updateVisitCount(id,val){
+  const v=parseInt(val);if(isNaN(v)||v<0)return;
+  const c=guests.find(x=>x.id===id);if(!c)return;
+  if(c.totalVisits===v)return;
+  c.totalVisits=v;c.visitsUpdatedAt=new Date().toISOString();
+  if(useLocalStorage){lsSave();}
+  else{await api('guests/'+id,{method:'PUT',body:{totalVisits:v,visitsUpdatedAt:c.visitsUpdatedAt}});}
+  renderGuests();
+}
+
+// ── UPLOAD VISITS REPORT ──────────────────────────────────────────────────
+
+let _pendingUploadMatches=[];
+function openUploadVisits(){
+  document.getElementById('upload-result').innerHTML='';
+  document.getElementById('upload-apply-btn').style.display='none';
+  document.getElementById('upload-file').value='';
+  _pendingUploadMatches=[];
+  document.getElementById('upload-modal').classList.add('open');
+}
+
+function handleVisitsUpload(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      processUploadRows(rows);
+    } catch(err){
+      document.getElementById('upload-result').innerHTML=`<div style="color:var(--err);padding:10px;">Error parsing file: ${err.message}</div>`;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function processUploadRows(rows){
+  // Find Guest column and Signed-In Visits column (case-insensitive)
+  if(!rows.length){document.getElementById('upload-result').innerHTML=`<div style="color:var(--err);">No data in file.</div>`;return;}
+  const cols=Object.keys(rows[0]);
+  const guestCol=cols.find(k=>/guest|name/i.test(k));
+  const visitsCol=cols.find(k=>/signed.?in/i.test(k))||cols.find(k=>/total.?visits/i.test(k));
+  if(!guestCol||!visitsCol){
+    document.getElementById('upload-result').innerHTML=`<div style="color:var(--err);padding:10px;">Could not find Guest or Signed-In Visits columns. Found columns: ${cols.join(', ')}</div>`;
+    return;
+  }
+
+  const activeMembers=guests.filter(g=>g.type==='member'&&!g.deactivated);
+  const matches=[];
+  rows.forEach(r=>{
+    const name=String(r[guestCol]||'').trim();
+    const visits=parseInt(r[visitsCol]);
+    if(!name||isNaN(visits))return;
+    const match=activeMembers.find(g=>g.name.toLowerCase().trim()===name.toLowerCase());
+    matches.push({name,visits,guestId:match?match.id:null});
+  });
+
+  _pendingUploadMatches=matches;
+  const matched=matches.filter(m=>m.guestId);
+  const unmatched=matches.filter(m=>!m.guestId);
+
+  let html=`<div style="margin-top:14px;font-weight:600;">Matched: ${matched.length} · Unmatched: ${unmatched.length}</div>`;
+  if(matched.length){
+    html+=`<div style="margin-top:10px;font-size:12px;color:var(--muted);">Matched (will be updated):</div>`;
+    html+=matched.slice(0,15).map(m=>{const g=guests.find(x=>x.id===m.guestId);return`<div class="upload-row matched">✓ ${m.name} → ${g.name}: ${m.visits} visits</div>`;}).join('');
+    if(matched.length>15)html+=`<div style="font-size:11px;color:var(--muted);padding:6px;">…and ${matched.length-15} more</div>`;
+  }
+  if(unmatched.length){
+    html+=`<div style="margin-top:14px;font-size:12px;color:var(--muted);">Unmatched (optional — link manually or skip):</div>`;
+    html+=unmatched.map((m,i)=>`<div class="upload-row unmatched">⚠ ${m.name} (${m.visits} visits) <select onchange="linkUnmatched(${i},this.value)"><option value="">Skip</option>${activeMembers.map(g=>`<option value="${g.id}">${g.name}</option>`).join('')}</select></div>`).join('');
+  }
+  document.getElementById('upload-result').innerHTML=html;
+  document.getElementById('upload-apply-btn').style.display='inline-block';
+}
+
+function linkUnmatched(unmatchedIdx,guestId){
+  const unmatched=_pendingUploadMatches.filter(m=>!m.guestId);
+  const target=unmatched[unmatchedIdx];if(!target)return;
+  const realIdx=_pendingUploadMatches.indexOf(target);
+  if(realIdx>=0)_pendingUploadMatches[realIdx].guestId=guestId||null;
+}
+
+async function applyUploadedVisits(){
+  const updates=_pendingUploadMatches.filter(m=>m.guestId);
+  if(!updates.length){alert('No guests to update.');return;}
+  let newMilestonesCount=0;
+  const now=new Date().toISOString();
+  for(const u of updates){
+    const c=guests.find(x=>x.id===u.guestId);if(!c)continue;
+    const oldVisits=c.totalVisits||0;
+    c.totalVisits=u.visits;
+    c.visitsUpdatedAt=now;
+    // Detect newly reached milestones (not yet celebrated)
+    MILESTONES.forEach(m=>{
+      if(oldVisits<m.n&&u.visits>=m.n&&!(c.milestonesCompleted&&c.milestonesCompleted[m.n])){
+        newMilestonesCount++;
+      }
+    });
+    if(useLocalStorage){/* will lsSave below */}
+    else{await api('guests/'+c.id,{method:'PUT',body:{totalVisits:c.totalVisits,visitsUpdatedAt:c.visitsUpdatedAt}});}
+  }
+  if(useLocalStorage)lsSave();
+  closeModal('upload-modal');
+  if(newMilestonesCount>0){
+    setTimeout(()=>alert(`✅ Updated ${updates.length} guest${updates.length!==1?'s':''}.\n\n🎉 ${newMilestonesCount} new milestone${newMilestonesCount!==1?'s':''} ready to celebrate!`),100);
+  } else {
+    setTimeout(()=>alert(`✅ Updated ${updates.length} guest${updates.length!==1?'s':''}.`),100);
+  }
+  renderGuests();
+  if(currentView==='manager'&&currentMgrTab==='overview')renderMgrOverview();
+}
+
 async function toggleDeactivate(id){
   const c=guests.find(x=>x.id===id);if(!c)return;
   if(c.deactivated){
@@ -2189,7 +2452,7 @@ function setMgrTab(tab){
 // Escape key closes modals
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
-    ['log-modal','edit-guest-modal','edit-change-modal','rassign-modal','tp-script-modal','deactivate-modal'].forEach(id=>{
+    ['log-modal','edit-guest-modal','edit-change-modal','rassign-modal','tp-script-modal','deactivate-modal','milestone-modal','upload-modal'].forEach(id=>{
       const el=document.getElementById(id);if(el&&el.classList.contains('open'))closeModal(id);
     });
   }

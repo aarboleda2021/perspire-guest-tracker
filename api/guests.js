@@ -40,6 +40,9 @@ module.exports = async function handler(req, res) {
       deactivated: g.deactivated || false,
       deactivatedReason: g.deactivated_reason || null,
       deactivatedNotes: g.deactivated_notes || null,
+      totalVisits: g.total_visits || 0,
+      visitsUpdatedAt: g.visits_updated_at || null,
+      milestonesCompleted: g.milestones_completed || {},
       logs: logsByGuest[g.id] || {},
       createdAt: g.created_at
     }));

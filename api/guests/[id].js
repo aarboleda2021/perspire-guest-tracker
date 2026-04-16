@@ -19,6 +19,9 @@ module.exports = async function handler(req, res) {
     if (body.deactivated !== undefined) updates.deactivated = body.deactivated;
     if (body.deactivatedReason !== undefined) updates.deactivated_reason = body.deactivatedReason;
     if (body.deactivatedNotes !== undefined) updates.deactivated_notes = body.deactivatedNotes;
+    if (body.totalVisits !== undefined) updates.total_visits = body.totalVisits;
+    if (body.visitsUpdatedAt !== undefined) updates.visits_updated_at = body.visitsUpdatedAt;
+    if (body.milestonesCompleted !== undefined) updates.milestones_completed = body.milestonesCompleted;
 
     const { error } = await supabase.from('guests').update(updates).eq('id', id);
     if (error) return res.status(500).json({ error: error.message });
