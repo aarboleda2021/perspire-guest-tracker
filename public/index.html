@@ -578,14 +578,53 @@
   </div>
 
   <div id="daily-events" style="display:none;">
+    <!-- PROMO CODES SECTION -->
+    <div id="promo-codes-section">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Active promo codes</div>
+        <button class="btn btn-sm btn-p" onclick="toggleAddPromo()">+ Add code</button>
+      </div>
+      <div class="aform" id="add-promo-form">
+        <div class="aft">Add promo code</div>
+        <div class="frow">
+          <div class="fg"><label class="fl">Promo code<span class="req">*</span></label><input type="text" class="fi" id="promo-code" placeholder="e.g. MOTHERSDAY20" style="text-transform:uppercase;"></div>
+          <div class="fg"><label class="fl">What it's for<span class="req">*</span></label><input type="text" class="fi" id="promo-purpose" placeholder="e.g. Mother's Day 20% off first month"></div>
+        </div>
+        <div class="frow">
+          <div class="fg"><label class="fl">Valid from<span class="req">*</span></label><input type="date" class="fi" id="promo-start"></div>
+          <div class="fg"><label class="fl">Valid until<span class="req">*</span></label><input type="date" class="fi" id="promo-end"></div>
+        </div>
+        <div class="fg"><label class="fl">Notes (optional)</label><input type="text" class="fi" id="promo-notes" placeholder="e.g. Only for new members, applies at checkout"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:13px;">
+          <button class="btn btn-g" onclick="toggleAddPromo()">Cancel</button>
+          <button class="btn btn-p" onclick="addPromo()">Add promo code</button>
+        </div>
+      </div>
+      <div id="promo-list"></div>
+    </div>
+    <hr style="border:none;border-top:1.5px solid var(--border);margin:18px 0;">
+    <!-- EVENTS SECTION -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Events</div>
+      <button class="btn btn-sm btn-p" onclick="toggleAddEvent()">+ Add event</button>
+    </div>
     <div class="toolbar" style="margin-bottom:14px;">
-      <span class="tlbl">Filter</span>
-      <select id="events-filter" onchange="renderEvents()">
+      <span class="tlbl">Time</span>
+      <select id="events-filter" onchange="renderEvents()" style="min-width:100px;">
         <option value="upcoming">Upcoming</option>
         <option value="past">Past</option>
         <option value="all">All</option>
       </select>
-      <button class="btn btn-p" onclick="toggleAddEvent()">+ Add event</button>
+      <span class="tlbl" style="margin-left:8px;">Type</span>
+      <select id="events-type-filter" onchange="renderEvents()" style="min-width:120px;">
+        <option value="all">All types</option>
+        <option value="in-studio">In-studio tabling</option>
+        <option value="external">External tabling</option>
+        <option value="promo">Sales promotion</option>
+        <option value="closure">Closure</option>
+        <option value="early-close">Early closure</option>
+        <option value="other">Other</option>
+      </select>
     </div>
     <div class="aform" id="add-event-form">
       <div class="aft">Add studio event</div>
@@ -3048,6 +3087,62 @@ function renderShiftNotes(){
 }
 
 // Events
+// ── PROMO CODES (stored as events with eventType='promo-code') ──────────
+function toggleAddPromo(){
+  const f=document.getElementById('add-promo-form');f.classList.toggle('open');
+  if(f.classList.contains('open')){
+    document.getElementById('promo-code').value='';
+    document.getElementById('promo-purpose').value='';
+    document.getElementById('promo-start').value=toInputDate(new Date());
+    document.getElementById('promo-end').value='';
+    document.getElementById('promo-notes').value='';
+  }
+}
+async function addPromo(){
+  const code=document.getElementById('promo-code').value.trim().toUpperCase();
+  const purpose=document.getElementById('promo-purpose').value.trim();
+  const startDate=document.getElementById('promo-start').value;
+  const endDate=document.getElementById('promo-end').value;
+  if(!code){alert('Please enter a promo code.');return;}
+  if(!purpose){alert('Please describe what this code is for.');return;}
+  if(!startDate||!endDate){alert('Please enter valid from and valid until dates.');return;}
+  const id=Date.now().toString();
+  const rec={id,title:code,eventType:'promo-code',startDate,endDate,timeRange:'',description:purpose,volunteerNeeded:false,assignedStaff:null,createdAt:new Date().toISOString()};
+  if(useLocalStorage){events.push(rec);lsSave();}
+  else{await api('events',{method:'POST',body:rec});await loadEvents();}
+  toggleAddPromo();renderPromoCodes();
+}
+async function removePromo(id){
+  if(!confirm('Delete this promo code?'))return;
+  if(useLocalStorage){events=events.filter(x=>x.id!==id);lsSave();}
+  else{await api('events?id='+id,{method:'DELETE'});await loadEvents();}
+  renderPromoCodes();
+}
+function renderPromoCodes(){
+  const todayD=today();
+  const promos=events.filter(e=>e.eventType==='promo-code');
+  const active=promos.filter(e=>{const sd=parseDate(e.startDate);const ed=parseDate(e.endDate);return sd&&ed&&sd<=todayD&&ed>=todayD;});
+  const upcoming=promos.filter(e=>{const sd=parseDate(e.startDate);return sd&&sd>todayD;});
+  const expired=promos.filter(e=>{const ed=parseDate(e.endDate);return ed&&ed<todayD;});
+  const el=document.getElementById('promo-list');
+  if(!promos.length){el.innerHTML=`<div style="color:var(--muted);font-size:13px;padding:10px 0;">No promo codes yet. Add one to keep the team in the loop.</div>`;return;}
+  const renderCard=(p,status)=>{
+    const statusBadge=status==='active'?'<span class="badge bhlt">Active now</span>':status==='upcoming'?'<span class="badge bm">Upcoming</span>':'<span class="badge bia">Expired</span>';
+    const opacity=status==='expired'?'opacity:.55;':'';
+    return`<div class="mccard" style="padding:12px 14px;margin-bottom:6px;${opacity}${status==='active'?'border:1.5px solid var(--ok);background:var(--okp);':''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+        <div style="flex:1;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px;">${statusBadge}<strong style="font-size:14px;font-family:monospace;letter-spacing:.5px;">${p.title}</strong></div>
+          <div style="font-size:13px;color:var(--mid);">${p.description}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Valid ${fmtDate(p.startDate)} – ${fmtDate(p.endDate)}${p.timeRange?` · ${p.timeRange}`:''}</div>
+        </div>
+        <button class="btn btn-sm btn-do" onclick="removePromo('${p.id}')" style="flex-shrink:0;">Delete</button>
+      </div>
+    </div>`;
+  };
+  el.innerHTML=[...active.map(p=>renderCard(p,'active')),...upcoming.map(p=>renderCard(p,'upcoming')),...expired.map(p=>renderCard(p,'expired'))].join('');
+}
+
 function toggleAddEvent(){
   const f=document.getElementById('add-event-form');f.classList.toggle('open');
   if(f.classList.contains('open')){
@@ -3097,14 +3192,17 @@ async function removeEvent(id){
 }
 
 function renderEvents(){
+  renderPromoCodes();
   const fil=document.getElementById('events-filter').value;
+  const typeFil=document.getElementById('events-type-filter').value;
   const todayD=today();
-  let list=events;
-  if(fil==='upcoming')list=events.filter(e=>{const sd=parseDate(e.startDate);const ed=parseDate(e.endDate||e.startDate);return ed&&ed>=todayD;});
-  else if(fil==='past')list=events.filter(e=>{const ed=parseDate(e.endDate||e.startDate);return ed&&ed<todayD;});
+  let list=events.filter(e=>e.eventType!=='promo-code');
+  if(fil==='upcoming')list=list.filter(e=>{const ed=parseDate(e.endDate||e.startDate);return ed&&ed>=todayD;});
+  else if(fil==='past')list=list.filter(e=>{const ed=parseDate(e.endDate||e.startDate);return ed&&ed<todayD;});
+  if(typeFil!=='all')list=list.filter(e=>e.eventType===typeFil);
   list=[...list].sort((a,b)=>{const da=parseDate(a.startDate),db=parseDate(b.startDate);return(da?.getTime()||0)-(db?.getTime()||0);});
   const el=document.getElementById('events-list');
-  if(!list.length){el.innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No events${fil==='upcoming'?' upcoming.':'.'}</p></div>`;return;}
+  if(!list.length){el.innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No events${fil==='upcoming'?' upcoming':''}${typeFil!=='all'?' matching that type':''}.</p></div>`;return;}
   const typeLabels={'in-studio':'In-studio tabling','external':'External tabling','promo':'Sales promotion','closure':'Closure','early-close':'Early closure','other':'Other'};
   const typeBadges={'in-studio':'bm','external':'bot','promo':'bUP','closure':'bod','early-close':'bdu','other':'bia'};
   el.innerHTML=list.map(e=>{
