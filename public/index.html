@@ -3188,7 +3188,7 @@ async function renderToday(){
   const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const dateObj=parseDate(viewDate);
   const prettyDate=dateObj?dateObj.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}):viewDate;
-  const readOnlyNotice=!isToday?`<div style="background:var(--infop);border:1.5px solid #B3D4E0;border-radius:8px;padding:8px 12px;margin-top:8px;font-size:12px;color:var(--info);">👁 Viewing historical date (read-only) · <a href="#" onclick="event.preventDefault();setViewDate('')" style="color:var(--info);text-decoration:underline;">Back to today</a></div>`:'';
+  const readOnlyNotice=!isToday?`<div style="background:var(--infop);border:1.5px solid #B3D4E0;border-radius:8px;padding:8px 12px;margin-top:8px;font-size:12px;color:var(--info);">📅 Viewing ${prettyDate} (edits are saved to this date) · <a href="#" onclick="event.preventDefault();setViewDate('')" style="color:var(--info);text-decoration:underline;">Back to today</a></div>`:'';
   document.getElementById('today-header').innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
     <div style="font-family:'DM Serif Display',serif;font-size:22px;">${prettyDate}</div>
     <div style="display:flex;align-items:center;gap:6px;">
@@ -3204,25 +3204,22 @@ async function renderToday(){
     const by=done?sName(done.completedBy):'';
     const when=done?new Date(done.completedAt).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):'';
     let scriptBtn='';
-    if(isToday){
-      if(t.scripts==='green-star')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openGreenStarScripts()">📞 View call scripts</button>`;
-      else if(t.scripts==='cleaning')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openCleaningList()">📋 View today's cleaning list</button>`;
-      else if(t.special==='cintas'&&!done)scriptBtn=`<button class="btn btn-p btn-sm" style="font-size:11px;" onclick="event.stopPropagation();openCintas()">👆 Click to log supply levels</button>`;
-    }
+    if(t.scripts==='green-star')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openGreenStarScripts()">📞 View call scripts</button>`;
+    else if(t.scripts==='cleaning')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openCleaningList()">📋 View today's cleaning list</button>`;
+    else if(t.special==='cintas'&&!done)scriptBtn=`<button class="btn btn-p btn-sm" style="font-size:11px;" onclick="event.stopPropagation();openCintas()">👆 Click to log supply levels</button>`;
     let cintasSummary='';
     if(t.special==='cintas'&&done&&done.taskData){
       const statusLabels={good:'<span style="color:var(--ok);">✓ Good</span>',half:'<span style="color:var(--warn);">⚠ Half way</span>',low:'<span style="color:var(--err);">⚠ Need More</span>'};
       cintasSummary=`<div style="margin-top:8px;padding:10px 12px;background:white;border:1px solid var(--border);border-radius:8px;font-size:12px;line-height:1.7;">${CINTAS_ITEMS.map((item,i)=>{const d=done.taskData[i]||{};return`<div><strong>${item}:</strong> ${statusLabels[d.status]||'—'}${d.notes?` <span style="color:var(--muted);">— ${d.notes}</span>`:''}</div>`;}).join('')}</div>`;
     }
-    const notDoneMeta=!done&&!isToday?'<div class="stask-meta" style="color:var(--err);">⚠ Not completed</div>':'';
-    const clickHandler=isToday?(t.special==='cintas'?`openCintas()`:`openTaskComplete('${t.key}')`):'';
-    return`<div class="stask ${done?'done':''}" ${isToday?`onclick="${clickHandler}"`:'style="opacity:.8;cursor:default;"'}>
+    const clickHandler=t.special==='cintas'?`openCintas()`:`openTaskComplete('${t.key}')`;
+    return`<div class="stask ${done?'done':''}" onclick="${clickHandler}">
       <div class="stask-chk">${done?'<svg width="12" height="12" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div>
       <div class="stask-body">
-        <div class="stask-lbl">${t.label}${t.link&&isToday?`<a class="stask-link" href="${t.link}" target="_blank" onclick="event.stopPropagation()">How-to guide ↗</a>`:''}</div>
-        ${done?`<div class="stask-meta">✓ Completed by ${by} at ${when}${isToday&&t.special==='cintas'?' · click to view/edit levels':''}</div>${cintasSummary}`:`${notDoneMeta}${scriptBtn}`}
+        <div class="stask-lbl">${t.label}${t.link?`<a class="stask-link" href="${t.link}" target="_blank" onclick="event.stopPropagation()">How-to guide ↗</a>`:''}</div>
+        ${done?`<div class="stask-meta">✓ Completed by ${by} at ${when}${t.special==='cintas'?' · click to view/edit levels':''}</div>${cintasSummary}`:scriptBtn}
       </div>
-      ${done&&isToday?`<button class="btn btn-g btn-sm" onclick="event.stopPropagation();undoTask('${t.key}')" style="font-size:11px;">Undo</button>`:''}
+      ${done?`<button class="btn btn-g btn-sm" onclick="event.stopPropagation();undoTask('${t.key}')" style="font-size:11px;">Undo</button>`:''}
     </div>`;
   }).join('');
   document.getElementById('today-studio-tasks').innerHTML=`<div class="sec-hdr"><div class="sec-title">Studio tasks</div><div class="sec-ct">${applicable.length}</div></div>${tasksHtml||'<div class="empty"><p>No studio tasks for this day.</p></div>'}`;
@@ -3232,15 +3229,10 @@ async function renderToday(){
   const colsHeader=LOG_COLS.map(c=>`<th title="${c.tip}">${c.label}${c.goal?`<div style="font-weight:400;font-size:10px;color:var(--muted);margin-top:2px;font-style:italic;text-transform:none;letter-spacing:0;">${c.goal}</div>`:''}</th>`).join('');
   const rows=staff.map(s=>{
     const log=dailyLogs.find(l=>l.staffId===s.id)||{staffId:s.id};
-    const cells=LOG_COLS.map(c=>{
-      const v=log[c.key];const display=(v===0||v>0)?v:'';
-      return isToday
-        ?`<td><input type="number" min="0" value="${display}" onblur="updateDailyLogCell('${s.id}','${c.key}',this.value)"></td>`
-        :`<td>${(v===0||v>0)?v:'<span style="color:var(--muted);">—</span>'}</td>`;
-    }).join('');
+    const cells=LOG_COLS.map(c=>{const v=log[c.key];const display=(v===0||v>0)?v:'';return`<td><input type="number" min="0" value="${display}" onblur="updateDailyLogCell('${s.id}','${c.key}',this.value)"></td>`;}).join('');
     const cl=log.contactLogsDone,ax=log.axleFollowupsDone;
-    const clCell=isToday?`<button class="dlg-cb-btn ${cl?'done':''}" onclick="toggleContactLogs('${s.id}')">${cl?'✓ Done':'Mark'}</button>`:(cl?'<span style="color:var(--ok);">✓</span>':'<span style="color:var(--muted);">—</span>');
-    const axCell=isToday?`<button class="dlg-cb-btn ${ax?'done':''}" onclick="toggleAxleFollowups('${s.id}')">${ax?'✓ Done':'Mark'}</button>`:(ax?'<span style="color:var(--ok);">✓</span>':'<span style="color:var(--muted);">—</span>');
+    const clCell=`<button class="dlg-cb-btn ${cl?'done':''}" onclick="toggleContactLogs('${s.id}')">${cl?'✓ Done':'Mark'}</button>`;
+    const axCell=`<button class="dlg-cb-btn ${ax?'done':''}" onclick="toggleAxleFollowups('${s.id}')">${ax?'✓ Done':'Mark'}</button>`;
     return`<tr>
       <td class="dlg-staff">${s.name}</td>
       ${cells}
@@ -3249,7 +3241,7 @@ async function renderToday(){
     </tr>`;
   }).join('');
   document.getElementById('today-daily-log').innerHTML=`<div class="sec-hdr"><div class="sec-title">Team daily log</div></div>
-    ${isToday?'<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Hover over column headers for details. Anyone can fill in any row.</div>':''}
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Hover over column headers for details. Anyone can fill in any row.</div>
     <div class="dlg-wrap"><table class="dlg">
       <thead><tr>
         <th class="dlg-staff">Staff</th>
@@ -3306,7 +3298,7 @@ function openTaskComplete(key){
 async function confirmTaskComplete(){
   const by=document.getElementById('task-by').value;
   if(!by){alert('Please select who completed this task.');return;}
-  const d=getTodayStr();
+  const d=getViewDate();
   const rec={date:d,taskKey:_pendingTaskKey,completedBy:by,completedAt:new Date().toISOString(),taskData:null};
   if(useLocalStorage){
     dailyTasks=dailyTasks.filter(t=>t.taskKey!==_pendingTaskKey);
@@ -3319,7 +3311,7 @@ async function confirmTaskComplete(){
   renderToday();
 }
 async function undoTask(key){
-  const d=getTodayStr();
+  const d=getViewDate();
   if(!confirm('Uncheck this task?'))return;
   if(useLocalStorage){
     dailyTasks=dailyTasks.filter(t=>t.taskKey!==key);
@@ -3362,7 +3354,7 @@ async function confirmCintasComplete(){
     if(!statusEl){alert(`Please select a status for "${CINTAS_ITEMS[i]}".`);return;}
     data[i]={status:statusEl.value,notes:document.getElementById('cintas-notes-'+i).value.trim()};
   }
-  const d=getTodayStr();
+  const d=getViewDate();
   const rec={date:d,taskKey:'cintas',completedBy:by,completedAt:new Date().toISOString(),taskData:data};
   if(useLocalStorage){
     dailyTasks=dailyTasks.filter(t=>t.taskKey!=='cintas');
@@ -3377,7 +3369,7 @@ async function confirmCintasComplete(){
 
 // Daily log cell updates
 async function updateDailyLogCell(staffId,colKey,val){
-  const d=getTodayStr();
+  const d=getViewDate();
   let log=dailyLogs.find(l=>l.staffId===staffId);
   if(!log){log={staffId,date:d,contactLogsDone:false,axleFollowupsDone:false};dailyLogs.push(log);}
   if(val===''){
@@ -3417,7 +3409,7 @@ async function confirmContactLogs(){
   closeModal('contact-log-template-modal');_pendingContactLogsStaff=null;
 }
 async function setContactLogs(staffId,done){
-  const d=getTodayStr();
+  const d=getViewDate();
   let log=dailyLogs.find(l=>l.staffId===staffId);
   if(!log){log={staffId,date:d};dailyLogs.push(log);}
   log.contactLogsDone=done;
@@ -3430,7 +3422,7 @@ async function setContactLogs(staffId,done){
 }
 
 async function toggleAxleFollowups(staffId){
-  const d=getTodayStr();
+  const d=getViewDate();
   let log=dailyLogs.find(l=>l.staffId===staffId);
   if(!log){log={staffId,date:d};dailyLogs.push(log);}
   log.axleFollowupsDone=!log.axleFollowupsDone;
