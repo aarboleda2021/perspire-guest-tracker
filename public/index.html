@@ -3158,11 +3158,19 @@ async function renderToday(){
     let scriptBtn='';
     if(t.scripts==='green-star')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openGreenStarScripts()">📞 View call scripts</button>`;
     else if(t.scripts==='cleaning')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openCleaningList()">📋 View today's cleaning list</button>`;
-    return`<div class="stask ${done?'done':''}" onclick="openTaskComplete('${t.key}')">
+    else if(t.special==='cintas'&&!done)scriptBtn=`<button class="btn btn-p btn-sm" style="font-size:11px;" onclick="event.stopPropagation();openCintas()">👆 Click to log supply levels</button>`;
+    // Cintas summary when completed
+    let cintasSummary='';
+    if(t.special==='cintas'&&done&&done.taskData){
+      const statusLabels={good:'<span style="color:var(--ok);">✓ Good</span>',half:'<span style="color:var(--warn);">⚠ Half way</span>',low:'<span style="color:var(--err);">⚠ Need More</span>'};
+      cintasSummary=`<div style="margin-top:8px;padding:10px 12px;background:white;border:1px solid var(--border);border-radius:8px;font-size:12px;line-height:1.7;">${CINTAS_ITEMS.map((item,i)=>{const d=done.taskData[i]||{};return`<div><strong>${item}:</strong> ${statusLabels[d.status]||'—'}${d.notes?` <span style="color:var(--muted);">— ${d.notes}</span>`:''}</div>`;}).join('')}</div>`;
+    }
+    const clickHandler=t.special==='cintas'?`openCintas()`:`openTaskComplete('${t.key}')`;
+    return`<div class="stask ${done?'done':''}" onclick="${clickHandler}">
       <div class="stask-chk">${done?'<svg width="12" height="12" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div>
       <div class="stask-body">
         <div class="stask-lbl">${t.label}${t.link?`<a class="stask-link" href="${t.link}" target="_blank" onclick="event.stopPropagation()">How-to guide ↗</a>`:''}</div>
-        ${done?`<div class="stask-meta">✓ Completed by ${by} at ${when}</div>`:scriptBtn}
+        ${done?`<div class="stask-meta">✓ Completed by ${by} at ${when}${t.special==='cintas'?' · click to view/edit levels':''}</div>${cintasSummary}`:scriptBtn}
       </div>
       ${done?`<button class="btn btn-g btn-sm" onclick="event.stopPropagation();undoTask('${t.key}')" style="font-size:11px;">Undo</button>`:''}
     </div>`;
