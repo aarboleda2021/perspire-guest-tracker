@@ -285,6 +285,9 @@
     .hdr-title{display:none;}
     .cbdg,.mcbdg{gap:3px;}.badge{font-size:9px;padding:2px 6px;}
   }
+  @media(max-width:860px){
+    #daily-events>div{grid-template-columns:1fr !important;}
+  }
 </style>
 </head>
 <body>
@@ -578,86 +581,96 @@
   </div>
 
   <div id="daily-events" style="display:none;">
-    <!-- PROMO CODES SECTION -->
-    <div id="promo-codes-section">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-        <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Active promo codes</div>
-        <button class="btn btn-sm btn-p" onclick="toggleAddPromo()">+ Add code</button>
-      </div>
-      <div class="aform" id="add-promo-form">
-        <div class="aft">Add promo code</div>
-        <div class="frow">
-          <div class="fg"><label class="fl">Promo code<span class="req">*</span></label><input type="text" class="fi" id="promo-code" placeholder="e.g. MOTHERSDAY20" style="text-transform:uppercase;"></div>
-          <div class="fg"><label class="fl">What it's for<span class="req">*</span></label><input type="text" class="fi" id="promo-purpose" placeholder="e.g. Mother's Day 20% off first month"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+      <!-- LEFT: EVENTS -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Events</div>
+          <button class="btn btn-sm btn-p" onclick="toggleAddEvent()">+ Add event</button>
         </div>
-        <div class="frow">
-          <div class="fg"><label class="fl">Valid from<span class="req">*</span></label><input type="date" class="fi" id="promo-start"></div>
-          <div class="fg"><label class="fl">Valid until<span class="req">*</span></label><input type="date" class="fi" id="promo-end"></div>
-        </div>
-        <div class="fg"><label class="fl">Notes (optional)</label><input type="text" class="fi" id="promo-notes" placeholder="e.g. Only for new members, applies at checkout"></div>
-        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:13px;">
-          <button class="btn btn-g" onclick="toggleAddPromo()">Cancel</button>
-          <button class="btn btn-p" onclick="addPromo()">Add promo code</button>
-        </div>
-      </div>
-      <div id="promo-list"></div>
-    </div>
-    <hr style="border:none;border-top:1.5px solid var(--border);margin:18px 0;">
-    <!-- EVENTS SECTION -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Events</div>
-      <button class="btn btn-sm btn-p" onclick="toggleAddEvent()">+ Add event</button>
-    </div>
-    <div class="toolbar" style="margin-bottom:14px;">
-      <span class="tlbl">Time</span>
-      <select id="events-filter" onchange="renderEvents()" style="min-width:100px;">
-        <option value="upcoming">Upcoming</option>
-        <option value="past">Past</option>
-        <option value="all">All</option>
-      </select>
-      <span class="tlbl" style="margin-left:8px;">Type</span>
-      <select id="events-type-filter" onchange="renderEvents()" style="min-width:120px;">
-        <option value="all">All types</option>
-        <option value="in-studio">In-studio tabling</option>
-        <option value="external">External tabling</option>
-        <option value="promo">Sales promotion</option>
-        <option value="closure">Closure</option>
-        <option value="early-close">Early closure</option>
-        <option value="other">Other</option>
-      </select>
-    </div>
-    <div class="aform" id="add-event-form">
-      <div class="aft">Add studio event</div>
-      <div class="fg"><label class="fl">Title<span class="req">*</span></label><input type="text" class="fi" id="event-title" placeholder="e.g. Mother's Day giveaway tabling"></div>
-      <div class="frow">
-        <div class="fg"><label class="fl">Type<span class="req">*</span></label>
-          <select class="fi" id="event-type">
+        <div class="toolbar" style="margin-bottom:14px;flex-wrap:wrap;">
+          <span class="tlbl">Time</span>
+          <select id="events-filter" onchange="renderEvents()" style="min-width:90px;">
+            <option value="upcoming">Upcoming</option>
+            <option value="past">Past</option>
+            <option value="all">All</option>
+          </select>
+          <span class="tlbl" style="margin-left:6px;">Type</span>
+          <select id="events-type-filter" onchange="renderEvents()" style="min-width:110px;">
+            <option value="all">All types</option>
             <option value="in-studio">In-studio tabling</option>
             <option value="external">External tabling</option>
             <option value="promo">Sales promotion</option>
-            <option value="closure">Studio closure</option>
+            <option value="closure">Closure</option>
             <option value="early-close">Early closure</option>
             <option value="other">Other</option>
           </select>
         </div>
-        <div class="fg"><label class="fl">Start date<span class="req">*</span></label><input type="date" class="fi" id="event-start-date"></div>
+        <div class="aform" id="add-event-form">
+          <div class="aft">Add studio event</div>
+          <div class="fg"><label class="fl">Title<span class="req">*</span></label><input type="text" class="fi" id="event-title" placeholder="e.g. Mother's Day giveaway tabling"></div>
+          <div class="frow">
+            <div class="fg"><label class="fl">Type<span class="req">*</span></label>
+              <select class="fi" id="event-type">
+                <option value="in-studio">In-studio tabling</option>
+                <option value="external">External tabling</option>
+                <option value="promo">Sales promotion</option>
+                <option value="closure">Studio closure</option>
+                <option value="early-close">Early closure</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="fg"><label class="fl">Start date<span class="req">*</span></label><input type="date" class="fi" id="event-start-date"></div>
+          </div>
+          <div class="frow">
+            <div class="fg"><label class="fl">End date (optional, for multi-day)</label><input type="date" class="fi" id="event-end-date"></div>
+            <div class="fg"><label class="fl">Time range (optional)</label><input type="text" class="fi" id="event-time" placeholder="e.g. 4-7pm, All day"></div>
+          </div>
+          <div class="fg"><label class="fl">Assigned staff (optional)</label><select class="fi" id="event-assigned"></select></div>
+          <div class="fg"><label class="fl">Description</label><textarea class="fi" id="event-desc" placeholder="Any additional details..."></textarea></div>
+          <div class="fci">
+            <input type="checkbox" class="fchk" id="event-volunteer">
+            <div><div class="fchk-lbl">Volunteer needed</div><div class="fchk-desc">Check if staff volunteers are needed. Can be updated once someone is assigned.</div></div>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:13px;">
+            <button class="btn btn-g" onclick="toggleAddEvent()">Cancel</button>
+            <button class="btn btn-p" onclick="addEvent()">Add event</button>
+          </div>
+        </div>
+        <div id="events-list"></div>
       </div>
-      <div class="frow">
-        <div class="fg"><label class="fl">End date (optional, for multi-day)</label><input type="date" class="fi" id="event-end-date"></div>
-        <div class="fg"><label class="fl">Time range (optional)</label><input type="text" class="fi" id="event-time" placeholder="e.g. 4-7pm, All day"></div>
-      </div>
-      <div class="fg"><label class="fl">Assigned staff (optional)</label><select class="fi" id="event-assigned"></select></div>
-      <div class="fg"><label class="fl">Description</label><textarea class="fi" id="event-desc" placeholder="Any additional details..."></textarea></div>
-      <div class="fci">
-        <input type="checkbox" class="fchk" id="event-volunteer">
-        <div><div class="fchk-lbl">Volunteer needed</div><div class="fchk-desc">Check if staff volunteers are needed. Can be updated once someone is assigned.</div></div>
-      </div>
-      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:13px;">
-        <button class="btn btn-g" onclick="toggleAddEvent()">Cancel</button>
-        <button class="btn btn-p" onclick="addEvent()">Add event</button>
+      <!-- RIGHT: PROMO CODES -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Promo codes</div>
+          <button class="btn btn-sm btn-p" onclick="toggleAddPromo()">+ Add code</button>
+        </div>
+        <div class="toolbar" style="margin-bottom:14px;">
+          <span class="tlbl">Show</span>
+          <select id="promo-filter" onchange="renderPromoCodes()" style="min-width:100px;">
+            <option value="active">Active</option>
+            <option value="upcoming">Upcoming</option>
+            <option value="expired">Expired</option>
+            <option value="all">All</option>
+          </select>
+        </div>
+        <div class="aform" id="add-promo-form">
+          <div class="aft">Add promo code</div>
+          <div class="fg"><label class="fl">Promo code<span class="req">*</span></label><input type="text" class="fi" id="promo-code" placeholder="e.g. MOTHERSDAY20" style="text-transform:uppercase;"></div>
+          <div class="fg"><label class="fl">What it's for<span class="req">*</span></label><input type="text" class="fi" id="promo-purpose" placeholder="e.g. Mother's Day 20% off first month"></div>
+          <div class="frow">
+            <div class="fg"><label class="fl">Valid from<span class="req">*</span></label><input type="date" class="fi" id="promo-start"></div>
+            <div class="fg"><label class="fl">Valid until<span class="req">*</span></label><input type="date" class="fi" id="promo-end"></div>
+          </div>
+          <div class="fg"><label class="fl">Notes (optional)</label><input type="text" class="fi" id="promo-notes" placeholder="e.g. Only for new members, applies at checkout"></div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:13px;">
+            <button class="btn btn-g" onclick="toggleAddPromo()">Cancel</button>
+            <button class="btn btn-p" onclick="addPromo()">Add promo code</button>
+          </div>
+        </div>
+        <div id="promo-list"></div>
       </div>
     </div>
-    <div id="events-list"></div>
   </div>
 
   <div id="daily-today" style="display:none;">
@@ -3120,13 +3133,18 @@ async function removePromo(id){
 }
 function renderPromoCodes(){
   const todayD=today();
+  const fil=document.getElementById('promo-filter')?.value||'active';
   const promos=events.filter(e=>e.eventType==='promo-code');
-  const active=promos.filter(e=>{const sd=parseDate(e.startDate);const ed=parseDate(e.endDate);return sd&&ed&&sd<=todayD&&ed>=todayD;});
-  const upcoming=promos.filter(e=>{const sd=parseDate(e.startDate);return sd&&sd>todayD;});
-  const expired=promos.filter(e=>{const ed=parseDate(e.endDate);return ed&&ed<todayD;});
+  const categorize=(p)=>{const sd=parseDate(p.startDate);const ed=parseDate(p.endDate);if(ed&&ed<todayD)return'expired';if(sd&&sd>todayD)return'upcoming';return'active';};
+  let list;
+  if(fil==='all'){list=promos;}
+  else{list=promos.filter(p=>categorize(p)===fil);}
+  list=[...list].sort((a,b)=>{const da=parseDate(a.startDate),db=parseDate(b.startDate);return(da?.getTime()||0)-(db?.getTime()||0);});
   const el=document.getElementById('promo-list');
   if(!promos.length){el.innerHTML=`<div style="color:var(--muted);font-size:13px;padding:10px 0;">No promo codes yet. Add one to keep the team in the loop.</div>`;return;}
-  const renderCard=(p,status)=>{
+  if(!list.length){el.innerHTML=`<div style="color:var(--muted);font-size:13px;padding:10px 0;">No ${fil} promo codes.</div>`;return;}
+  const renderCard=(p)=>{
+    const status=categorize(p);
     const statusBadge=status==='active'?'<span class="badge bhlt">Active now</span>':status==='upcoming'?'<span class="badge bm">Upcoming</span>':'<span class="badge bia">Expired</span>';
     const opacity=status==='expired'?'opacity:.55;':'';
     return`<div class="mccard" style="padding:12px 14px;margin-bottom:6px;${opacity}${status==='active'?'border:1.5px solid var(--ok);background:var(--okp);':''}">
@@ -3140,7 +3158,7 @@ function renderPromoCodes(){
       </div>
     </div>`;
   };
-  el.innerHTML=[...active.map(p=>renderCard(p,'active')),...upcoming.map(p=>renderCard(p,'upcoming')),...expired.map(p=>renderCard(p,'expired'))].join('');
+  el.innerHTML=list.map(p=>renderCard(p)).join('');
 }
 
 function toggleAddEvent(){
