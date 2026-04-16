@@ -3068,6 +3068,28 @@ async function removeNote(id){
   else{await api('shift-notes?id='+id,{method:'DELETE'});await loadShiftNotes();}
   renderShiftNotes();
 }
+function editNote(id){
+  const n=shiftNotes.find(x=>x.id===id);if(!n)return;
+  const el=document.getElementById('note-card-'+id);
+  const prioOpts=['normal','urgent'].map(p=>`<option value="${p}" ${n.priority===p?'selected':''}>${p==='urgent'?'⚠ Urgent':'Normal'}</option>`).join('');
+  el.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px;padding:14px 16px;">
+    <div class="fg" style="margin:0;"><label class="fl">Note</label><textarea class="fi" id="en-content-${id}" rows="3">${n.content||''}</textarea></div>
+    <div class="frow"><div class="fg" style="margin:0;"><label class="fl">Priority</label><select class="fi" id="en-prio-${id}">${prioOpts}</select></div>
+    <div class="fg" style="margin:0;"><label class="fl">Keep visible until</label><input type="date" class="fi" id="en-keep-${id}" value="${n.keepUntil||''}"></div></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-sm btn-g" onclick="renderShiftNotes()">Cancel</button><button class="btn btn-sm btn-p" onclick="saveNoteEdit('${id}')">Save</button></div>
+  </div>`;
+}
+async function saveNoteEdit(id){
+  const content=document.getElementById('en-content-'+id).value.trim();
+  const priority=document.getElementById('en-prio-'+id).value;
+  const keepUntil=document.getElementById('en-keep-'+id).value||null;
+  if(!content){alert('Please enter a note.');return;}
+  const n=shiftNotes.find(x=>x.id===id);if(!n)return;
+  n.content=content;n.priority=priority;n.keepUntil=keepUntil;
+  if(useLocalStorage){lsSave();}
+  else{await api('shift-notes?id='+id,{method:'PUT',body:{content,priority,keepUntil}});}
+  renderShiftNotes();
+}
 
 function renderShiftNotes(){
   const fil=document.getElementById('notes-filter').value;
@@ -3084,7 +3106,7 @@ function renderShiftNotes(){
     const resolved=!!n.resolvedAt;
     const createdStr=new Date(n.createdAt).toLocaleString('en-US',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});
     const keepLbl=n.keepUntil?` · keeping until ${fmtDate(n.keepUntil)}`:'';
-    return`<div class="mccard ${urgent&&!resolved?'isurg':''}" style="padding:14px 16px;margin-bottom:9px;${resolved?'opacity:.6;':''}">
+    return`<div class="mccard ${urgent&&!resolved?'isurg':''}" id="note-card-${n.id}" style="padding:14px 16px;margin-bottom:9px;${resolved?'opacity:.6;':''}">
       <div style="display:flex;gap:10px;align-items:flex-start;">
         <div style="flex:1;">
           <div style="font-size:13px;white-space:pre-wrap;">${n.content}</div>
@@ -3092,6 +3114,7 @@ function renderShiftNotes(){
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap;">
           ${resolved?`<button class="btn btn-g btn-sm" onclick="unresolveNote('${n.id}')">Reopen</button>`:`<span style="font-size:11px;color:var(--muted);">Resolving as:</span><select id="resolve-by-${n.id}" class="fi" style="font-size:12px;padding:5px 8px;width:auto;">${staffOptions('')}</select><button class="btn btn-g btn-sm" onclick="resolveNote('${n.id}')">Mark resolved ✓</button>`}
+          <button class="btn btn-sm btn-g" onclick="editNote('${n.id}')">Edit</button>
           <button class="btn btn-sm btn-do" onclick="removeNote('${n.id}')">Delete</button>
         </div>
       </div>
@@ -3132,6 +3155,34 @@ async function removePromo(id){
   else{await api('events?id='+id,{method:'DELETE'});await loadEvents();}
   renderPromoCodes();
 }
+function editPromo(id){
+  const p=events.find(x=>x.id===id);if(!p)return;
+  const el=document.getElementById('promo-card-'+id);
+  el.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px;">
+    <div class="frow"><div class="fg" style="margin:0;"><label class="fl">Promo code</label><input type="text" class="fi" id="ep-code-${id}" value="${p.title}" style="text-transform:uppercase;"></div>
+    <div class="fg" style="margin:0;"><label class="fl">What it's for</label><input type="text" class="fi" id="ep-purpose-${id}" value="${(p.description||'').replace(/"/g,'&quot;')}"></div></div>
+    <div class="frow"><div class="fg" style="margin:0;"><label class="fl">Valid from</label><input type="date" class="fi" id="ep-start-${id}" value="${p.startDate}"></div>
+    <div class="fg" style="margin:0;"><label class="fl">Valid until</label><input type="date" class="fi" id="ep-end-${id}" value="${p.endDate||''}"></div></div>
+    <div class="fg" style="margin:0;"><label class="fl">Notes</label><input type="text" class="fi" id="ep-notes-${id}" value="${(p.timeRange||'').replace(/"/g,'&quot;')}"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-sm btn-g" onclick="renderPromoCodes()">Cancel</button><button class="btn btn-sm btn-p" onclick="savePromo('${id}')">Save</button></div>
+  </div>`;
+}
+async function savePromo(id){
+  const code=document.getElementById('ep-code-'+id).value.trim().toUpperCase();
+  const purpose=document.getElementById('ep-purpose-'+id).value.trim();
+  const startDate=document.getElementById('ep-start-'+id).value;
+  const endDate=document.getElementById('ep-end-'+id).value;
+  const notes=document.getElementById('ep-notes-'+id).value.trim();
+  if(!code){alert('Please enter a promo code.');return;}
+  if(!purpose){alert('Please describe what this code is for.');return;}
+  if(!startDate||!endDate){alert('Please enter valid from and valid until dates.');return;}
+  if(endDate<startDate){alert('The "valid until" date can\'t be before the "valid from" date.');return;}
+  const p=events.find(x=>x.id===id);if(!p)return;
+  p.title=code;p.description=purpose;p.startDate=startDate;p.endDate=endDate;p.timeRange=notes;
+  if(useLocalStorage){lsSave();}
+  else{await api('events?id='+id,{method:'PUT',body:{title:code,description:purpose,startDate,endDate,timeRange:notes}});}
+  renderPromoCodes();
+}
 function renderPromoCodes(){
   const todayD=today();
   const fil=document.getElementById('promo-filter')?.value||'active';
@@ -3148,14 +3199,17 @@ function renderPromoCodes(){
     const status=categorize(p);
     const statusBadge=status==='active'?'<span class="badge bhlt">Active now</span>':status==='upcoming'?'<span class="badge bm">Upcoming</span>':'<span class="badge bia">Expired</span>';
     const opacity=status==='expired'?'opacity:.55;':'';
-    return`<div class="mccard" style="padding:12px 14px;margin-bottom:6px;${opacity}${status==='active'?'border:1.5px solid var(--ok);background:var(--okp);':''}">
+    return`<div class="mccard" id="promo-card-${p.id}" style="padding:12px 14px;margin-bottom:6px;${opacity}${status==='active'?'border:1.5px solid var(--ok);background:var(--okp);':''}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
         <div style="flex:1;">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px;">${statusBadge}<strong style="font-size:14px;font-family:monospace;letter-spacing:.5px;">${p.title}</strong></div>
           <div style="font-size:13px;color:var(--mid);">${p.description}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:4px;">Valid ${fmtDate(p.startDate)} – ${fmtDate(p.endDate)}${p.timeRange?` · ${p.timeRange}`:''}</div>
         </div>
-        <button class="btn btn-sm btn-do" onclick="removePromo('${p.id}')" style="flex-shrink:0;">Delete</button>
+        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
+          <button class="btn btn-sm btn-g" onclick="editPromo('${p.id}')">Edit</button>
+          <button class="btn btn-sm btn-do" onclick="removePromo('${p.id}')">Delete</button>
+        </div>
       </div>
     </div>`;
   };
@@ -3210,6 +3264,39 @@ async function removeEvent(id){
   else{await api('events?id='+id,{method:'DELETE'});await loadEvents();}
   renderEvents();
 }
+function editEvent(id){
+  const e=events.find(x=>x.id===id);if(!e)return;
+  const typeOpts=['in-studio','external','promo','closure','early-close','other'].map(t=>`<option value="${t}" ${e.eventType===t?'selected':''}>${{'in-studio':'In-studio tabling','external':'External tabling','promo':'Sales promotion','closure':'Studio closure','early-close':'Early closure','other':'Other'}[t]}</option>`).join('');
+  const staffOpts=`<option value="">Unassigned</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===e.assignedStaff?'selected':''}>${s.name}</option>`).join('')}`;
+  const el=document.getElementById('event-card-'+id);
+  el.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px;">
+    <div class="fg" style="margin:0;"><label class="fl">Title</label><input type="text" class="fi" id="ee-title-${id}" value="${(e.title||'').replace(/"/g,'&quot;')}"></div>
+    <div class="frow"><div class="fg" style="margin:0;"><label class="fl">Type</label><select class="fi" id="ee-type-${id}">${typeOpts}</select></div>
+    <div class="fg" style="margin:0;"><label class="fl">Start date</label><input type="date" class="fi" id="ee-start-${id}" value="${e.startDate}"></div></div>
+    <div class="frow"><div class="fg" style="margin:0;"><label class="fl">End date</label><input type="date" class="fi" id="ee-end-${id}" value="${e.endDate||''}"></div>
+    <div class="fg" style="margin:0;"><label class="fl">Time range</label><input type="text" class="fi" id="ee-time-${id}" value="${(e.timeRange||'').replace(/"/g,'&quot;')}"></div></div>
+    <div class="fg" style="margin:0;"><label class="fl">Assigned staff</label><select class="fi" id="ee-staff-${id}">${staffOpts}</select></div>
+    <div class="fg" style="margin:0;"><label class="fl">Description</label><textarea class="fi" id="ee-desc-${id}">${e.description||''}</textarea></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-sm btn-g" onclick="renderEvents()">Cancel</button><button class="btn btn-sm btn-p" onclick="saveEventEdit('${id}')">Save</button></div>
+  </div>`;
+}
+async function saveEventEdit(id){
+  const title=document.getElementById('ee-title-'+id).value.trim();
+  const eventType=document.getElementById('ee-type-'+id).value;
+  const startDate=document.getElementById('ee-start-'+id).value;
+  const endDate=document.getElementById('ee-end-'+id).value||null;
+  const timeRange=document.getElementById('ee-time-'+id).value.trim();
+  const assignedStaff=document.getElementById('ee-staff-'+id).value||null;
+  const description=document.getElementById('ee-desc-'+id).value.trim();
+  if(!title){alert('Please enter a title.');return;}
+  if(!startDate){alert('Please enter a start date.');return;}
+  if(endDate&&endDate<startDate){alert('The end date can\'t be before the start date.');return;}
+  const e=events.find(x=>x.id===id);if(!e)return;
+  Object.assign(e,{title,eventType,startDate,endDate,timeRange,assignedStaff,description});
+  if(useLocalStorage){lsSave();}
+  else{await api('events?id='+id,{method:'PUT',body:{title,eventType,startDate,endDate,timeRange,assignedStaff,description}});}
+  renderEvents();
+}
 
 function renderEvents(){
   renderPromoCodes();
@@ -3230,7 +3317,7 @@ function renderEvents(){
     const timeStr=e.timeRange?` · ${e.timeRange}`:'';
     const assignedLabel=e.assignedStaff?sName(e.assignedStaff):(e.volunteerNeeded?'<span style="color:var(--warn);font-weight:600;">Volunteer needed — let Amanda or Mohogany know</span>':'No assignment');
     const assignOpts=`<option value="">Unassigned</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===e.assignedStaff?'selected':''}>${s.name}</option>`).join('')}`;
-    return`<div class="mccard" style="padding:14px 16px;margin-bottom:9px;">
+    return`<div class="mccard" id="event-card-${e.id}" style="padding:14px 16px;margin-bottom:9px;">
       <div style="display:flex;gap:10px;align-items:flex-start;">
         <div style="flex:1;">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;"><span class="badge ${typeBadges[e.eventType]||'bia'}">${typeLabels[e.eventType]||e.eventType}</span><strong style="font-size:14px;">${e.title}</strong></div>
@@ -3238,8 +3325,9 @@ function renderEvents(){
           ${e.description?`<div style="font-size:13px;margin-top:6px;white-space:pre-wrap;">${e.description}</div>`:''}
           <div style="font-size:12px;color:var(--muted);margin-top:8px;">Assigned: ${assignedLabel}</div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;min-width:140px;">
+        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;min-width:100px;">
           <select class="fi" style="font-size:12px;padding:5px 8px;" onchange="updateEventAssignment('${e.id}',this.value)">${assignOpts}</select>
+          <button class="btn btn-sm btn-g" onclick="editEvent('${e.id}')">Edit</button>
           <button class="btn btn-sm btn-do" onclick="removeEvent('${e.id}')">Delete</button>
         </div>
       </div>
