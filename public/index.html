@@ -61,6 +61,9 @@
 
   /* PERFORMANCE */
   .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:18px;}
+  .pgrid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;}
+  @media(max-width:720px){.pgrid3{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:480px){.pgrid3{grid-template-columns:1fr;}}
   .pstat{background:white;border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;}
   .pstat-lbl{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;}
   .pstat-val{font-family:'DM Serif Display',serif;font-size:26px;color:var(--dark);line-height:1;}
@@ -3666,28 +3669,30 @@ function renderIndividualPerformance(logs,month,monthLbl,staffId,el){
 
     ${summary}
 
-    <div class="pgrid">
+    <div class="pgrid3">
+      <div class="pstat"><div class="pstat-lbl">Membership Conv. %</div><div class="pstat-val">${membershipConv}%</div><div class="pstat-sub">${rankBadge(rMConv.rank,rMConv.total)}</div></div>
+      <div class="pstat"><div class="pstat-lbl">Package Conv. %</div><div class="pstat-val">${packageConv}%</div><div class="pstat-sub">${rankBadge(rPConv.rank,rPConv.total)}</div></div>
+      <div class="pstat"><div class="pstat-lbl">Purchase Conv. %</div><div class="pstat-val">${purchaseConv}%</div><div class="pstat-sub">${rankBadge(rAllConv.rank,rAllConv.total)}</div></div>
+
+      <div class="pstat"><div class="pstat-lbl">Green ⭐ Opportunities</div><div class="pstat-val">${mtd.opportunities}</div><div class="pstat-sub">${rankBadge(rOpps.rank,rOpps.total)}</div></div>
       <div class="pstat">
-        <div class="pstat-lbl">Memberships</div>
+        <div class="pstat-lbl">Memberships Sold</div>
         <div class="pstat-val">${mtd.membershipSales}<span style="font-size:14px;color:var(--muted);"> / ${msGoal}</span></div>
         <div class="progbar"><div class="progbar-fill ${msPct>=100?'ok':''}" style="width:${msPct}%;"></div></div>
         <div class="pstat-sub">${msPct}% to goal${msPct>=100?' 🎉':''} · ${rankBadge(rMemb.rank,rMemb.total)}</div>
         <div class="pstat-sub" style="margin-top:2px;">${msBreakdown}</div>
       </div>
       <div class="pstat">
-        <div class="pstat-lbl">Packages</div>
+        <div class="pstat-lbl">Packages Sold</div>
         <div class="pstat-val">${mtd.packageSales}<span style="font-size:14px;color:var(--muted);"> / ${pkGoal}</span></div>
         <div class="progbar"><div class="progbar-fill ${pkPct>=100?'ok':''}" style="width:${pkPct}%;"></div></div>
         <div class="pstat-sub">${pkPct}% to goal${pkPct>=100?' 🎉':''} · ${rankBadge(rPack.rank,rPack.total)}</div>
         <div class="pstat-sub" style="margin-top:2px;">${pkBreakdown}</div>
       </div>
-      <div class="pstat"><div class="pstat-lbl">Opportunities</div><div class="pstat-val">${mtd.opportunities}</div><div class="pstat-sub">${rankBadge(rOpps.rank,rOpps.total)}</div></div>
-      <div class="pstat"><div class="pstat-lbl">First Visits Booked</div><div class="pstat-val">${mtd.firstVisitsBooked}</div><div class="pstat-sub">${rankBadge(rFV.rank,rFV.total)}</div></div>
+
       <div class="pstat"><div class="pstat-lbl">Outbound Calls</div><div class="pstat-val">${mtd.outboundCalls}</div><div class="pstat-sub">${rankBadge(rCalls.rank,rCalls.total)}</div></div>
+      <div class="pstat"><div class="pstat-lbl">First Visits Booked</div><div class="pstat-val">${mtd.firstVisitsBooked}</div><div class="pstat-sub">${rankBadge(rFV.rank,rFV.total)}</div></div>
       <div class="pstat"><div class="pstat-lbl">Pre-booked Guests</div><div class="pstat-val">${mtd.preBooked}</div><div class="pstat-sub">${rankBadge(rPre.rank,rPre.total)}</div></div>
-      <div class="pstat"><div class="pstat-lbl">Membership Conv. %</div><div class="pstat-val">${membershipConv}%</div><div class="pstat-sub">${rankBadge(rMConv.rank,rMConv.total)}</div></div>
-      <div class="pstat"><div class="pstat-lbl">Package Conv. %</div><div class="pstat-val">${packageConv}%</div><div class="pstat-sub">${rankBadge(rPConv.rank,rPConv.total)}</div></div>
-      <div class="pstat"><div class="pstat-lbl">Purchase Conv. %</div><div class="pstat-val">${purchaseConv}%</div><div class="pstat-sub">${rankBadge(rAllConv.rank,rAllConv.total)}</div></div>
     </div>
   `;
 }
