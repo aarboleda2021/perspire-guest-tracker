@@ -511,7 +511,6 @@
     <button class="tab" onclick="setMgrTab('changes')" id="tab-chg">All Membership Changes</button>
     <button class="tab" onclick="setMgrTab('nurture')" id="tab-nur">Tier Change Nurture</button>
     <button class="tab" onclick="setMgrTab('graduated')" id="tab-grad">Graduated</button>
-    <button class="tab" onclick="setMgrTab('history')" id="tab-hist">Daily History</button>
     <button class="tab" onclick="setMgrTab('staff')" id="tab-st">Staff Management</button>
   </div>
   <div id="mgr-dashboard"><div id="dashboard-content"></div></div>
@@ -519,13 +518,6 @@
   <div id="mgr-chg" style="display:none;"><div class="srow" id="mgr-chg-stats"></div><div id="mgr-chg-list"></div></div>
   <div id="mgr-nurture" style="display:none;"><div class="srow" id="mgr-nur-stats"></div><div id="mgr-nur-list"></div></div>
   <div id="mgr-graduated" style="display:none;"><div class="srow" id="mgr-grad-stats"></div><div id="mgr-grad-list"></div></div>
-  <div id="mgr-history" style="display:none;">
-    <div class="toolbar" style="margin-bottom:14px;">
-      <span class="tlbl">View date</span>
-      <input type="date" class="fi" id="history-date" onchange="renderMgrHistory()" style="width:auto;">
-    </div>
-    <div id="history-content"></div>
-  </div>
   <div id="mgr-staff" style="display:none;">
     <div class="smp">
       <div class="smpt">Staff roster</div>
@@ -2076,73 +2068,6 @@ async function updateStaffGoal(staffId,key,val){
 // ── RENDER: TIER CHANGE NURTURE ──────────────────────────────────────────
 
 // Graduated queue — guests who reached 'complete' status and haven't been processed yet
-// Daily History — lookup task completions and daily logs for any past date
-async function renderMgrHistory(){
-  const el=document.getElementById('history-content');
-  const date=document.getElementById('history-date').value;
-  if(!date){el.innerHTML=`<div class="empty"><p>Select a date above to view history.</p></div>`;return;}
-
-  // Fetch tasks and logs for that date
-  let tasksForDate=[],logsForDate=[];
-  if(useLocalStorage){
-    tasksForDate=lsGet('psp-v7-dtasks-'+date,[]);
-    logsForDate=lsGet('psp-v7-dlogs-'+date,[]);
-  } else {
-    try{
-      tasksForDate=await api('daily?resource=tasks&date='+date);
-      logsForDate=await api('daily?resource=logs&date='+date);
-    }catch(e){el.innerHTML=`<div class="empty"><p>Error loading history: ${e.message}</p></div>`;return;}
-  }
-
-  const dateObj=parseDate(date);
-  const dow=dateObj?dateObj.getDay():new Date(date).getDay();
-  const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const prettyDate=dateObj?dateObj.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}):date;
-
-  // Studio tasks section
-  const applicable=STUDIO_TASKS.filter(t=>t.days.includes(dow));
-  const tasksHtml=applicable.length?applicable.map(t=>{
-    const done=tasksForDate.find(x=>x.taskKey===t.key);
-    if(done){
-      const by=sName(done.completedBy);
-      const when=new Date(done.completedAt).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-      let extra='';
-      if(t.key==='cintas'&&done.taskData){
-        const statusLabels={good:'✓ Good',half:'⚠ Half way',low:'⚠ Need More'};
-        extra=`<div style="margin-top:8px;font-size:12px;color:var(--mid);">${CINTAS_ITEMS.map((item,i)=>{const d=done.taskData[i]||{};return`• ${item}: <strong>${statusLabels[d.status]||'—'}</strong>${d.notes?` — ${d.notes}`:''}`;}).join('<br>')}</div>`;
-      }
-      return`<div class="stask done"><div class="stask-chk"><svg width="12" height="12" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="stask-body"><div class="stask-lbl">${t.label}</div><div class="stask-meta">✓ Completed by ${by} at ${when}</div>${extra}</div></div>`;
-    } else {
-      return`<div class="stask" style="opacity:.6;"><div class="stask-chk"></div><div class="stask-body"><div class="stask-lbl">${t.label}</div><div class="stask-meta" style="color:var(--err);">⚠ Not completed</div></div></div>`;
-    }
-  }).join(''):'<div class="empty"><p>No studio tasks for this day.</p></div>';
-
-  // Daily log grid (read-only) — exclude Mohogany
-  const staff=activeStaff().filter(s=>s.id!=='mohogany');
-  const colsHeader=LOG_COLS.map(c=>`<th>${c.label}${c.goal?`<div style="font-weight:400;font-size:10px;color:var(--muted);margin-top:2px;font-style:italic;text-transform:none;letter-spacing:0;">${c.goal}</div>`:''}</th>`).join('');
-  const rows=staff.map(s=>{
-    const log=logsForDate.find(l=>l.staffId===s.id)||{staffId:s.id};
-    const cells=LOG_COLS.map(c=>{const v=log[c.key];return`<td>${(v===0||v>0)?v:'<span style="color:var(--muted);">—</span>'}</td>`;}).join('');
-    return`<tr>
-      <td class="dlg-staff">${s.name}</td>
-      ${cells}
-      <td>${log.contactLogsDone?'<span style="color:var(--ok);">✓</span>':'<span style="color:var(--muted);">—</span>'}</td>
-      <td>${log.axleFollowupsDone?'<span style="color:var(--ok);">✓</span>':'<span style="color:var(--muted);">—</span>'}</td>
-    </tr>`;
-  }).join('');
-
-  el.innerHTML=`
-    <div style="font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:16px;">${prettyDate}</div>
-    <div class="sec-hdr"><div class="sec-title">Studio tasks</div></div>
-    ${tasksHtml}
-    <div class="sec-hdr" style="margin-top:22px;"><div class="sec-title">Team daily log</div></div>
-    <div class="dlg-wrap"><table class="dlg">
-      <thead><tr><th class="dlg-staff">Staff</th>${colsHeader}<th>Contact Logs</th><th>Axle</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div>
-  `;
-}
-
 function renderMgrGraduated(){
   const pending=guests.filter(c=>!c.deactivated&&guestStatus(c)==='complete');
   const processed=guests.filter(c=>c.deactivated&&c.deactivatedReason==='graduated');
@@ -3840,16 +3765,16 @@ function setView(v){
   else renderGuests();
 }
 function setMgrTab(tab){
+  if(tab==='history')tab='dashboard'; // legacy — history tab removed
   currentMgrTab=tab;
-  const map={dashboard:'mgr-dashboard',overview:'mgr-ov',changes:'mgr-chg',nurture:'mgr-nurture',graduated:'mgr-graduated',history:'mgr-history',staff:'mgr-staff'};
+  const map={dashboard:'mgr-dashboard',overview:'mgr-ov',changes:'mgr-chg',nurture:'mgr-nurture',graduated:'mgr-graduated',staff:'mgr-staff'};
   Object.entries(map).forEach(([k,id])=>document.getElementById(id).style.display=k===tab?'block':'none');
-  ['dash','ov','chg','nur','grad','hist','st'].forEach((s,i)=>document.getElementById('tab-'+s).classList.toggle('active',['dashboard','overview','changes','nurture','graduated','history','staff'][i]===tab));
+  ['dash','ov','chg','nur','grad','st'].forEach((s,i)=>document.getElementById('tab-'+s).classList.toggle('active',['dashboard','overview','changes','nurture','graduated','staff'][i]===tab));
   if(tab==='dashboard')renderMgrDashboard();
   else if(tab==='overview')renderMgrOverview();
   else if(tab==='changes')renderMgrChanges();
   else if(tab==='nurture')renderMgrNurture();
   else if(tab==='graduated')renderMgrGraduated();
-  else if(tab==='history'){const el=document.getElementById('history-date');if(!el.value)el.value=getTodayStr();renderMgrHistory();}
   else renderRoster();
 }
 
