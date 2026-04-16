@@ -462,11 +462,13 @@
     <button class="tab active" onclick="setMgrTab('overview')" id="tab-ov">New Guests Overview</button>
     <button class="tab" onclick="setMgrTab('changes')" id="tab-chg">All Membership Changes</button>
     <button class="tab" onclick="setMgrTab('nurture')" id="tab-nur">Tier Change Nurture</button>
+    <button class="tab" onclick="setMgrTab('graduated')" id="tab-grad">Graduated</button>
     <button class="tab" onclick="setMgrTab('staff')" id="tab-st">Staff Management</button>
   </div>
   <div id="mgr-ov"><div class="srow" id="mgr-stats"></div><div id="mgr-list"></div></div>
   <div id="mgr-chg" style="display:none;"><div class="srow" id="mgr-chg-stats"></div><div id="mgr-chg-list"></div></div>
   <div id="mgr-nurture" style="display:none;"><div class="srow" id="mgr-nur-stats"></div><div id="mgr-nur-list"></div></div>
+  <div id="mgr-graduated" style="display:none;"><div class="srow" id="mgr-grad-stats"></div><div id="mgr-grad-list"></div></div>
   <div id="mgr-staff" style="display:none;">
     <div class="smp">
       <div class="smpt">Staff roster</div>
@@ -734,6 +736,33 @@
   </div>
 </div>
 
+<!-- GRADUATION MODAL -->
+<div class="modal-ov" id="graduation-modal">
+  <div class="modal" style="max-width:620px;">
+    <div class="modal-title">🎓 Process graduation</div>
+    <div class="modal-sub" id="grad-sub"></div>
+    <div class="fcs">
+      <div class="fcs-title">Required steps before marking graduated<span class="req">*</span></div>
+      <div class="fci">
+        <input type="checkbox" class="fchk" id="grad-chk-mb">
+        <div><div class="fchk-lbl">Mindbody contact log added</div><div class="fchk-desc">Go to the member's Mindbody profile → Contact Log → note that they graduated from the 90-day new member program.</div></div>
+      </div>
+      <div class="fci" style="margin-top:6px;">
+        <input type="checkbox" class="fchk" id="grad-chk-outreach">
+        <div><div class="fchk-lbl">Personal graduation outreach sent</div><div class="fchk-desc">Reach out personally to thank them for their first 90 days, celebrate their commitment, and ask for feedback. Use the scripts below.</div></div>
+      </div>
+    </div>
+    <div style="margin:10px 0;">
+      <button class="btn btn-g btn-sm" style="border-color:var(--pur);color:var(--pur);" onclick="openGraduationScript()">View graduation scripts</button>
+    </div>
+    <div class="fg"><label class="fl">Notes (optional)</label><textarea class="fi" id="grad-notes" placeholder="Any feedback they shared, or anything to remember about this member..."></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-g" onclick="closeModal('graduation-modal')">Cancel</button>
+      <button class="btn btn-p" onclick="confirmGraduation()">Mark graduated 🎓</button>
+    </div>
+  </div>
+</div>
+
 <!-- DEACTIVATE MODAL -->
 <div class="modal-ov" id="deactivate-modal">
   <div class="modal">
@@ -963,6 +992,35 @@ If you'd like help planning out your weekly routine or have any questions about 
 Welcome to your new level of wellness 🧡
 
 All the best,
+[Your Name]
+Perspire Sauna Studio Peachtree Corners`
+  },
+  graduation:{
+    call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners! I can't believe it's been 90 days since you joined us — I wanted to personally reach out to say congratulations and thank you.
+
+Your commitment to your wellness journey these first 90 days has been amazing, and we're so honored to be part of it. I'd love to hear how everything is feeling — what's been your favorite part of your experience so far? Is there anything we could be doing better for you?
+
+Thank you again for trusting us with your wellness. We can't wait to keep supporting you!`,
+    voicemail:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners! I'm reaching out because you've officially completed your first 90 days with us — and I wanted to personally say congratulations and thank you.
+
+Your commitment to your wellness journey has been amazing to see. If you ever have any feedback or want to chat about what's next in your routine, please call us back at 404-947-8084. Thank you again for being part of the Perspire family!`,
+    text:`Hi [Name]! It's [Your Name] from Perspire Peachtree Corners 🧡 You've officially completed your first 90 days with us — congratulations! We're so proud of your commitment to your wellness journey and so grateful to have you with us. We'd love any feedback you have about your experience so far. Thank you for trusting us!`,
+    email:`Hi [Name],
+
+Congratulations — you've officially completed your first 90 days with Perspire Peachtree Corners! 🎓
+
+When you joined us, you made a commitment to your wellness journey, and watching you show up these past 90 days has been incredible. Consistency is the hardest part, and you've done it.
+
+We'd love to hear from you:
+• What's been your favorite part of your experience so far?
+• Have you noticed any changes in how you feel — physically, mentally, or both?
+• Is there anything we could be doing better to support you?
+
+Your feedback genuinely helps us improve, and we'd be grateful for any thoughts you're willing to share. Just reply to this email or give us a call at 404-947-8084 anytime.
+
+Thank you for trusting us with your wellness. We're so excited to keep supporting you for many more 90-day milestones to come.
+
+With gratitude,
 [Your Name]
 Perspire Sauna Studio Peachtree Corners`
   }
@@ -1540,7 +1598,7 @@ function renderGuestCard(c,actions,prefix=''){
     <div class="cbody">
       ${c.type==='member'&&!c.deactivated&&actions?renderMilestonesBlock(c):''}
       <div class="tpg">${tpHtml}</div>
-      ${c.deactivated?`<div style="background:var(--errp);border:1.5px solid #E8A8A3;border-radius:10px;padding:11px 14px;margin-top:12px;"><div style="font-size:11px;font-weight:600;color:var(--err);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Deactivated</div><p style="font-size:12px;color:#6B1A0A;line-height:1.5;"><strong>Reason:</strong> ${({'membership-change':'Membership change submitted','requested-no-contact':'Requested no further contact',duplicate:'Duplicate entry',other:'Other'})[c.deactivatedReason]||c.deactivatedReason||'Not specified'}${c.deactivatedNotes?` — ${c.deactivatedNotes}`:''}</p></div>`:`<div class="cadbox"><div class="cadbox-t">Cadence guidance — ${c.tier}</div><p><strong>Ideal:</strong> ${g.ideal} · <strong>At-risk:</strong> ${g.risk}<br><strong>Tip:</strong> ${g.tip}</p></div>`}
+      ${c.deactivated?`<div style="background:var(--errp);border:1.5px solid #E8A8A3;border-radius:10px;padding:11px 14px;margin-top:12px;"><div style="font-size:11px;font-weight:600;color:var(--err);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Deactivated</div><p style="font-size:12px;color:#6B1A0A;line-height:1.5;"><strong>Reason:</strong> ${({'membership-change':'Membership change submitted','requested-no-contact':'Requested no further contact','graduated':'🎓 Graduated from 90-day program',duplicate:'Duplicate entry',other:'Other'})[c.deactivatedReason]||c.deactivatedReason||'Not specified'}${c.deactivatedNotes?` — ${c.deactivatedNotes}`:''}</p></div>`:`<div class="cadbox"><div class="cadbox-t">Cadence guidance — ${c.tier}</div><p><strong>Ideal:</strong> ${g.ideal} · <strong>At-risk:</strong> ${g.risk}<br><strong>Tip:</strong> ${g.tip}</p></div>`}
       ${actHtml}
     </div>
   </div>`;
@@ -1757,6 +1815,86 @@ function renderRoster(){
 }
 
 // ── RENDER: TIER CHANGE NURTURE ──────────────────────────────────────────
+
+// Graduated queue — guests who reached 'complete' status and haven't been processed yet
+function renderMgrGraduated(){
+  const pending=guests.filter(c=>!c.deactivated&&guestStatus(c)==='complete');
+  const processed=guests.filter(c=>c.deactivated&&c.deactivatedReason==='graduated');
+  document.getElementById('mgr-grad-stats').innerHTML=`
+    <div class="sc"><div class="scl">Pending graduation</div><div class="scv ${pending.length>0?'u':''}">${pending.length}</div></div>
+    <div class="sc"><div class="scl">Total graduated</div><div class="scv s">${processed.length}</div></div>
+    <div class="sc" style="grid-column:span 2;"><div class="scl">About this queue</div><div style="font-size:12px;color:var(--mid);line-height:1.5;margin-top:4px;">Members listed here completed their 90-day journey. Add a Mindbody contact log + reach out personally to celebrate them, then mark them graduated.</div></div>`;
+  const el=document.getElementById('mgr-grad-list');
+  if(!pending.length&&!processed.length){el.innerHTML=`<div class="empty"><div class="empty-icon">🎓</div><p>No graduated members yet.<br>Members will appear here once they complete all 7 touchpoints and reach day 80+.</p></div>`;return;}
+  let html='';
+  if(pending.length){
+    html+=`<div class="sec-hdr"><div class="sec-title">Pending graduation</div><div class="sec-ct">${pending.length}</div></div>`;
+    html+=`<div class="clist">${pending.sort((a,b)=>daysSince(b.contractStartDate)-daysSince(a.contractStartDate)).map(c=>{
+      const days=daysSince(c.contractStartDate);
+      const tps=getTPs(c.type),done=tps.filter((_,i)=>tpStatus(c,i)==='completed').length;
+      return`<div class="mccard" style="padding:14px 16px;margin-bottom:9px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div class="cav">${initials(c.name)}</div>
+          <div style="flex:1;">
+            <div style="font-weight:600;font-size:14px;">${c.name}</div>
+            <div style="font-size:12px;color:var(--mid);margin-top:3px;">${c.tier} · Day ${days} · ${done}/${tps.length} touchpoints · Assigned: ${sName(c.assignedStaff)}</div>
+          </div>
+          <button class="btn btn-p btn-sm" onclick="openGraduation('${c.id}')">Process graduation 🎓</button>
+        </div>
+      </div>`;
+    }).join('')}</div>`;
+  }
+  if(processed.length){
+    html+=`<div class="sec-hdr" style="margin-top:22px;"><div class="sec-title">Completed</div><div class="sec-ct">${processed.length}</div></div>`;
+    html+=`<div class="clist">${processed.sort((a,b)=>{const da=a.deactivatedAt||a.createdAt,db=b.deactivatedAt||b.createdAt;return new Date(db)-new Date(da);}).map(c=>`<div class="mccard" style="padding:12px 16px;margin-bottom:6px;opacity:.75;">
+      <div style="display:flex;gap:12px;align-items:center;">
+        <div style="flex:1;"><span style="font-weight:600;">${c.name}</span> <span style="font-size:11px;color:var(--muted);">· ${c.tier} · assigned to ${sName(c.assignedStaff)}</span>${c.deactivatedNotes?`<div style="font-size:12px;color:var(--mid);margin-top:3px;">📝 ${c.deactivatedNotes}</div>`:''}</div>
+      </div>
+    </div>`).join('')}</div>`;
+  }
+  el.innerHTML=html;
+}
+
+let _graduationGuestId=null;
+function openGraduation(guestId){
+  const c=guests.find(x=>x.id===guestId);if(!c)return;
+  _graduationGuestId=guestId;
+  document.getElementById('grad-sub').textContent=`${c.name} — ${c.tier} · ${daysSince(c.contractStartDate)} days with us`;
+  document.getElementById('grad-chk-mb').checked=false;
+  document.getElementById('grad-chk-outreach').checked=false;
+  document.getElementById('grad-notes').value='';
+  document.getElementById('graduation-modal').classList.add('open');
+}
+
+function openGraduationScript(){
+  const c=guests.find(x=>x.id===_graduationGuestId);
+  _changeScriptData=c?{name:c.name,tier:c.tier,staffName:sName(c.assignedStaff)}:{};
+  const s=SCRIPTS.graduation;
+  document.getElementById('tp-script-title').textContent='🎓 Graduation outreach scripts';
+  document.getElementById('tp-script-sub').textContent='Thank them, celebrate their commitment, ask for feedback';
+  document.getElementById('tp-script-body').textContent=fillScript(s.call,_changeScriptData);
+  document.getElementById('tp-script-tabs').innerHTML=
+    `<button class="stab active" onclick="showChangeScript('graduation','call',this)">Phone call</button>`+
+    `<button class="stab" onclick="showChangeScript('graduation','voicemail',this)">Voicemail</button>`+
+    `<button class="stab" onclick="showChangeScript('graduation','text',this)">Text</button>`+
+    `<button class="stab" onclick="showChangeScript('graduation','email',this)">Email</button>`;
+  document.getElementById('tp-script-modal').classList.add('open');
+}
+
+async function confirmGraduation(){
+  const c=guests.find(x=>x.id===_graduationGuestId);if(!c)return;
+  const mb=document.getElementById('grad-chk-mb').checked;
+  const outreach=document.getElementById('grad-chk-outreach').checked;
+  if(!mb||!outreach){alert('Please check both required steps before marking graduated:\n• Mindbody contact log added\n• Personal graduation outreach sent');return;}
+  const notes=document.getElementById('grad-notes').value.trim();
+  c.deactivated=true;
+  c.deactivatedReason='graduated';
+  c.deactivatedNotes=notes||null;
+  if(useLocalStorage){lsSave();}
+  else{await api('guests?id='+c.id,{method:'PUT',body:{deactivated:true,deactivatedReason:'graduated',deactivatedNotes:c.deactivatedNotes}});await loadGuests();}
+  closeModal('graduation-modal');_graduationGuestId=null;
+  renderMgrGraduated();
+}
 
 function renderMgrNurture(){
   const active=nurtures.filter(n=>n.status==='active');
@@ -2748,19 +2886,20 @@ function setView(v){
 }
 function setMgrTab(tab){
   currentMgrTab=tab;
-  const map={overview:'mgr-ov',changes:'mgr-chg',nurture:'mgr-nurture',staff:'mgr-staff'};
+  const map={overview:'mgr-ov',changes:'mgr-chg',nurture:'mgr-nurture',graduated:'mgr-graduated',staff:'mgr-staff'};
   Object.entries(map).forEach(([k,id])=>document.getElementById(id).style.display=k===tab?'block':'none');
-  ['ov','chg','nur','st'].forEach((s,i)=>document.getElementById('tab-'+s).classList.toggle('active',['overview','changes','nurture','staff'][i]===tab));
+  ['ov','chg','nur','grad','st'].forEach((s,i)=>document.getElementById('tab-'+s).classList.toggle('active',['overview','changes','nurture','graduated','staff'][i]===tab));
   if(tab==='overview')renderMgrOverview();
   else if(tab==='changes')renderMgrChanges();
   else if(tab==='nurture')renderMgrNurture();
+  else if(tab==='graduated')renderMgrGraduated();
   else renderRoster();
 }
 
 // Escape key closes modals
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
-    ['log-modal','edit-guest-modal','edit-change-modal','rassign-modal','tp-script-modal','deactivate-modal','milestone-modal','upload-modal'].forEach(id=>{
+    ['log-modal','edit-guest-modal','edit-change-modal','rassign-modal','tp-script-modal','deactivate-modal','milestone-modal','upload-modal','graduation-modal'].forEach(id=>{
       const el=document.getElementById(id);if(el&&el.classList.contains('open'))closeModal(id);
     });
   }
