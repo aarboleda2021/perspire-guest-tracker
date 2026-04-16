@@ -661,12 +661,12 @@ const MEMBER_TIERS=['IRelax 4x','IRecover 8x','IRitual Unlimited'];
 
 // Session milestones — only apply to new MEMBERS (not packages or nurtures)
 const MILESTONES=[
-  {n:3, action:'Leave an LMNT packet on their towel bundle with a notecard.'},
-  {n:5, action:'Leave a motivational card on their towel bundle. Axle review text fires automatically.'},
-  {n:8, action:'Hand them a complimentary guest pass at the front desk.'},
-  {n:10,action:'Have a PATH water with their name written on it waiting at the front desk.'},
-  {n:15,action:'Offer an elemental superfood bar in the suite or at the front desk.'},
-  {n:20,action:'Offer a complimentary Halo add-on at check-in.'},
+  {n:3, action:'Leave an LMNT packet with a notecard on the shelf in their suite, or hand it to them at the front desk.'},
+  {n:5, action:'Leave a motivational card on the shelf in their suite, or hand it to them at the front desk.'},
+  {n:8, action:'Let them know at check-in that a complimentary guest pass has been loaded on their account and is ready to use.'},
+  {n:10,action:'Have a PATH water with their name written on it ready at the front desk, or place it on the shelf in their suite.'},
+  {n:15,action:'Offer an elemental superfood bar — place it on the shelf in their suite or hand it to them at the front desk.'},
+  {n:20,action:'Offer a complimentary Halo add-on for THIS visit — apply it at check-in so they use it today (do not leave it on their account for later).'},
 ];
 
 function milestoneStatus(c,n){
@@ -1326,8 +1326,8 @@ function renderGuests(){
   const ms=active.filter(c=>hasApproachingOrReached(c)).length;
   document.getElementById('guest-stats').innerHTML=`
     <div class="sc"><div class="scl">Active clients</div><div class="scv">${active.length}</div></div>
-    <div class="sc"><div class="scl">Overdue</div><div class="scv ${ov>0?'d':''}">${ov}</div></div>
-    <div class="sc"><div class="scl">Due this week</div><div class="scv ${dn>0?'w':''}">${dn}</div></div>
+    <div class="sc"><div class="scl">Touchpoints overdue</div><div class="scv ${ov>0?'d':''}">${ov}</div></div>
+    <div class="sc"><div class="scl">Touchpoints due this week</div><div class="scv ${dn>0?'w':''}">${dn}</div></div>
     <div class="sc"><div class="scl">Approaching milestones</div><div class="scv ${ms>0?'u':''}">${ms}</div></div>`;
   let list=mine;
   if(fil==='deactivated')list=mine;
