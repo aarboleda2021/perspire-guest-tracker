@@ -3061,15 +3061,48 @@ const GREEN_STAR_SCRIPTS={
   text:`Hi [Guest Name]! It's [Your Name] from Perspire Peachtree Corners 🧡 Just confirming your first visit tomorrow at [time]! A few things to know:\n\n📍 We're in The Forum, a few doors down from Moe's\n⏰ Please arrive 10 min early for your tour\n💧 Bring water\n👕 Wear loose-fitting, comfy clothes\n\nCan't wait to welcome you! Let us know if anything changes.`
 };
 
-// Daily cleaning tasks — placeholder for now; Amanda will provide the per-day lists
+// Weekly deep cleaning/maintenance checklist by day of week (0=Sun, 1=Mon, ...)
 const CLEANING_TASKS_BY_DAY={
-  0:['(Sunday cleaning list to be added)'],// Sun
-  1:['(Monday cleaning list to be added)'],// Mon
-  2:['(Tuesday cleaning list to be added)'],// Tue
-  3:['(Wednesday cleaning list to be added)'],// Wed
-  4:['(Thursday cleaning list to be added)'],// Thu
-  5:['(Friday cleaning list to be added)'],// Fri
-  6:['(Saturday cleaning list to be added)'],// Sat
+  1:[// Monday
+    'Clean all color light bars, red light therapy bars, interior reading lights, & "Perspire" glass signs using glass cleaner / swiffer duster — Suites 1–6',
+    'Tighten sauna door hinges using allen wrench (in bottom right, grey drawer under coffee bar) — Suites 1–6',
+    'Use "Clean Spa" sauna cleaner on benches / back and side slats (spray + microfiber cleaning cloth → use as a polish) — Suites 1–6',
+  ],
+  2:[// Tuesday
+    'Wipe down sauna ceiling glass (inside & outside of top glass) — Suites 1–6',
+    'Use the lint roller on all heater covers — Suites 1–6',
+    'Backroom deep clean: wipe desk, empty staff fridge of old food and drink and wipe clean, clean coffee maker, clean mop sink',
+    'Clean halotherapy machines — Machines 1 & 2',
+  ],
+  3:[// Wednesday
+    'Clean side glass on saunas (inside and outside) — Suites 1–6',
+    'Use magic eraser on wall scuffs — Suites 1–6, Lobby, Bathroom, Backroom, Hallway',
+    'Shower deep clean: (1) clear shower floor drains of hair using silver hook/key in front desk drawer, (2) scrub shower walls/tile using warm floor cleaner in bucket and scrub brush, (3) wipe shower heads — Suites 1–6',
+  ],
+  4:[// Thursday
+    'Clean trim/baseboard using warm floor cleaner in bucket and microfiber towel — Suites 1–6, Lobby, Bathroom, Backroom, Hallway',
+    'Use air blower to remove dust bunnies trapped behind heaters & use mini vacuum to remove dust/hair inside saunas (corners of floor/sides of bench) — Suites 1–6',
+    'Clean store front window glass (inside and outside, as high as you can reach)',
+    'Pull TVs away from the wall and dust behind and on top — Suites 1–6',
+  ],
+  5:[// Friday
+    'OPENING: Check CINTAS stock and make note of needed supplies',
+    'Wipe down the lobby and bathroom trash cans and towel drop',
+    'Clean hallway mirrors',
+    'Empty, rinse, and refill eucalyptus spray bottles on cleaning cart',
+    'Clean temperature sensors in saunas — Suites 1–6',
+  ],
+  6:[// Saturday
+    'Wipe beverage fridge glass, beverage fridge bottom shelf, and water dispenser',
+    'Clear shower floor drains of hair (using silver hook/key in front desk drawer) — Suites 1–6',
+    'CLOSING: Defrost front fridge',
+  ],
+  0:[// Sunday
+    'Check entertainment is logged into on all TVs (YouTube, Netflix, Hulu, & Disney+) — Suites 1–6',
+    'Clean mirrors in all suites — Suites 1–6',
+    'Clean front desk: wipe counter, restock gift cards/brochures/business cards, empty trash from side cubbies, etc.',
+    'CLOSING: Defrost back fridge',
+  ],
 };
 
 const CINTAS_ITEMS=['Toilet Paper','Paper Towel','Hand Soap (Bathroom)','Hand Sanitizer (At Towel drop)','Chemical Levels (Disinfectant, Glass Cleaner, Floor Cleaner)','Mop Heads (2 front Drawers)'];
@@ -3183,8 +3216,8 @@ function openCleaningList(){
   const dow=getDayOfWeek();
   const list=CLEANING_TASKS_BY_DAY[dow]||[];
   const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  document.getElementById('tp-script-title').textContent=`🧹 ${dayNames[dow]} cleaning tasks`;
-  document.getElementById('tp-script-sub').textContent='Complete all items below before marking this task done.';
+  document.getElementById('tp-script-title').textContent=`🧹 ${dayNames[dow]} deep cleaning / maintenance`;
+  document.getElementById('tp-script-sub').textContent='Complete all items below before marking this task done. Items from our weekly deep cleaning checklist.';
   document.getElementById('tp-script-tabs').innerHTML='';
   document.getElementById('tp-script-body').innerHTML=list.map(item=>`<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:14px;">• ${item}</div>`).join('');
   document.getElementById('tp-script-modal').classList.add('open');
