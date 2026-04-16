@@ -1944,8 +1944,8 @@ async function renderMgrHistory(){
     }
   }).join(''):'<div class="empty"><p>No studio tasks for this day.</p></div>';
 
-  // Daily log grid (read-only)
-  const staff=activeStaff();
+  // Daily log grid (read-only) — exclude Mohogany
+  const staff=activeStaff().filter(s=>s.id!=='mohogany');
   const colsHeader=LOG_COLS.map(c=>`<th>${c.label}</th>`).join('');
   const rows=staff.map(s=>{
     const log=logsForDate.find(l=>l.staffId===s.id)||{staffId:s.id};
@@ -3075,7 +3075,6 @@ const CLEANING_TASKS_BY_DAY={
     'Wipe down sauna ceiling glass (inside & outside of top glass) — Suites 1–6',
     'Use the lint roller on all heater covers — Suites 1–6',
     'Backroom deep clean: wipe desk, empty staff fridge of old food and drink and wipe clean, clean coffee maker, clean mop sink',
-    'Clean halotherapy machines — Machines 1 & 2',
   ],
   3:[// Wednesday
     'Clean side glass on saunas (inside and outside) — Suites 1–6',
@@ -3089,7 +3088,6 @@ const CLEANING_TASKS_BY_DAY={
     'Pull TVs away from the wall and dust behind and on top — Suites 1–6',
   ],
   5:[// Friday
-    'OPENING: Check CINTAS stock and make note of needed supplies',
     'Wipe down the lobby and bathroom trash cans and towel drop',
     'Clean hallway mirrors',
     'Empty, rinse, and refill eucalyptus spray bottles on cleaning cart',
@@ -3098,13 +3096,11 @@ const CLEANING_TASKS_BY_DAY={
   6:[// Saturday
     'Wipe beverage fridge glass, beverage fridge bottom shelf, and water dispenser',
     'Clear shower floor drains of hair (using silver hook/key in front desk drawer) — Suites 1–6',
-    'CLOSING: Defrost front fridge',
   ],
   0:[// Sunday
     'Check entertainment is logged into on all TVs (YouTube, Netflix, Hulu, & Disney+) — Suites 1–6',
     'Clean mirrors in all suites — Suites 1–6',
     'Clean front desk: wipe counter, restock gift cards/brochures/business cards, empty trash from side cubbies, etc.',
-    'CLOSING: Defrost back fridge',
   ],
 };
 
@@ -3173,8 +3169,8 @@ async function renderToday(){
   }).join('');
   document.getElementById('today-studio-tasks').innerHTML=`<div class="sec-hdr"><div class="sec-title">Studio tasks</div><div class="sec-ct">${applicable.length}</div></div>${tasksHtml||'<div class="empty"><p>No studio tasks for today.</p></div>'}`;
 
-  // Daily log grid
-  const staff=activeStaff();
+  // Daily log grid — exclude Mohogany (team lead, different role/expectations)
+  const staff=activeStaff().filter(s=>s.id!=='mohogany');
   const colsHeader=LOG_COLS.map(c=>`<th title="${c.tip}">${c.label}</th>`).join('');
   const rows=staff.map(s=>{
     const log=dailyLogs.find(l=>l.staffId===s.id)||{staffId:s.id};
