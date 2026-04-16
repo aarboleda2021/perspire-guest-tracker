@@ -3038,12 +3038,15 @@ function getTodayStr(){
   if(et.getHours()<3){et.setDate(et.getDate()-1);}
   return`${et.getFullYear()}-${String(et.getMonth()+1).padStart(2,'0')}-${String(et.getDate()).padStart(2,'0')}`;
 }
+let _previewDay=null;// null = use real day; otherwise 0-6 for Sun-Sat
 function getDayOfWeek(){
+  if(_previewDay!==null)return _previewDay;
   const now=new Date();
   const et=new Date(now.toLocaleString('en-US',{timeZone:'America/New_York'}));
   if(et.getHours()<3){et.setDate(et.getDate()-1);}
   return et.getDay();// 0=Sun, 1=Mon, ..., 6=Sat
 }
+function setPreviewDay(d){_previewDay=d===''?null:parseInt(d);renderToday();}
 
 const STUDIO_TASKS=[
   {key:'call-green-stars',label:'Call tomorrow\'s Green ⭐ first-time visitors',days:[0,1,2,3,4,5,6],scripts:'green-star'},
@@ -3143,7 +3146,12 @@ async function renderToday(){
   const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const dateObj=parseDate(todayStr);
   const prettyDate=dateObj?dateObj.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}):todayStr;
-  document.getElementById('today-header').innerHTML=`<div style="font-family:'DM Serif Display',serif;font-size:22px;">${prettyDate}</div>`;
+  const realDow=(function(){const now=new Date();const et=new Date(now.toLocaleString('en-US',{timeZone:'America/New_York'}));if(et.getHours()<3){et.setDate(et.getDate()-1);}return et.getDay();})();
+  const previewNotice=_previewDay!==null?`<div style="background:var(--warnp);border:1.5px solid #E8C07A;border-radius:8px;padding:8px 12px;margin-top:8px;font-size:12px;color:var(--warn);">👁 Previewing ${dayNames[_previewDay]} tasks · Real day is ${dayNames[realDow]}</div>`:'';
+  document.getElementById('today-header').innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div style="font-family:'DM Serif Display',serif;font-size:22px;">${prettyDate}</div>
+    <div style="display:flex;align-items:center;gap:6px;"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Preview day</span><select onchange="setPreviewDay(this.value)" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;"><option value="">— Today —</option><option value="0" ${_previewDay===0?'selected':''}>Sunday</option><option value="1" ${_previewDay===1?'selected':''}>Monday</option><option value="2" ${_previewDay===2?'selected':''}>Tuesday</option><option value="3" ${_previewDay===3?'selected':''}>Wednesday</option><option value="4" ${_previewDay===4?'selected':''}>Thursday</option><option value="5" ${_previewDay===5?'selected':''}>Friday</option><option value="6" ${_previewDay===6?'selected':''}>Saturday</option></select></div>
+  </div>${previewNotice}`;
 
   // Studio tasks
   const applicable=STUDIO_TASKS.filter(t=>t.days.includes(dow));
