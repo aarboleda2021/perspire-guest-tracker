@@ -3669,11 +3669,15 @@ function renderIndividualPerformance(logs,month,monthLbl,staffId,el){
 
     ${summary}
 
-    <div class="pgrid3">
+    <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 8px;">Conversions</div>
+    <div class="pgrid3" style="margin-bottom:14px;">
       <div class="pstat"><div class="pstat-lbl">Membership Conv. %</div><div class="pstat-val">${membershipConv}%</div><div class="pstat-sub">${rankBadge(rMConv.rank,rMConv.total)}</div></div>
       <div class="pstat"><div class="pstat-lbl">Package Conv. %</div><div class="pstat-val">${packageConv}%</div><div class="pstat-sub">${rankBadge(rPConv.rank,rPConv.total)}</div></div>
       <div class="pstat"><div class="pstat-lbl">Purchase Conv. %</div><div class="pstat-val">${purchaseConv}%</div><div class="pstat-sub">${rankBadge(rAllConv.rank,rAllConv.total)}</div></div>
+    </div>
 
+    <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 8px;">Results</div>
+    <div class="pgrid3" style="margin-bottom:14px;">
       <div class="pstat"><div class="pstat-lbl">Green ⭐ Opportunities</div><div class="pstat-val">${mtd.opportunities}</div><div class="pstat-sub">${rankBadge(rOpps.rank,rOpps.total)}</div></div>
       <div class="pstat">
         <div class="pstat-lbl">Memberships Sold</div>
@@ -3689,7 +3693,10 @@ function renderIndividualPerformance(logs,month,monthLbl,staffId,el){
         <div class="pstat-sub">${pkPct}% to goal${pkPct>=100?' 🎉':''} · ${rankBadge(rPack.rank,rPack.total)}</div>
         <div class="pstat-sub" style="margin-top:2px;">${pkBreakdown}</div>
       </div>
+    </div>
 
+    <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 8px;">Activity</div>
+    <div class="pgrid3" style="margin-bottom:18px;">
       <div class="pstat"><div class="pstat-lbl">Outbound Calls</div><div class="pstat-val">${mtd.outboundCalls}</div><div class="pstat-sub">${rankBadge(rCalls.rank,rCalls.total)}</div></div>
       <div class="pstat"><div class="pstat-lbl">First Visits Booked</div><div class="pstat-val">${mtd.firstVisitsBooked}</div><div class="pstat-sub">${rankBadge(rFV.rank,rFV.total)}</div></div>
       <div class="pstat"><div class="pstat-lbl">Pre-booked Guests</div><div class="pstat-val">${mtd.preBooked}</div><div class="pstat-sub">${rankBadge(rPre.rank,rPre.total)}</div></div>
