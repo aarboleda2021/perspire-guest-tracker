@@ -481,10 +481,6 @@
 
 <!-- ══ DAILY HUB ══════════════════════════════════════════════════════════ -->
 <div id="view-daily" style="display:none;">
-  <div class="toolbar">
-    <span class="tlbl">I am</span>
-    <select id="acting-as-sel" onchange="setActingAs(this.value)"></select>
-  </div>
   <div class="tabs">
     <button class="tab active" onclick="setDailyTab('notes')" id="tab-notes">Shift Notes</button>
     <button class="tab" onclick="setDailyTab('events')" id="tab-events">Events</button>
@@ -506,14 +502,15 @@
       <div class="aft">Add shift note</div>
       <div class="fg"><label class="fl">Note<span class="req">*</span></label><textarea class="fi" id="note-content" placeholder="e.g. Sarah Smith called to be waitlisted for 4/16 4pm..."></textarea></div>
       <div class="frow">
+        <div class="fg"><label class="fl">Submitted by<span class="req">*</span></label><select class="fi" id="note-author"></select></div>
         <div class="fg"><label class="fl">Priority</label>
           <select class="fi" id="note-priority">
             <option value="fyi">FYI</option>
             <option value="urgent">⚠ Urgent</option>
           </select>
         </div>
-        <div class="fg"><label class="fl">Keep visible until (optional)</label><input type="date" class="fi" id="note-keep-until"></div>
       </div>
+      <div class="fg"><label class="fl">Keep visible until (optional)</label><input type="date" class="fi" id="note-keep-until"></div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:13px;">Notes auto-archive 48 hours after creation unless a "Keep visible until" date is set.</div>
       <div style="display:flex;gap:10px;justify-content:flex-end;">
         <button class="btn btn-g" onclick="toggleAddNote()">Cancel</button>
@@ -552,6 +549,10 @@
       <div class="frow">
         <div class="fg"><label class="fl">End date (optional, for multi-day)</label><input type="date" class="fi" id="event-end-date"></div>
         <div class="fg"><label class="fl">Assigned staff (optional)</label><select class="fi" id="event-assigned"></select></div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label class="fl">Submitted by<span class="req">*</span></label><select class="fi" id="event-author"></select></div>
+        <div class="fg"></div>
       </div>
       <div class="fg"><label class="fl">Description</label><textarea class="fi" id="event-desc" placeholder="Any additional details..."></textarea></div>
       <div class="fci">
@@ -1226,7 +1227,6 @@ function showChangeScript(key,ch,btn){
 // ── STATE ─────────────────────────────────────────────────────────────────
 
 let guests=[],changes=[],staffList=[],nurtures=[],shiftNotes=[],events=[];
-let actingAs=localStorage.getItem('psp-v7-actingAs')||'';
 
 const DEFAULT_STAFF=[
   {id:'crystal', name:'Crystal', active:true},{id:'hannah',  name:'Hannah',  active:true},
@@ -1853,7 +1853,7 @@ async function saveLog(){
     const allDone=getNurtureTPs(n).every((_,i)=>n.logs[i]?.date);
     if(allDone)n.status='completed';
     if(useLocalStorage){lsSave();}
-    else{await api('nurtures/'+n.id,{method:'PUT',body:{logs:n.logs,status:n.status}});}
+    else{await api('nurtures?id='+n.id,{method:'PUT',body:{logs:n.logs,status:n.status}});}
     closeModal('log-modal');nurtureLogId=null;nurtureLogIdx=null;
     renderMgrNurture();renderGuests();
     return;
@@ -1869,7 +1869,7 @@ async function saveLog(){
     lsSave();
   } else {
     await api('logs',{method:'POST',body:{guestId:mId,tpIndex:mIdx,channel,notes}});
-    if(vs!==c.visitStatus){await api('guests/'+mId,{method:'PUT',body:{visitStatus:vs}});}
+    if(vs!==c.visitStatus){await api('guests?id='+mId,{method:'PUT',body:{visitStatus:vs}});}
     await loadGuests();
   }
   closeModal('log-modal');renderGuests();
@@ -1879,14 +1879,14 @@ async function completeNurture(id){
   const n=nurtures.find(x=>x.id===id);if(!n)return;
   n.status='completed';
   if(useLocalStorage){lsSave();}
-  else{await api('nurtures/'+id,{method:'PUT',body:{status:'completed'}});}
+  else{await api('nurtures?id='+id,{method:'PUT',body:{status:'completed'}});}
   renderMgrNurture();
 }
 async function reopenNurture(id){
   const n=nurtures.find(x=>x.id===id);if(!n)return;
   n.status='active';
   if(useLocalStorage){lsSave();}
-  else{await api('nurtures/'+id,{method:'PUT',body:{status:'active'}});}
+  else{await api('nurtures?id='+id,{method:'PUT',body:{status:'active'}});}
   renderMgrNurture();
 }
 let reassignNurtureId=null;
@@ -1901,7 +1901,7 @@ function openReassignNurture(nid){
 async function removeNurture(id){
   if(!confirm('Remove this nurture record?'))return;
   if(useLocalStorage){nurtures=nurtures.filter(x=>x.id!==id);lsSave();}
-  else{await api('nurtures/'+id,{method:'DELETE'});await loadNurtures();}
+  else{await api('nurtures?id='+id,{method:'DELETE'});await loadNurtures();}
   renderMgrNurture();
 }
 
@@ -1956,7 +1956,7 @@ async function removeGuest(id){
   if(useLocalStorage){
     guests=guests.filter(c=>c.id!==id);lsSave();
   } else {
-    await api('guests/'+id,{method:'DELETE'});await loadGuests();
+    await api('guests?id='+id,{method:'DELETE'});await loadGuests();
   }
   renderGuests();
 }
@@ -1964,7 +1964,7 @@ async function toggleRisk(id){
   const c=guests.find(x=>x.id===id);if(!c)return;
   c.visitStatus=c.visitStatus==='at-risk'?'healthy':'at-risk';
   if(useLocalStorage){lsSave();}
-  else{await api('guests/'+id,{method:'PUT',body:{visitStatus:c.visitStatus}});await loadGuests();}
+  else{await api('guests?id='+id,{method:'PUT',body:{visitStatus:c.visitStatus}});await loadGuests();}
   renderGuests();
 }
 let deactivateGuestId=null;
@@ -2004,7 +2004,7 @@ async function completeMilestone(){
   if(!c.milestonesCompleted)c.milestonesCompleted={};
   c.milestonesCompleted[n]={date:new Date().toISOString()};
   if(useLocalStorage){lsSave();}
-  else{await api('guests/'+guestId,{method:'PUT',body:{milestonesCompleted:c.milestonesCompleted}});}
+  else{await api('guests?id='+guestId,{method:'PUT',body:{milestonesCompleted:c.milestonesCompleted}});}
   closeModal('milestone-modal');renderGuests();
 }
 
@@ -2013,7 +2013,7 @@ async function uncompleteMilestone(){
   const c=guests.find(x=>x.id===guestId);if(!c)return;
   if(c.milestonesCompleted&&c.milestonesCompleted[n]){delete c.milestonesCompleted[n];}
   if(useLocalStorage){lsSave();}
-  else{await api('guests/'+guestId,{method:'PUT',body:{milestonesCompleted:c.milestonesCompleted||{}}});}
+  else{await api('guests?id='+guestId,{method:'PUT',body:{milestonesCompleted:c.milestonesCompleted||{}}});}
   closeModal('milestone-modal');renderGuests();
 }
 
@@ -2023,7 +2023,7 @@ async function updateVisitCount(id,val){
   if(c.totalVisits===v)return;
   c.totalVisits=v;c.visitsUpdatedAt=new Date().toISOString();
   if(useLocalStorage){lsSave();}
-  else{await api('guests/'+id,{method:'PUT',body:{totalVisits:v,visitsUpdatedAt:c.visitsUpdatedAt}});}
+  else{await api('guests?id='+id,{method:'PUT',body:{totalVisits:v,visitsUpdatedAt:c.visitsUpdatedAt}});}
   renderGuests();
 }
 
@@ -2118,7 +2118,7 @@ async function applyUploadedVisits(){
       }
     });
     if(useLocalStorage){/* will lsSave below */}
-    else{await api('guests/'+c.id,{method:'PUT',body:{totalVisits:c.totalVisits,visitsUpdatedAt:c.visitsUpdatedAt}});}
+    else{await api('guests?id='+c.id,{method:'PUT',body:{totalVisits:c.totalVisits,visitsUpdatedAt:c.visitsUpdatedAt}});}
   }
   if(useLocalStorage)lsSave();
   closeModal('upload-modal');
@@ -2137,7 +2137,7 @@ async function toggleDeactivate(id){
     // Reactivate — no modal needed
     c.deactivated=false;c.deactivatedReason=null;c.deactivatedNotes=null;
     if(useLocalStorage){lsSave();}
-    else{await api('guests/'+id,{method:'PUT',body:{deactivated:false}});}
+    else{await api('guests?id='+id,{method:'PUT',body:{deactivated:false}});}
     renderGuests();return;
   }
   // Open deactivation modal
@@ -2153,7 +2153,7 @@ async function confirmDeactivate(){
   c.deactivatedReason=document.getElementById('deact-reason').value;
   c.deactivatedNotes=document.getElementById('deact-notes').value.trim();
   if(useLocalStorage){lsSave();}
-  else{await api('guests/'+deactivateGuestId,{method:'PUT',body:{deactivated:true,deactivatedReason:c.deactivatedReason,deactivatedNotes:c.deactivatedNotes}});await loadGuests();}
+  else{await api('guests?id='+deactivateGuestId,{method:'PUT',body:{deactivated:true,deactivatedReason:c.deactivatedReason,deactivatedNotes:c.deactivatedNotes}});await loadGuests();}
   closeModal('deactivate-modal');deactivateGuestId=null;
   renderGuests();
 }
@@ -2250,7 +2250,7 @@ async function submitChange(){
     const c=changes.find(x=>x.id===editingChangeId);
     if(c){c.guestName=name;c.type=finalType;c.dateRequested=useLocalStorage?parseDate(dateRequestedStr).toISOString():dateRequestedStr;c.billDate=useLocalStorage?parseDate(billDateStr).toISOString():billDateStr;c.currentTier=curTier;c.newTier=finalNewTier;c.notes=notes;c.freezeDuration=freezeDuration||c.freezeDuration;c.freezeOtherNote=freezeOtherNote||c.freezeOtherNote;if(outreachOutcome)c.outreachOutcome=outreachOutcome;if(needsFollowup)c.needsFollowup=needsFollowup;}
     if(useLocalStorage){lsSave();}
-    else{await api('changes/'+editingChangeId,{method:'PUT',body:{guestName:name,type:finalType,dateRequested:dateRequestedStr,billDate:billDateStr,currentTier:curTier,newTier:finalNewTier,notes,freezeDuration:c.freezeDuration,freezeOtherNote:c.freezeOtherNote,outreachOutcome:c.outreachOutcome,needsFollowup:c.needsFollowup}});await loadChanges();}
+    else{await api('changes?id='+editingChangeId,{method:'PUT',body:{guestName:name,type:finalType,dateRequested:dateRequestedStr,billDate:billDateStr,currentTier:curTier,newTier:finalNewTier,notes,freezeDuration:c.freezeDuration,freezeOtherNote:c.freezeOtherNote,outreachOutcome:c.outreachOutcome,needsFollowup:c.needsFollowup}});await loadChanges();}
   } else {
     const rec={id:Date.now().toString(),guestName:name,type:finalType,dateRequested:useLocalStorage?parseDate(dateRequestedStr)?.toISOString()||new Date().toISOString():dateRequestedStr,billDate:useLocalStorage?parseDate(billDateStr).toISOString():billDateStr,currentTier:curTier,newTier:finalNewTier,freezeDuration,freezeOtherNote,notes,status:'open',outcome:'pending',outcomeNotes:'',checklist:{},freezeOverride:false,needsFollowup,outreachOutcome,createdAt:new Date().toISOString()};
     if(useLocalStorage){changes.push(rec);lsSave();}
@@ -2262,7 +2262,7 @@ async function submitChange(){
 async function removeChange(id){
   if(!confirm('Remove this request?'))return;
   if(useLocalStorage){changes=changes.filter(c=>c.id!==id);lsSave();}
-  else{await api('changes/'+id,{method:'DELETE'});await loadChanges();}
+  else{await api('changes?id='+id,{method:'DELETE'});await loadChanges();}
   refreshChanges();
 }
 async function toggleClose(id){
@@ -2270,7 +2270,7 @@ async function toggleClose(id){
   const wasOpen=c.status!=='closed';
   c.status=c.status==='closed'?'open':'closed';
   if(useLocalStorage){lsSave();}
-  else{await api('changes/'+id,{method:'PUT',body:{status:c.status}});await loadChanges();}
+  else{await api('changes?id='+id,{method:'PUT',body:{status:c.status}});await loadChanges();}
   // Auto-create nurture record when a downgrade or upgrade is marked processed
   if(wasOpen&&c.status==='closed'&&(c.type==='downgrade'||c.type==='upgrade')){
     const existing=nurtures.find(n=>n.changeId===c.id);
@@ -2313,7 +2313,7 @@ async function toggleClose(id){
       if(confirm(`"${match.name}" is in the New Guests tracker (assigned to ${sName(match.assignedStaff)}). Would you like to deactivate their outreach journey?`)){
         match.deactivated=true;match.deactivatedReason=reasonMap[c.type]||'other';match.deactivatedNotes=`Auto-prompted: ${c.type} processed on ${new Date().toLocaleDateString('en-US')}`;
         if(useLocalStorage){lsSave();}
-        else{await api('guests/'+match.id,{method:'PUT',body:{deactivated:true,deactivatedReason:match.deactivatedReason,deactivatedNotes:match.deactivatedNotes}});}
+        else{await api('guests?id='+match.id,{method:'PUT',body:{deactivated:true,deactivatedReason:match.deactivatedReason,deactivatedNotes:match.deactivatedNotes}});}
       }
     }
   }
@@ -2323,20 +2323,20 @@ async function toggleCheck(cid,idx){
   const c=changes.find(x=>x.id===cid);if(!c)return;
   if(!c.checklist)c.checklist={};c.checklist[idx]=!c.checklist[idx];
   if(useLocalStorage){lsSave();}
-  else{await api('changes/'+cid,{method:'PUT',body:{checklist:c.checklist}});await loadChanges();}
+  else{await api('changes?id='+cid,{method:'PUT',body:{checklist:c.checklist}});await loadChanges();}
   refreshChanges();
 }
 async function updateOutcome(id,val){
   const c=changes.find(x=>x.id===id);if(c)c.outcome=val;
   if(useLocalStorage){lsSave();}
-  else{await api('changes/'+id,{method:'PUT',body:{outcome:val}});}
+  else{await api('changes?id='+id,{method:'PUT',body:{outcome:val}});}
 }
 async function handleOutcome(id,val){
   const c=changes.find(x=>x.id===id);
   if(c&&val!=='pending'&&c.needsFollowup){
     c.needsFollowup=false;
     if(useLocalStorage){lsSave();}
-    else{await api('changes/'+id,{method:'PUT',body:{needsFollowup:false}});}
+    else{await api('changes?id='+id,{method:'PUT',body:{needsFollowup:false}});}
   }
   await updateOutcome(id,val);
   refreshChanges();
@@ -2346,7 +2346,7 @@ async function applyOutcomeTier(id){
   const sel=document.getElementById('out-tier-'+id);if(!sel)return;
   c.type='downgrade';c.newTier=sel.value;c.outcome='saved-downgrade';
   if(useLocalStorage){lsSave();}
-  else{await api('changes/'+id,{method:'PUT',body:{type:'downgrade',newTier:sel.value,outcome:'saved-downgrade'}});}
+  else{await api('changes?id='+id,{method:'PUT',body:{type:'downgrade',newTier:sel.value,outcome:'saved-downgrade'}});}
   refreshChanges();
 }
 async function applyOutcomeFreeze(id){
@@ -2354,19 +2354,19 @@ async function applyOutcomeFreeze(id){
   const sel=document.getElementById('out-freeze-'+id);if(!sel)return;
   c.type='suspension';c.freezeDuration=sel.value;c.outcome='saved-freeze';
   if(useLocalStorage){lsSave();}
-  else{await api('changes/'+id,{method:'PUT',body:{type:'suspension',freezeDuration:sel.value,outcome:'saved-freeze'}});}
+  else{await api('changes?id='+id,{method:'PUT',body:{type:'suspension',freezeDuration:sel.value,outcome:'saved-freeze'}});}
   refreshChanges();
 }
 async function updateNotes(id,val){
   const c=changes.find(x=>x.id===id);if(c)c.outcomeNotes=val;
   if(useLocalStorage){lsSave();}
-  else{await api('changes/'+id,{method:'PUT',body:{outcomeNotes:val}});}
+  else{await api('changes?id='+id,{method:'PUT',body:{outcomeNotes:val}});}
 }
 async function toggleOverride(id){
   const c=changes.find(x=>x.id===id);if(!c)return;
   c.freezeOverride=!c.freezeOverride;
   if(useLocalStorage){lsSave();}
-  else{await api('changes/'+id,{method:'PUT',body:{freezeOverride:c.freezeOverride}});}
+  else{await api('changes?id='+id,{method:'PUT',body:{freezeOverride:c.freezeOverride}});}
 }
 
 // Edit guest modal
@@ -2392,7 +2392,7 @@ async function saveEditGuest(){
   if(d)c.contractStartDate=useLocalStorage?d.toISOString():`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   c.assignedStaff=document.getElementById('eg-staff').value;
   if(useLocalStorage){lsSave();}
-  else{await api('guests/'+editGuestId,{method:'PUT',body:{name:c.name,type:c.type,tier:c.tier,contractStartDate:c.contractStartDate,assignedStaff:c.assignedStaff}});await loadGuests();}
+  else{await api('guests?id='+editGuestId,{method:'PUT',body:{name:c.name,type:c.type,tier:c.tier,contractStartDate:c.contractStartDate,assignedStaff:c.assignedStaff}});await loadGuests();}
   closeModal('edit-guest-modal');renderGuests();
 }
 
@@ -2423,7 +2423,7 @@ async function saveEditChange(){
   const fd=document.getElementById('ec-freeze-dur').value;c.freezeDuration=fd||null;
   c.notes=document.getElementById('ec-notes').value.trim();
   if(useLocalStorage){lsSave();}
-  else{await api('changes/'+editChangeId,{method:'PUT',body:{guestName:c.guestName,dateRequested:c.dateRequested,billDate:c.billDate,currentTier:c.currentTier,newTier:c.newTier,freezeDuration:c.freezeDuration,notes:c.notes}});await loadChanges();}
+  else{await api('changes?id='+editChangeId,{method:'PUT',body:{guestName:c.guestName,dateRequested:c.dateRequested,billDate:c.billDate,currentTier:c.currentTier,newTier:c.newTier,freezeDuration:c.freezeDuration,notes:c.notes}});await loadChanges();}
   closeModal('edit-change-modal');refreshChanges();
 }
 
@@ -2467,7 +2467,7 @@ async function doReassign(){
     const n=nurtures.find(x=>x.id===reassignNurtureId);
     if(n){n.assignedStaff=t;
       if(useLocalStorage){lsSave();}
-      else{await api('nurtures/'+n.id,{method:'PUT',body:{assignedStaff:t}});}
+      else{await api('nurtures?id='+n.id,{method:'PUT',body:{assignedStaff:t}});}
     }
     reassignNurtureId=null;
     closeModal('rassign-modal');renderMgrNurture();return;
@@ -2478,7 +2478,7 @@ async function doReassign(){
     ids.forEach(id=>{const c=guests.find(x=>x.id===id);if(c)c.assignedStaff=t;});
     lsSave();
   } else {
-    await Promise.all(ids.map(id=>api('guests/'+id,{method:'PUT',body:{assignedStaff:t}})));
+    await Promise.all(ids.map(id=>api('guests?id='+id,{method:'PUT',body:{assignedStaff:t}})));
     await loadGuests();
   }
   closeModal('rassign-modal');
@@ -2503,7 +2503,7 @@ async function toggleStaffActive(sid){
   if(s.active){const ct=guests.filter(c=>c.assignedStaff===sid).length;if(ct>0){alert(`${s.name} has ${ct} active client${ct!==1?'s':''}. Please reassign first.`);return;}}
   s.active=!s.active;
   if(useLocalStorage){lsSave();}
-  else{await api('staff/'+sid,{method:'PUT',body:{active:s.active}});await loadStaff();}
+  else{await api('staff?id='+sid,{method:'PUT',body:{active:s.active}});await loadStaff();}
   fillAll();renderRoster();
 }
 
@@ -2543,16 +2543,8 @@ function exportNurtures(){
 
 let currentDailyTab='notes';
 
-function setActingAs(id){
-  actingAs=id;
-  localStorage.setItem('psp-v7-actingAs',id);
-}
-
-function fillActingAs(){
-  const el=document.getElementById('acting-as-sel');if(!el)return;
-  const opts=activeStaff().map(s=>`<option value="${s.id}" ${s.id===actingAs?'selected':''}>${s.name}</option>`).join('');
-  el.innerHTML=`<option value="">— Select —</option>${opts}`;
-  if(!actingAs&&activeStaff().length){actingAs=activeStaff()[0].id;el.value=actingAs;localStorage.setItem('psp-v7-actingAs',actingAs);}
+function staffOptions(selected){
+  return `<option value="">— Select —</option>`+activeStaff().map(s=>`<option value="${s.id}" ${s.id===selected?'selected':''}>${s.name}</option>`).join('');
 }
 
 function setDailyTab(tab){
@@ -2584,17 +2576,19 @@ function toggleAddNote(){
     document.getElementById('note-content').value='';
     document.getElementById('note-priority').value='fyi';
     document.getElementById('note-keep-until').value='';
+    document.getElementById('note-author').innerHTML=staffOptions('');
   }
 }
 
 async function addShiftNote(){
-  if(!actingAs){alert('Please select who you are from the "I am" dropdown at the top first.');return;}
   const content=document.getElementById('note-content').value.trim();
+  const author=document.getElementById('note-author').value;
   if(!content){alert('Please enter a note.');return;}
+  if(!author){alert('Please select who is submitting this note.');return;}
   const priority=document.getElementById('note-priority').value;
   const keepUntil=document.getElementById('note-keep-until').value||null;
   const id=Date.now().toString();
-  const rec={id,content,priority,createdBy:actingAs,keepUntil,createdAt:new Date().toISOString(),resolvedAt:null,resolvedBy:null};
+  const rec={id,content,priority,createdBy:author,keepUntil,createdAt:new Date().toISOString(),resolvedAt:null,resolvedBy:null};
   if(useLocalStorage){shiftNotes.unshift(rec);lsSave();}
   else{await api('shift-notes',{method:'POST',body:rec});await loadShiftNotes();}
   toggleAddNote();renderShiftNotes();
@@ -2602,9 +2596,13 @@ async function addShiftNote(){
 
 async function resolveNote(id){
   const n=shiftNotes.find(x=>x.id===id);if(!n)return;
-  n.resolvedAt=new Date().toISOString();n.resolvedBy=actingAs||null;
+  // Use the inline resolve-by dropdown
+  const sel=document.getElementById('resolve-by-'+id);
+  const by=sel?sel.value:'';
+  if(!by){alert('Please select who is resolving this note.');return;}
+  n.resolvedAt=new Date().toISOString();n.resolvedBy=by;
   if(useLocalStorage){lsSave();}
-  else{await api('shift-notes/'+id,{method:'PUT',body:{resolvedAt:n.resolvedAt,resolvedBy:n.resolvedBy}});}
+  else{await api('shift-notes?id='+id,{method:'PUT',body:{resolvedAt:n.resolvedAt,resolvedBy:n.resolvedBy}});}
   renderShiftNotes();
 }
 
@@ -2612,14 +2610,14 @@ async function unresolveNote(id){
   const n=shiftNotes.find(x=>x.id===id);if(!n)return;
   n.resolvedAt=null;n.resolvedBy=null;
   if(useLocalStorage){lsSave();}
-  else{await api('shift-notes/'+id,{method:'PUT',body:{resolvedAt:null,resolvedBy:null}});}
+  else{await api('shift-notes?id='+id,{method:'PUT',body:{resolvedAt:null,resolvedBy:null}});}
   renderShiftNotes();
 }
 
 async function removeNote(id){
   if(!confirm('Delete this note permanently?'))return;
   if(useLocalStorage){shiftNotes=shiftNotes.filter(x=>x.id!==id);lsSave();}
-  else{await api('shift-notes/'+id,{method:'DELETE'});await loadShiftNotes();}
+  else{await api('shift-notes?id='+id,{method:'DELETE'});await loadShiftNotes();}
   renderShiftNotes();
 }
 
@@ -2641,8 +2639,8 @@ function renderShiftNotes(){
           <div style="font-size:13px;white-space:pre-wrap;">${n.content}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:6px;">${urgent?'<span class="badge bURG">URGENT</span> ':''}${sName(n.createdBy)||'Unknown'} · ${createdStr}${keepLbl}${resolved?` · ✓ Resolved by ${sName(n.resolvedBy)||'?'}`:''}</div>
         </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;">
-          ${resolved?`<button class="btn btn-g btn-sm" onclick="unresolveNote('${n.id}')">Reopen</button>`:`<button class="btn btn-g btn-sm" onclick="resolveNote('${n.id}')">Mark resolved ✓</button>`}
+        <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap;">
+          ${resolved?`<button class="btn btn-g btn-sm" onclick="unresolveNote('${n.id}')">Reopen</button>`:`<select id="resolve-by-${n.id}" class="fi" style="font-size:12px;padding:5px 8px;width:auto;">${staffOptions('')}</select><button class="btn btn-g btn-sm" onclick="resolveNote('${n.id}')">Mark resolved ✓</button>`}
           <button class="btn btn-sm btn-do" onclick="removeNote('${n.id}')">Delete</button>
         </div>
       </div>
@@ -2662,12 +2660,13 @@ function toggleAddEvent(){
     document.getElementById('event-volunteer').checked=false;
     const sel=document.getElementById('event-assigned');
     sel.innerHTML=`<option value="">Unassigned</option>${activeStaff().map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}`;
+    document.getElementById('event-author').innerHTML=staffOptions('');
   }
 }
 
 async function addEvent(){
-  if(!actingAs){alert('Please select who you are from the "I am" dropdown at the top first.');return;}
   const title=document.getElementById('event-title').value.trim();
+  const author=document.getElementById('event-author').value;
   const eventType=document.getElementById('event-type').value;
   const startDate=document.getElementById('event-start-date').value;
   const endDate=document.getElementById('event-end-date').value||null;
@@ -2675,9 +2674,10 @@ async function addEvent(){
   const volunteerNeeded=document.getElementById('event-volunteer').checked;
   const assignedStaff=document.getElementById('event-assigned').value||null;
   if(!title){alert('Please enter a title.');return;}
+  if(!author){alert('Please select who is submitting this event.');return;}
   if(!startDate){alert('Please enter a start date.');return;}
   const id=Date.now().toString();
-  const rec={id,title,eventType,startDate,endDate,description,volunteerNeeded,assignedStaff,createdBy:actingAs,createdAt:new Date().toISOString()};
+  const rec={id,title,eventType,startDate,endDate,description,volunteerNeeded,assignedStaff,createdBy:author,createdAt:new Date().toISOString()};
   if(useLocalStorage){events.push(rec);lsSave();}
   else{await api('events',{method:'POST',body:rec});await loadEvents();}
   toggleAddEvent();renderEvents();
@@ -2687,14 +2687,14 @@ async function updateEventAssignment(id,staffId){
   const e=events.find(x=>x.id===id);if(!e)return;
   e.assignedStaff=staffId||null;
   if(useLocalStorage){lsSave();}
-  else{await api('events/'+id,{method:'PUT',body:{assignedStaff:e.assignedStaff}});}
+  else{await api('events?id='+id,{method:'PUT',body:{assignedStaff:e.assignedStaff}});}
   renderEvents();
 }
 
 async function removeEvent(id){
   if(!confirm('Delete this event?'))return;
   if(useLocalStorage){events=events.filter(x=>x.id!==id);lsSave();}
-  else{await api('events/'+id,{method:'DELETE'});await loadEvents();}
+  else{await api('events?id='+id,{method:'DELETE'});await loadEvents();}
   renderEvents();
 }
 
@@ -2737,7 +2737,7 @@ function setView(v){
   ['guests','changes','daily','manager'].forEach(x=>{document.getElementById('view-'+x).style.display=x===v?'block':'none';document.getElementById('btn-'+x).classList.toggle('active',x===v);});
   if(v==='manager'){renderMgrOverview();renderRoster();}
   else if(v==='changes')renderChanges();
-  else if(v==='daily'){fillActingAs();setDailyTab(currentDailyTab);}
+  else if(v==='daily'){setDailyTab(currentDailyTab);}
   else renderGuests();
 }
 function setMgrTab(tab){
