@@ -3119,6 +3119,7 @@ async function addPromo(){
   if(!code){alert('Please enter a promo code.');return;}
   if(!purpose){alert('Please describe what this code is for.');return;}
   if(!startDate||!endDate){alert('Please enter valid from and valid until dates.');return;}
+  if(endDate<startDate){alert('The "valid until" date can\'t be before the "valid from" date. Please fix the dates.');return;}
   const id=Date.now().toString();
   const rec={id,title:code,eventType:'promo-code',startDate,endDate,timeRange:'',description:purpose,volunteerNeeded:false,assignedStaff:null,createdAt:new Date().toISOString()};
   if(useLocalStorage){events.push(rec);lsSave();}
@@ -3187,6 +3188,7 @@ async function addEvent(){
   const assignedStaff=document.getElementById('event-assigned').value||null;
   if(!title){alert('Please enter a title.');return;}
   if(!startDate){alert('Please enter a start date.');return;}
+  if(endDate&&endDate<startDate){alert('The end date can\'t be before the start date. Please fix the dates.');return;}
   const id=Date.now().toString();
   const rec={id,title,eventType,startDate,endDate,timeRange,description,volunteerNeeded,assignedStaff,createdAt:new Date().toISOString()};
   if(useLocalStorage){events.push(rec);lsSave();}
