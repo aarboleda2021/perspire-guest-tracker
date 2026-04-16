@@ -98,7 +98,7 @@ module.exports = async function handler(req, res) {
   ].filter(Boolean);
 
   if (process.env.RESEND_API_KEY && recipients.length) {
-    const emailBody = `Hi team,\n\nThis is an automated alert from the Perspire Guest Tracker.\n\n⚠️ ${summary}:\n\n${details}${closureNote}\n\nPlease log in to the tracker and process these before the bill date:\nhttps://perspire-guest-tracker.vercel.app\n\n— Perspire Guest Tracker`;
+    const emailBody = `Hi team,\n\nThis is an automated alert from the Perspire PTC Dashboard.\n\n⚠️ ${summary}:\n\n${details}${closureNote}\n\nPlease log in to the dashboard and process these before the bill date:\nhttps://perspire-guest-tracker.vercel.app\n\n— Perspire PTC Dashboard`;
 
     try {
       const emailRes = await fetch('https://api.resend.com/emails', {
@@ -110,7 +110,7 @@ module.exports = async function handler(req, res) {
         body: JSON.stringify({
           from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
           to: recipients,
-          subject: `⚠️ Perspire: ${summary}`,
+          subject: `⚠️ Perspire PTC Dashboard: ${summary}`,
           text: emailBody
         })
       });
