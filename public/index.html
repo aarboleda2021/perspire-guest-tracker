@@ -59,6 +59,32 @@
   .sec-title{font-family:'DM Serif Display',serif;font-size:18px;}
   .sec-ct{font-size:12px;color:var(--muted);background:var(--border);padding:3px 10px;border-radius:20px;}
 
+  /* STUDIO TASKS */
+  .stask{background:white;border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+  .stask.done{background:var(--okp);border-color:#9ECDB5;}
+  .stask-chk{width:22px;height:22px;border:2px solid var(--border);border-radius:5px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:white;}
+  .stask.done .stask-chk{background:var(--ok);border-color:var(--ok);}
+  .stask-body{flex:1;}
+  .stask-lbl{font-size:13px;font-weight:500;color:var(--dark);}
+  .stask.done .stask-lbl{color:var(--ok);text-decoration:line-through;opacity:.7;}
+  .stask-meta{font-size:11px;color:var(--muted);margin-top:2px;}
+  .stask-link{font-size:11px;color:var(--info);text-decoration:underline;margin-left:8px;}
+
+  /* DAILY LOG GRID */
+  .dlg-wrap{overflow-x:auto;background:white;border:1.5px solid var(--border);border-radius:12px;}
+  .dlg{border-collapse:collapse;width:100%;font-size:13px;}
+  .dlg th,.dlg td{padding:8px 10px;text-align:center;border-right:1px solid var(--border);border-bottom:1px solid var(--border);}
+  .dlg th{background:var(--sand);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--mid);cursor:help;position:sticky;top:0;z-index:2;}
+  .dlg th.dlg-staff{text-align:left;position:sticky;left:0;z-index:3;background:var(--sand);}
+  .dlg td.dlg-staff{text-align:left;font-weight:600;background:white;position:sticky;left:0;z-index:1;border-right:2px solid var(--border);}
+  .dlg tr:last-child td{border-bottom:none;}
+  .dlg input[type="number"]{width:50px;border:none;background:transparent;text-align:center;font-size:13px;padding:4px;font-family:inherit;color:var(--dark);}
+  .dlg input[type="number"]:focus{outline:2px solid var(--tc);border-radius:4px;}
+  .dlg input[type="number"]::-webkit-inner-spin-button,.dlg input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+  .dlg-cell-done{background:var(--okp);color:var(--ok);font-weight:600;}
+  .dlg-cb-btn{padding:5px 10px;border-radius:6px;border:1.5px solid var(--border);background:white;font-size:11px;cursor:pointer;color:var(--mid);}
+  .dlg-cb-btn.done{background:var(--ok);color:white;border-color:var(--ok);}
+
   /* MILESTONES */
   .ms-row{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 6px 0;align-items:center;}
   .ms-lbl{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-right:4px;}
@@ -573,7 +599,9 @@
   </div>
 
   <div id="daily-today" style="display:none;">
-    <div class="empty"><div class="empty-icon">○</div><p>Coming soon — studio tasks, team daily log grid, and sales entry.</p></div>
+    <div id="today-header" style="margin-bottom:18px;"></div>
+    <div id="today-studio-tasks"></div>
+    <div id="today-daily-log" style="margin-top:26px;"></div>
   </div>
 
   <div id="daily-perf" style="display:none;">
@@ -732,6 +760,55 @@
     <div class="modal-actions">
       <button class="btn btn-g" onclick="closeModal('upload-modal')">Cancel</button>
       <button class="btn btn-p" id="upload-apply-btn" onclick="applyUploadedVisits()" style="display:none;">Apply updates</button>
+    </div>
+  </div>
+</div>
+
+<!-- STUDIO TASK COMPLETE MODAL (simple, for most tasks) -->
+<div class="modal-ov" id="task-complete-modal">
+  <div class="modal">
+    <div class="modal-title" id="task-title"></div>
+    <div class="modal-sub" id="task-sub"></div>
+    <div id="task-extra"></div>
+    <div class="fg"><label class="fl">Completed by<span class="req">*</span></label><select class="fi" id="task-by"></select></div>
+    <div class="modal-actions">
+      <button class="btn btn-g" onclick="closeModal('task-complete-modal')">Cancel</button>
+      <button class="btn btn-p" onclick="confirmTaskComplete()">Mark complete ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- CINTAS SUPPLIES MODAL -->
+<div class="modal-ov" id="cintas-modal">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-title">Cintas supplies check</div>
+    <div class="modal-sub">Mark each item's status. Ensure items are restocked by the Cintas worker today before signing off.</div>
+    <div id="cintas-items"></div>
+    <div class="fg" style="margin-top:14px;"><label class="fl">Completed by<span class="req">*</span></label><select class="fi" id="cintas-by"></select></div>
+    <div class="modal-actions">
+      <button class="btn btn-g" onclick="closeModal('cintas-modal')">Cancel</button>
+      <button class="btn btn-p" onclick="confirmCintasComplete()">Mark complete ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONTACT LOG TEMPLATE MODAL -->
+<div class="modal-ov" id="contact-log-template-modal">
+  <div class="modal">
+    <div class="modal-title">📝 Contact log template</div>
+    <div class="modal-sub">When logging a non-converted guest in Mindbody, include the following:</div>
+    <div style="background:var(--infop);border:1.5px solid #B3D4E0;border-radius:10px;padding:14px 16px;margin:10px 0;">
+      <ul style="margin:0;padding-left:20px;font-size:13px;line-height:1.8;color:#2A5A70;">
+        <li><strong>Benefit(s) interested in</strong> — what drew them in (stress, sleep, recovery, detox, skin, etc.)</li>
+        <li><strong>Membership/package they were interested in</strong> — tier discussed, if any</li>
+        <li><strong>Reason they didn't purchase</strong> — too expensive, ClassPass user, needed to think, travels often, etc.</li>
+        <li><strong>Next steps</strong> — any follow-up plan, pipeline notes, or details to remember for next time</li>
+      </ul>
+    </div>
+    <div class="fg"><label class="fl">Confirmed by<span class="req">*</span></label><select class="fi" id="cl-by"></select></div>
+    <div class="modal-actions">
+      <button class="btn btn-g" onclick="closeModal('contact-log-template-modal')">Cancel</button>
+      <button class="btn btn-p" onclick="confirmContactLogs()">✓ All contact logs added</button>
     </div>
   </div>
 </div>
@@ -2695,6 +2772,7 @@ function setDailyTab(tab){
   ['notes','events','today','perf'].forEach(s=>document.getElementById('tab-'+s).classList.toggle('active',s===tab));
   if(tab==='notes')renderShiftNotes();
   else if(tab==='events')renderEvents();
+  else if(tab==='today')renderToday();
 }
 
 // Shift Notes
@@ -2874,6 +2952,263 @@ function renderEvents(){
   }).join('');
 }
 
+// ── TODAY TAB (studio tasks + daily log grid) ───────────────────────────
+
+// Get "today" string with 3am ET reset — before 3am counts as previous day
+function getTodayStr(){
+  const now=new Date();
+  // Convert to ET
+  const et=new Date(now.toLocaleString('en-US',{timeZone:'America/New_York'}));
+  if(et.getHours()<3){et.setDate(et.getDate()-1);}
+  return`${et.getFullYear()}-${String(et.getMonth()+1).padStart(2,'0')}-${String(et.getDate()).padStart(2,'0')}`;
+}
+function getDayOfWeek(){
+  const now=new Date();
+  const et=new Date(now.toLocaleString('en-US',{timeZone:'America/New_York'}));
+  if(et.getHours()<3){et.setDate(et.getDate()-1);}
+  return et.getDay();// 0=Sun, 1=Mon, ..., 6=Sat
+}
+
+const STUDIO_TASKS=[
+  {key:'call-green-stars',label:'Call tomorrow\'s Green ⭐ first-time visitors',days:[0,1,2,3,4,5,6]},
+  {key:'daily-cleaning',label:'Daily cleaning tasks complete',days:[0,1,2,3,4,5,6]},
+  {key:'halo-clean',label:'Clean halotherapy machines',days:[2],link:'https://docs.google.com/document/d/1VddlJh1Urc8RpQln0Fu0hp7Hc-98ygN1ItEhoRsRPrQ/edit?pli=1&tab=t.0#heading=h.bt97gz4kb186'},
+  {key:'cintas',label:'Cintas supplies check',days:[5],special:'cintas'},
+  {key:'fridge-front',label:'Defrost front fridge at closing',days:[6],link:'https://docs.google.com/document/d/1X4fgZw_mgRCxw3ILLLBwYbwN33xf-_oeUvuKVZjiHH0/edit?tab=t.0#heading=h.tvjv9ryqveop'},
+  {key:'fridge-back',label:'Defrost back fridge at closing',days:[0],link:'https://docs.google.com/document/d/1X4fgZw_mgRCxw3ILLLBwYbwN33xf-_oeUvuKVZjiHH0/edit?tab=t.0#heading=h.tvjv9ryqveop'},
+];
+
+const CINTAS_ITEMS=['Toilet Paper','Paper Towel','Hand Soap (Bathroom)','Hand Sanitizer (At Towel drop)','Chemical Levels (Disinfectant, Glass Cleaner, Floor Cleaner)','Mop Heads (2 front Drawers)'];
+
+const LOG_COLS=[
+  {key:'opportunities',short:'Opps',label:'Green ⭐ Opps',tip:'Log the total number of first-time guest visits you assisted during your shift (whether or not they purchased).'},
+  {key:'firstVisitsBooked',short:'FV Bkd',label:'First Visits Booked',tip:'Each MSA must book 3 first visits per shift. Visits do not need to occur that day, but they must be scheduled.'},
+  {key:'membershipSales',short:'Membs',label:'Memberships',tip:'Record the number of memberships you sold during your shift. Monthly goal: 10 (5 IRitual, 3 IRecover, 2 IRelax). Victor: 5.'},
+  {key:'packageSales',short:'Packs',label:'Packages',tip:'Record the number of packages you sold during your shift. Monthly goal: 5 (1 X20, 2 X8, 2 X4). Victor: 3.'},
+  {key:'outboundCalls',short:'Calls',label:'Outbound Calls',tip:'Each MSA is expected to complete 10 outbound lead calls per shift (log each call, even if no contact is reached).'},
+  {key:'preBooked',short:'Pre-bk',label:'Pre-booked Guests',tip:'Each MSA is expected to pre-book 10 guests per shift (future appointments only — at least one day in advance).'},
+];
+
+let dailyTasks=[],dailyLogs=[];
+
+async function loadDailyTasks(){
+  const d=getTodayStr();
+  if(useLocalStorage){
+    const stored=lsGet('psp-v7-dtasks-'+d,[]);
+    dailyTasks=stored;return;
+  }
+  dailyTasks=await api('daily?resource=tasks&date='+d);
+}
+async function loadDailyLogs(){
+  const d=getTodayStr();
+  if(useLocalStorage){
+    const stored=lsGet('psp-v7-dlogs-'+d,[]);
+    dailyLogs=stored;return;
+  }
+  dailyLogs=await api('daily?resource=logs&date='+d);
+}
+async function loadDailyData(){await Promise.all([loadDailyTasks(),loadDailyLogs()]);}
+
+async function renderToday(){
+  await loadDailyData();
+  const dow=getDayOfWeek();
+  const todayStr=getTodayStr();
+  const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const dateObj=parseDate(todayStr);
+  const prettyDate=dateObj?dateObj.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}):todayStr;
+  document.getElementById('today-header').innerHTML=`<div style="font-family:'DM Serif Display',serif;font-size:22px;">${prettyDate}</div><div style="font-size:12px;color:var(--muted);margin-top:3px;">Resets at 3am ET</div>`;
+
+  // Studio tasks
+  const applicable=STUDIO_TASKS.filter(t=>t.days.includes(dow));
+  const tasksHtml=applicable.map(t=>{
+    const done=dailyTasks.find(x=>x.taskKey===t.key);
+    const by=done?sName(done.completedBy):'';
+    const when=done?new Date(done.completedAt).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):'';
+    return`<div class="stask ${done?'done':''}" onclick="openTaskComplete('${t.key}')">
+      <div class="stask-chk">${done?'<svg width="12" height="12" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div>
+      <div class="stask-body">
+        <div class="stask-lbl">${t.label}${t.link?`<a class="stask-link" href="${t.link}" target="_blank" onclick="event.stopPropagation()">How-to guide ↗</a>`:''}</div>
+        ${done?`<div class="stask-meta">✓ Completed by ${by} at ${when}</div>`:''}
+      </div>
+      ${done?`<button class="btn btn-g btn-sm" onclick="event.stopPropagation();undoTask('${t.key}')" style="font-size:11px;">Undo</button>`:''}
+    </div>`;
+  }).join('');
+  document.getElementById('today-studio-tasks').innerHTML=`<div class="sec-hdr"><div class="sec-title">Studio tasks</div><div class="sec-ct">${applicable.length}</div></div>${tasksHtml||'<div class="empty"><p>No studio tasks for today.</p></div>'}`;
+
+  // Daily log grid
+  const staff=activeStaff();
+  const colsHeader=LOG_COLS.map(c=>`<th title="${c.tip}">${c.short}</th>`).join('');
+  const rows=staff.map(s=>{
+    const log=dailyLogs.find(l=>l.staffId===s.id)||{staffId:s.id};
+    const cells=LOG_COLS.map(c=>`<td><input type="number" min="0" value="${log[c.key]||''}" onblur="updateDailyLogCell('${s.id}','${c.key}',this.value)"></td>`).join('');
+    const cl=log.contactLogsDone;
+    const ax=log.axleFollowupsDone;
+    return`<tr>
+      <td class="dlg-staff">${s.name}</td>
+      ${cells}
+      <td><button class="dlg-cb-btn ${cl?'done':''}" onclick="toggleContactLogs('${s.id}')">${cl?'✓ Done':'Mark'}</button></td>
+      <td><button class="dlg-cb-btn ${ax?'done':''}" onclick="toggleAxleFollowups('${s.id}')">${ax?'✓ Done':'Mark'}</button></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('today-daily-log').innerHTML=`<div class="sec-hdr"><div class="sec-title">Team daily log</div></div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Hover over column headers for goals/context. Anyone can fill in any row.</div>
+    <div class="dlg-wrap"><table class="dlg">
+      <thead><tr>
+        <th class="dlg-staff">Staff</th>
+        ${colsHeader}
+        <th title="All non-converted guest contact logs added to Mindbody today.">Contact Logs</th>
+        <th title="Axle follow-ups scheduled for tomorrow for all non-converted guests.">Axle Follow-ups</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+}
+
+// Open simple task-complete modal
+let _pendingTaskKey=null;
+function openTaskComplete(key){
+  const t=STUDIO_TASKS.find(x=>x.key===key);if(!t)return;
+  if(t.special==='cintas'){openCintas(key);return;}
+  _pendingTaskKey=key;
+  document.getElementById('task-title').textContent=t.label;
+  document.getElementById('task-sub').textContent='Confirm this task is complete.';
+  document.getElementById('task-extra').innerHTML='';
+  document.getElementById('task-by').innerHTML=staffOptions('');
+  document.getElementById('task-complete-modal').classList.add('open');
+}
+async function confirmTaskComplete(){
+  const by=document.getElementById('task-by').value;
+  if(!by){alert('Please select who completed this task.');return;}
+  const d=getTodayStr();
+  const rec={date:d,taskKey:_pendingTaskKey,completedBy:by,completedAt:new Date().toISOString(),taskData:null};
+  if(useLocalStorage){
+    dailyTasks=dailyTasks.filter(t=>t.taskKey!==_pendingTaskKey);
+    dailyTasks.push(rec);
+    localStorage.setItem('psp-v7-dtasks-'+d,JSON.stringify(dailyTasks));
+  } else {
+    await api('daily?resource=tasks',{method:'POST',body:rec});
+  }
+  closeModal('task-complete-modal');_pendingTaskKey=null;
+  renderToday();
+}
+async function undoTask(key){
+  const d=getTodayStr();
+  if(!confirm('Uncheck this task?'))return;
+  if(useLocalStorage){
+    dailyTasks=dailyTasks.filter(t=>t.taskKey!==key);
+    localStorage.setItem('psp-v7-dtasks-'+d,JSON.stringify(dailyTasks));
+  } else {
+    await api('daily?resource=tasks&date='+d+'&taskKey='+encodeURIComponent(key),{method:'DELETE'});
+  }
+  renderToday();
+}
+
+// Cintas flow
+function openCintas(){
+  _pendingTaskKey='cintas';
+  const existing=dailyTasks.find(t=>t.taskKey==='cintas');
+  const data=existing?.taskData||{};
+  const rows=CINTAS_ITEMS.map((item,i)=>{
+    const cur=data[i]||{};
+    const status=cur.status||'';
+    const notes=cur.notes||'';
+    return`<div style="margin-bottom:12px;padding:10px;background:var(--sand);border-radius:8px;">
+      <div style="font-weight:600;font-size:13px;margin-bottom:6px;">${item}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
+        <label style="flex:1;min-width:100px;"><input type="radio" name="cintas-${i}" value="good" ${status==='good'?'checked':''}> <span style="color:var(--ok);">Good for the week</span></label>
+        <label style="flex:1;min-width:100px;"><input type="radio" name="cintas-${i}" value="half" ${status==='half'?'checked':''}> <span style="color:var(--warn);">Half way</span></label>
+        <label style="flex:1;min-width:100px;"><input type="radio" name="cintas-${i}" value="low" ${status==='low'?'checked':''}> <span style="color:var(--err);">Need More / Empty</span></label>
+      </div>
+      <input type="text" class="fi" id="cintas-notes-${i}" placeholder="Optional notes" value="${notes}" style="font-size:12px;padding:6px 10px;">
+    </div>`;
+  }).join('');
+  document.getElementById('cintas-items').innerHTML=rows;
+  document.getElementById('cintas-by').innerHTML=staffOptions('');
+  document.getElementById('cintas-modal').classList.add('open');
+}
+async function confirmCintasComplete(){
+  const by=document.getElementById('cintas-by').value;
+  if(!by){alert('Please select who completed this task.');return;}
+  const data={};
+  for(let i=0;i<CINTAS_ITEMS.length;i++){
+    const statusEl=document.querySelector(`input[name="cintas-${i}"]:checked`);
+    if(!statusEl){alert(`Please select a status for "${CINTAS_ITEMS[i]}".`);return;}
+    data[i]={status:statusEl.value,notes:document.getElementById('cintas-notes-'+i).value.trim()};
+  }
+  const d=getTodayStr();
+  const rec={date:d,taskKey:'cintas',completedBy:by,completedAt:new Date().toISOString(),taskData:data};
+  if(useLocalStorage){
+    dailyTasks=dailyTasks.filter(t=>t.taskKey!=='cintas');
+    dailyTasks.push(rec);
+    localStorage.setItem('psp-v7-dtasks-'+d,JSON.stringify(dailyTasks));
+  } else {
+    await api('daily?resource=tasks',{method:'POST',body:rec});
+  }
+  closeModal('cintas-modal');
+  renderToday();
+}
+
+// Daily log cell updates
+async function updateDailyLogCell(staffId,colKey,val){
+  const v=val===''?null:parseInt(val);
+  if(val!==''&&(isNaN(v)||v<0))return;
+  const d=getTodayStr();
+  let log=dailyLogs.find(l=>l.staffId===staffId);
+  if(!log){log={staffId,date:d,contactLogsDone:false,axleFollowupsDone:false};dailyLogs.push(log);}
+  log[colKey]=v||0;
+  log.updatedAt=new Date().toISOString();
+  if(useLocalStorage){
+    localStorage.setItem('psp-v7-dlogs-'+d,JSON.stringify(dailyLogs));
+  } else {
+    const body={[colKey]:v||0};
+    await api('daily?resource=logs&date='+d+'&staffId='+staffId,{method:'PUT',body});
+  }
+}
+
+// Contact logs toggle (opens template popup)
+let _pendingContactLogsStaff=null;
+function toggleContactLogs(staffId){
+  const log=dailyLogs.find(l=>l.staffId===staffId);
+  if(log&&log.contactLogsDone){
+    // Undo
+    setContactLogs(staffId,false);
+    return;
+  }
+  _pendingContactLogsStaff=staffId;
+  document.getElementById('cl-by').innerHTML=staffOptions(staffId);
+  document.getElementById('contact-log-template-modal').classList.add('open');
+}
+async function confirmContactLogs(){
+  const by=document.getElementById('cl-by').value;
+  if(!by){alert('Please select who is confirming.');return;}
+  await setContactLogs(_pendingContactLogsStaff,true);
+  closeModal('contact-log-template-modal');_pendingContactLogsStaff=null;
+}
+async function setContactLogs(staffId,done){
+  const d=getTodayStr();
+  let log=dailyLogs.find(l=>l.staffId===staffId);
+  if(!log){log={staffId,date:d};dailyLogs.push(log);}
+  log.contactLogsDone=done;
+  if(useLocalStorage){
+    localStorage.setItem('psp-v7-dlogs-'+d,JSON.stringify(dailyLogs));
+  } else {
+    await api('daily?resource=logs&date='+d+'&staffId='+staffId,{method:'PUT',body:{contactLogsDone:done}});
+  }
+  renderToday();
+}
+
+async function toggleAxleFollowups(staffId){
+  const d=getTodayStr();
+  let log=dailyLogs.find(l=>l.staffId===staffId);
+  if(!log){log={staffId,date:d};dailyLogs.push(log);}
+  log.axleFollowupsDone=!log.axleFollowupsDone;
+  if(useLocalStorage){
+    localStorage.setItem('psp-v7-dlogs-'+d,JSON.stringify(dailyLogs));
+  } else {
+    await api('daily?resource=logs&date='+d+'&staffId='+staffId,{method:'PUT',body:{axleFollowupsDone:log.axleFollowupsDone}});
+  }
+  renderToday();
+}
+
 // View switching
 let currentView='daily',currentMgrTab='overview';
 function setView(v){
@@ -2899,7 +3234,7 @@ function setMgrTab(tab){
 // Escape key closes modals
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
-    ['log-modal','edit-guest-modal','edit-change-modal','rassign-modal','tp-script-modal','deactivate-modal','milestone-modal','upload-modal','graduation-modal'].forEach(id=>{
+    ['log-modal','edit-guest-modal','edit-change-modal','rassign-modal','tp-script-modal','deactivate-modal','milestone-modal','upload-modal','graduation-modal','task-complete-modal','cintas-modal','contact-log-template-modal'].forEach(id=>{
       const el=document.getElementById(id);if(el&&el.classList.contains('open'))closeModal(id);
     });
   }
