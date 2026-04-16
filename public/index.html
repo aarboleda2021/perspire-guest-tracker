@@ -787,11 +787,11 @@
 <div class="modal-ov" id="upload-modal">
   <div class="modal" style="max-width:600px;">
     <div class="modal-title">Upload visits report</div>
-    <div class="modal-sub">Upload the Mindbody Attendance Analysis report (.xls or .xlsx). The "Signed-In Visits" column will be used to update visit counts.</div>
+    <div class="modal-sub">Upload the Mindbody Attendance Analysis Excel file (.xls or .xlsx). The "Signed-In Visits" column will be used to update visit counts.</div>
     <label class="upload-zone" id="upload-zone">
       <input type="file" id="upload-file" accept=".xls,.xlsx" onchange="handleVisitsUpload(event)">
       <div style="font-size:14px;color:var(--mid);">📤 Click to choose file or drop here</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:6px;">.xls or .xlsx</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;">Excel file (.xls or .xlsx)</div>
     </label>
     <div class="upload-result" id="upload-result"></div>
     <div class="modal-actions">
@@ -846,6 +846,31 @@
     <div class="modal-actions">
       <button class="btn btn-g" onclick="closeModal('contact-log-template-modal')">Cancel</button>
       <button class="btn btn-p" onclick="confirmContactLogs()">✓ All contact logs added</button>
+    </div>
+  </div>
+</div>
+
+<!-- UPLOAD INSTRUCTIONS MODAL -->
+<div class="modal-ov" id="upload-instructions-modal">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-title">📖 How to pull the Attendance Analysis report</div>
+    <div class="modal-sub">Follow these steps in Mindbody to generate the visits report for upload.</div>
+    <div style="background:var(--sand);border-radius:10px;padding:16px;margin:6px 0 16px;font-size:13px;line-height:1.7;">
+      <div style="margin-bottom:12px;"><strong>1.</strong> In Mindbody, go to <strong>Insights / Reports</strong> and open <strong>"Attendance Analysis"</strong></div>
+      <div style="margin-bottom:12px;"><strong>2. Section 1 — Date range:</strong><br>Use the "Quick date setting" dropdown and select <strong>Last 365 days</strong></div>
+      <div style="margin-bottom:12px;"><strong>3. Section 2 — Service categories:</strong><br>Click the dropdown, then under "IR Sauna Session" select <strong>IR Sauna Session</strong></div>
+      <div style="margin-bottom:12px;"><strong>4. Section 3 — Analysis:</strong><br>
+        • "Analysis by" dropdown → select <strong>Guest</strong><br>
+        • Click <strong>Detail</strong> report<br>
+        • In "Show clients with [x] or more visits," enter <strong>1</strong>
+      </div>
+      <div style="margin-bottom:12px;"><strong>5. Section 4:</strong> Click <strong>Go</strong> to run the report</div>
+      <div style="margin-bottom:12px;"><strong>6.</strong> Click <strong>Export to Excel (XLS)</strong> and save the file to your computer</div>
+      <div><strong>7.</strong> Come back here and click "Upload report below" to import it</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-g" onclick="closeModal('upload-instructions-modal')">Close</button>
+      <button class="btn btn-p" onclick="closeModal('upload-instructions-modal');openUploadVisits();">📤 Upload report below</button>
     </div>
   </div>
 </div>
@@ -1892,6 +1917,11 @@ function buildPostChecklist(c){
 
 // Dashboard — summary of items needing Mohogany's attention
 function renderMgrDashboard(){
+  // Last visits upload — find max visitsUpdatedAt across member guests
+  const members=guests.filter(c=>c.type==='member'&&!c.deactivated);
+  const lastUpload=members.map(c=>c.visitsUpdatedAt).filter(Boolean).map(d=>new Date(d)).sort((a,b)=>b-a)[0];
+  const daysSinceUpload=lastUpload?Math.floor((new Date()-lastUpload)/86400000):null;
+
   // Compute all urgent/pending counts
   const urgentChanges=changes.filter(c=>c.status!=='closed'&&billUrgency(c.billDate)==='urgent');
   const followUpChanges=changes.filter(c=>needsFollowupNow(c));
@@ -1932,6 +1962,27 @@ function renderMgrDashboard(){
 
   let html=`<div style="font-family:'DM Serif Display',serif;font-size:22px;margin-bottom:4px;">Dashboard</div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:22px;">${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})} · At-a-glance view of what needs attention</div>`;
+
+  // Visits upload prompt (escalating: none<3d, gentle 3-4d, urgent 5d+, never-uploaded)
+  if(lastUpload===undefined||lastUpload===null){
+    html+=`<div style="background:var(--warnp);border:2px solid #E8C07A;border-radius:12px;padding:16px 18px;margin-bottom:18px;">
+      <div style="font-weight:600;color:var(--warn);font-size:14px;margin-bottom:4px;">📤 Upload the attendance analysis report</div>
+      <div style="font-size:13px;color:var(--mid);line-height:1.5;margin-bottom:10px;">No visits report has been uploaded yet. Uploading keeps session milestones accurate for all members.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-g btn-sm" onclick="openModal('upload-instructions-modal')">📖 How to pull this report</button><button class="btn btn-p btn-sm" onclick="openUploadVisits()">📤 Upload now</button></div>
+    </div>`;
+  } else if(daysSinceUpload>=5){
+    html+=`<div style="background:var(--errp);border:2px solid var(--err);border-radius:12px;padding:16px 18px;margin-bottom:18px;">
+      <div style="font-weight:600;color:var(--err);font-size:14px;margin-bottom:4px;">⚠ Overdue: upload the attendance analysis report</div>
+      <div style="font-size:13px;color:var(--mid);line-height:1.5;margin-bottom:10px;">Last upload was <strong>${daysSinceUpload} days ago</strong>. Milestone tracking may be outdated — please pull the latest report and upload.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-g btn-sm" onclick="openModal('upload-instructions-modal')">📖 How to pull this report</button><button class="btn btn-p btn-sm" onclick="openUploadVisits()">📤 Upload now</button></div>
+    </div>`;
+  } else if(daysSinceUpload>=3){
+    html+=`<div style="background:var(--warnp);border:1.5px solid #E8C07A;border-radius:12px;padding:14px 16px;margin-bottom:18px;">
+      <div style="font-weight:600;color:var(--warn);font-size:13px;margin-bottom:4px;">📤 Time to upload the attendance analysis report</div>
+      <div style="font-size:12px;color:var(--mid);line-height:1.5;margin-bottom:10px;">Last upload was ${daysSinceUpload} days ago. Pull the latest report every 3 days to keep milestones fresh.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-g btn-sm" onclick="openModal('upload-instructions-modal')">📖 How to pull this report</button><button class="btn btn-p btn-sm" onclick="openUploadVisits()">📤 Upload now</button></div>
+    </div>`;
+  }
 
   if(!alerts.length){
     html+=`<div style="background:var(--okp);border:1.5px solid #9ECDB5;border-radius:12px;padding:22px;text-align:center;margin-bottom:22px;">
@@ -2944,6 +2995,8 @@ async function toggleStaffActive(sid){
   fillAll();renderRoster();
 }
 
+function openModal(id){document.getElementById(id).classList.add('open');}
+
 function closeModal(id){
   document.getElementById(id).classList.remove('open');
   if(id==='log-modal'){mId=null;mIdx=null;nurtureLogId=null;nurtureLogIdx=null;}
@@ -3824,7 +3877,7 @@ function setMgrTab(tab){
 // Escape key closes modals
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
-    ['log-modal','edit-guest-modal','edit-change-modal','rassign-modal','tp-script-modal','deactivate-modal','milestone-modal','upload-modal','graduation-modal','task-complete-modal','cintas-modal','contact-log-template-modal'].forEach(id=>{
+    ['log-modal','edit-guest-modal','edit-change-modal','rassign-modal','tp-script-modal','deactivate-modal','milestone-modal','upload-modal','graduation-modal','task-complete-modal','cintas-modal','contact-log-template-modal','upload-instructions-modal'].forEach(id=>{
       const el=document.getElementById(id);if(el&&el.classList.contains('open'))closeModal(id);
     });
   }
