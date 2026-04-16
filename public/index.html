@@ -332,6 +332,10 @@
       <div class="fg"><label class="fl">Contract start date<span class="req">*</span></label><input type="date" class="fi" id="ng-date"></div>
     </div>
     <div class="fg"><label class="fl">Assigned staff<span class="req">*</span></label><select class="fi" id="ng-staff"></select></div>
+    <div class="fci">
+      <input type="checkbox" class="fchk" id="ng-welcome-email">
+      <div><div class="fchk-lbl">Welcome email sent</div><div class="fchk-desc">Check this if the welcome email has been sent to the client from Gmail.</div></div>
+    </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
       <button class="btn btn-g" onclick="toggleAddGuest()">Cancel</button>
       <button class="btn btn-p" onclick="addGuest()">Add client</button>
@@ -1782,12 +1786,57 @@ function renderGuestCard(c,actions,prefix=''){
       <svg class="xic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
     </div>
     <div class="cbody">
+      ${!c.deactivated?renderOnboardingChecks(c,actions):''}
       ${c.type==='member'&&!c.deactivated&&actions?renderMilestonesBlock(c):''}
       <div class="tpg">${tpHtml}</div>
       ${c.deactivated?`<div style="background:var(--errp);border:1.5px solid #E8A8A3;border-radius:10px;padding:11px 14px;margin-top:12px;"><div style="font-size:11px;font-weight:600;color:var(--err);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Deactivated</div><p style="font-size:12px;color:#6B1A0A;line-height:1.5;"><strong>Reason:</strong> ${({'membership-change':'Membership change submitted','requested-no-contact':'Requested no further contact','graduated':'🎓 Graduated from 90-day program',duplicate:'Duplicate entry',other:'Other'})[c.deactivatedReason]||c.deactivatedReason||'Not specified'}${c.deactivatedNotes?` — ${c.deactivatedNotes}`:''}</p></div>`:`<div class="cadbox"><div class="cadbox-t">Cadence guidance — ${c.tier}</div><p><strong>Ideal:</strong> ${g.ideal} · <strong>At-risk:</strong> ${g.risk}<br><strong>Tip:</strong> ${g.tip}</p></div>`}
       ${actHtml}
     </div>
   </div>`;
+}
+
+function renderOnboardingChecks(c,actions){
+  const days=daysSince(c.contractStartDate);
+  let items=[];
+  // Welcome email — show if not sent
+  if(!c.welcomeEmailSent){
+    items.push(`<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--warnp);border:1.5px solid #E8C07A;border-radius:8px;">
+      <span style="font-size:14px;">📧</span>
+      <div style="flex:1;font-size:12px;color:var(--warn);font-weight:600;">Welcome email not sent yet</div>
+      ${actions?`<button class="btn btn-sm btn-p" onclick="event.stopPropagation();markWelcomeEmail('${c.id}')">Mark sent ✓</button>`:''}
+    </div>`);
+  }
+  // Membership agreement — members only, show if not signed
+  if(c.type==='member'&&!c.agreementSigned){
+    const overdue=days>14;
+    const bg=overdue?'var(--errp)':'var(--warnp)';
+    const border=overdue?'1.5px solid #E8A8A3':'1.5px solid #E8C07A';
+    const color=overdue?'var(--err)':'var(--warn)';
+    const urgTxt=overdue?` — overdue (day ${days}, goal is within 14 days)`:'';
+    items.push(`<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:${bg};border:${border};border-radius:8px;">
+      <span style="font-size:14px;">📋</span>
+      <div style="flex:1;font-size:12px;color:${color};font-weight:600;">Membership agreement not signed${urgTxt}</div>
+      ${actions?`<button class="btn btn-sm btn-p" onclick="event.stopPropagation();markAgreementSigned('${c.id}')">Mark signed ✓</button>`:''}
+    </div>`);
+  }
+  if(!items.length)return'';
+  return`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">${items.join('')}</div>`;
+}
+
+async function markWelcomeEmail(id){
+  const c=guests.find(x=>x.id===id);if(!c)return;
+  c.welcomeEmailSent=true;
+  if(useLocalStorage){lsSave();}
+  else{await api('guests?id='+id,{method:'PUT',body:{welcomeEmailSent:true}});}
+  renderGuests();
+}
+
+async function markAgreementSigned(id){
+  const c=guests.find(x=>x.id===id);if(!c)return;
+  c.agreementSigned=true;
+  if(useLocalStorage){lsSave();}
+  else{await api('guests?id='+id,{method:'PUT',body:{agreementSigned:true}});}
+  renderGuests();
 }
 
 function renderMilestonesBlock(c){
@@ -1986,10 +2035,16 @@ function renderMgrDashboard(){
     return getNurtureTPs(n).some((_,i)=>['due-now','overdue'].includes(nurtureStatus(n,i)));
   });
 
+  // Onboarding checks
+  const unsignedAgreements=activeGuests.filter(c=>c.type==='member'&&!c.agreementSigned).length;
+  const unsentWelcomeEmails=activeGuests.filter(c=>!c.welcomeEmailSent).length;
+
   // Build alert cards — always show all categories, with 0 if nothing
   const alertDef=[
     {count:urgentChanges.length,label:'Urgent bill dates',sub:'Process before close of business',urgentColor:'var(--urg)',urgentBg:'var(--urgp)',tab:'changes'},
     {count:followUpChanges.length,label:'Follow-ups needed',sub:'Second outreach required',urgentColor:'#856404',urgentBg:'#FFF8E1',tab:'changes'},
+    {count:unsentWelcomeEmails,label:'Welcome emails not sent',sub:'Send from Gmail template',urgentColor:'var(--warn)',urgentBg:'var(--warnp)',tab:'overview'},
+    {count:unsignedAgreements,label:'Unsigned agreements',sub:'Members — goal: within 2 weeks',urgentColor:'var(--warn)',urgentBg:'var(--warnp)',tab:'overview'},
     {count:pendingGrads.length,label:'Pending graduations',sub:'Ready to celebrate 🎓',urgentColor:'var(--ok)',urgentBg:'var(--okp)',tab:'graduated'},
     {count:overdueNurtures.length,label:'Overdue tier nurtures',sub:'Need outreach now',urgentColor:'var(--err)',urgentBg:'var(--errp)',tab:'nurture'},
     {count:dueNowNurtures.length,label:'Nurtures due this week',sub:'Touchpoint window open',urgentColor:'var(--warn)',urgentBg:'var(--warnp)',tab:'nurture'},
@@ -2379,6 +2434,7 @@ async function addGuest(){
   const tier=document.getElementById('ng-tier').value;
   const dv=document.getElementById('ng-date').value;
   const staff=document.getElementById('ng-staff').value;
+  const welcomeEmailSent=document.getElementById('ng-welcome-email').checked;
   if(!name){alert('Please enter a client name.');return;}
   if(!parseDate(dv)){alert('Please enter a valid contract start date.');return;}
   const dup=guests.find(c=>c.name.toLowerCase()===name.toLowerCase());
@@ -2387,13 +2443,13 @@ async function addGuest(){
   const d=parseDate(dv);
   const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   if(useLocalStorage){
-    guests.push({id,name,type,tier,contractStartDate:d.toISOString(),assignedStaff:staff,visitStatus:'healthy',logs:{},createdAt:new Date().toISOString()});
+    guests.push({id,name,type,tier,contractStartDate:d.toISOString(),assignedStaff:staff,visitStatus:'healthy',welcomeEmailSent,agreementSigned:false,logs:{},createdAt:new Date().toISOString()});
     lsSave();
   } else {
-    await api('guests',{method:'POST',body:{id,name,type,tier,contractStartDate:dateStr,assignedStaff:staff,visitStatus:'healthy'}});
+    await api('guests',{method:'POST',body:{id,name,type,tier,contractStartDate:dateStr,assignedStaff:staff,visitStatus:'healthy',welcomeEmailSent}});
     await loadGuests();
   }
-  document.getElementById('ng-name').value='';toggleAddGuest();renderGuests();
+  document.getElementById('ng-name').value='';document.getElementById('ng-welcome-email').checked=false;toggleAddGuest();renderGuests();
 }
 async function removeGuest(id){
   if(!confirm('Remove this client?'))return;

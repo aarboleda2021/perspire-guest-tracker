@@ -43,6 +43,8 @@ module.exports = async function handler(req, res) {
       totalVisits: g.total_visits || 0,
       visitsUpdatedAt: g.visits_updated_at || null,
       milestonesCompleted: g.milestones_completed || {},
+      welcomeEmailSent: g.welcome_email_sent || false,
+      agreementSigned: g.agreement_signed || false,
       logs: logsByGuest[g.id] || {},
       createdAt: g.created_at
     }));
@@ -51,12 +53,14 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { id: nid, name, type, tier, contractStartDate, assignedStaff, visitStatus } = req.body;
+    const b = req.body;
     const { error } = await supabase.from('guests').insert({
-      id: nid, name, type, tier,
-      contract_start_date: contractStartDate,
-      assigned_staff: assignedStaff,
-      visit_status: visitStatus || 'healthy'
+      id: b.id, name: b.name, type: b.type, tier: b.tier,
+      contract_start_date: b.contractStartDate,
+      assigned_staff: b.assignedStaff,
+      visit_status: b.visitStatus || 'healthy',
+      welcome_email_sent: b.welcomeEmailSent || false,
+      agreement_signed: b.agreementSigned || false
     });
     if (error) return res.status(500).json({ error: error.message });
     return res.status(201).json({ ok: true });
@@ -78,6 +82,8 @@ module.exports = async function handler(req, res) {
     if (body.totalVisits !== undefined) updates.total_visits = body.totalVisits;
     if (body.visitsUpdatedAt !== undefined) updates.visits_updated_at = body.visitsUpdatedAt;
     if (body.milestonesCompleted !== undefined) updates.milestones_completed = body.milestonesCompleted;
+    if (body.welcomeEmailSent !== undefined) updates.welcome_email_sent = body.welcomeEmailSent;
+    if (body.agreementSigned !== undefined) updates.agreement_signed = body.agreementSigned;
 
     const { error } = await supabase.from('guests').update(updates).eq('id', id);
     if (error) return res.status(500).json({ error: error.message });
