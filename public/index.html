@@ -1781,7 +1781,7 @@ function renderGuestCard(c,actions,prefix=''){
   return`<div class="ccard ${st==='overdue'?'isod':st==='due-now'?'isdu':''}" id="${prefix}ccard-${c.id}">
     <div class="chdr" onclick="toggleCard('${prefix}ccard-${c.id}')">
       <div class="cav">${initials(c.name)}</div>
-      <div class="ci"><div class="cn">${c.name}</div><div class="cm">${c.type==='member'?`${c.totalVisits||0} visits · `:''}${done}/${tps.length} touchpoints${nxtTxt} · ${sName(c.assignedStaff)}</div></div>
+      <div class="ci"><div class="cn">${c.name}</div><div class="cm">${c.type==='member'?`${c.totalVisits||0} visits · `:''}${nxt?`Next: ${nxt.label} ${nxt.text} · `:'All touchpoints complete · '}${sName(c.assignedStaff)}</div></div>
       <div class="cbdg">${tBdg}${c.deactivated?`<span class="badge bia">Deactivated</span>`:sBdg}${!c.deactivated&&c.visitStatus==='at-risk'?`<span class="badge bod">At-risk</span>`:''}</div>
       <svg class="xic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
     </div>
