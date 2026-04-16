@@ -20,6 +20,7 @@ module.exports = async function handler(req, res) {
       eventType: e.event_type,
       startDate: e.start_date,
       endDate: e.end_date,
+      timeRange: e.time_range || '',
       description: e.description,
       volunteerNeeded: e.volunteer_needed,
       assignedStaff: e.assigned_staff,
@@ -38,6 +39,7 @@ module.exports = async function handler(req, res) {
       event_type: b.eventType,
       start_date: b.startDate,
       end_date: b.endDate || null,
+      time_range: b.timeRange || null,
       description: b.description || '',
       volunteer_needed: b.volunteerNeeded || false,
       assigned_staff: b.assignedStaff || null,
@@ -55,6 +57,7 @@ module.exports = async function handler(req, res) {
     if (b.eventType !== undefined) updates.event_type = b.eventType;
     if (b.startDate !== undefined) updates.start_date = b.startDate;
     if (b.endDate !== undefined) updates.end_date = b.endDate;
+    if (b.timeRange !== undefined) updates.time_range = b.timeRange;
     if (b.description !== undefined) updates.description = b.description;
     if (b.volunteerNeeded !== undefined) updates.volunteer_needed = b.volunteerNeeded;
     if (b.assignedStaff !== undefined) updates.assigned_staff = b.assignedStaff;

@@ -245,9 +245,9 @@
 <div class="hdr">
   <div class="hdr-title">Perspire <em>Peachtree Corners</em> · Guest Tracker</div>
   <div class="vtog">
-    <button class="vbtn active" onclick="setView('guests')" id="btn-guests">New Guests</button>
+    <button class="vbtn active" onclick="setView('daily')" id="btn-daily">Daily Hub</button>
+    <button class="vbtn" onclick="setView('guests')" id="btn-guests">New Guests</button>
     <button class="vbtn" onclick="setView('changes')" id="btn-changes">Membership Changes</button>
-    <button class="vbtn" onclick="setView('daily')" id="btn-daily">Daily Hub</button>
     <button class="vbtn" onclick="setView('manager')" id="btn-manager">Manager View</button>
   </div>
 </div>
@@ -255,7 +255,7 @@
 <div class="main">
 
 <!-- ══ NEW GUESTS ══════════════════════════════════════════════════════════ -->
-<div id="view-guests">
+<div id="view-guests" style="display:none;">
   <div class="toolbar">
     <span class="tlbl">Viewing as</span>
     <select id="staff-sel" onchange="renderGuests()"></select>
@@ -480,7 +480,7 @@
 </div>
 
 <!-- ══ DAILY HUB ══════════════════════════════════════════════════════════ -->
-<div id="view-daily" style="display:none;">
+<div id="view-daily">
   <div class="tabs">
     <button class="tab active" onclick="setDailyTab('notes')" id="tab-notes">Shift Notes</button>
     <button class="tab" onclick="setDailyTab('events')" id="tab-events">Events</button>
@@ -493,8 +493,14 @@
       <span class="tlbl">Filter</span>
       <select id="notes-filter" onchange="renderShiftNotes()">
         <option value="active">Active</option>
+        <option value="urgent">Urgent only</option>
         <option value="resolved">Resolved</option>
         <option value="all">All</option>
+      </select>
+      <span class="tlbl" style="margin-left:6px;">Sort</span>
+      <select id="notes-sort" onchange="renderShiftNotes()">
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
       </select>
       <button class="btn btn-p" onclick="toggleAddNote()">+ Add note</button>
     </div>
@@ -548,12 +554,9 @@
       </div>
       <div class="frow">
         <div class="fg"><label class="fl">End date (optional, for multi-day)</label><input type="date" class="fi" id="event-end-date"></div>
-        <div class="fg"><label class="fl">Assigned staff (optional)</label><select class="fi" id="event-assigned"></select></div>
+        <div class="fg"><label class="fl">Time range (optional)</label><input type="text" class="fi" id="event-time" placeholder="e.g. 4-7pm, All day"></div>
       </div>
-      <div class="frow">
-        <div class="fg"><label class="fl">Submitted by<span class="req">*</span></label><select class="fi" id="event-author"></select></div>
-        <div class="fg"></div>
-      </div>
+      <div class="fg"><label class="fl">Assigned staff (optional)</label><select class="fi" id="event-assigned"></select></div>
       <div class="fg"><label class="fl">Description</label><textarea class="fi" id="event-desc" placeholder="Any additional details..."></textarea></div>
       <div class="fci">
         <input type="checkbox" class="fchk" id="event-volunteer">
@@ -2623,9 +2626,12 @@ async function removeNote(id){
 
 function renderShiftNotes(){
   const fil=document.getElementById('notes-filter').value;
+  const sort=document.getElementById('notes-sort')?.value||'newest';
   let list=shiftNotes;
   if(fil==='active')list=shiftNotes.filter(n=>isNoteActive(n));
+  else if(fil==='urgent')list=shiftNotes.filter(n=>isNoteActive(n)&&n.priority==='urgent');
   else if(fil==='resolved')list=shiftNotes.filter(n=>n.resolvedAt);
+  list=[...list].sort((a,b)=>{const ad=new Date(a.createdAt),bd=new Date(b.createdAt);return sort==='oldest'?ad-bd:bd-ad;});
   const el=document.getElementById('notes-list');
   if(!list.length){el.innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No notes${fil==='active'?' — you\'re all caught up!':''}.</p></div>`;return;}
   el.innerHTML=list.map(n=>{
@@ -2640,7 +2646,7 @@ function renderShiftNotes(){
           <div style="font-size:11px;color:var(--muted);margin-top:6px;">${urgent?'<span class="badge bURG">URGENT</span> ':''}${sName(n.createdBy)||'Unknown'} · ${createdStr}${keepLbl}${resolved?` · ✓ Resolved by ${sName(n.resolvedBy)||'?'}`:''}</div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap;">
-          ${resolved?`<button class="btn btn-g btn-sm" onclick="unresolveNote('${n.id}')">Reopen</button>`:`<select id="resolve-by-${n.id}" class="fi" style="font-size:12px;padding:5px 8px;width:auto;">${staffOptions('')}</select><button class="btn btn-g btn-sm" onclick="resolveNote('${n.id}')">Mark resolved ✓</button>`}
+          ${resolved?`<button class="btn btn-g btn-sm" onclick="unresolveNote('${n.id}')">Reopen</button>`:`<span style="font-size:11px;color:var(--muted);">Resolving as:</span><select id="resolve-by-${n.id}" class="fi" style="font-size:12px;padding:5px 8px;width:auto;">${staffOptions('')}</select><button class="btn btn-g btn-sm" onclick="resolveNote('${n.id}')">Mark resolved ✓</button>`}
           <button class="btn btn-sm btn-do" onclick="removeNote('${n.id}')">Delete</button>
         </div>
       </div>
@@ -2656,28 +2662,27 @@ function toggleAddEvent(){
     document.getElementById('event-type').value='in-studio';
     document.getElementById('event-start-date').value=toInputDate(new Date());
     document.getElementById('event-end-date').value='';
+    document.getElementById('event-time').value='';
     document.getElementById('event-desc').value='';
     document.getElementById('event-volunteer').checked=false;
     const sel=document.getElementById('event-assigned');
     sel.innerHTML=`<option value="">Unassigned</option>${activeStaff().map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}`;
-    document.getElementById('event-author').innerHTML=staffOptions('');
   }
 }
 
 async function addEvent(){
   const title=document.getElementById('event-title').value.trim();
-  const author=document.getElementById('event-author').value;
   const eventType=document.getElementById('event-type').value;
   const startDate=document.getElementById('event-start-date').value;
   const endDate=document.getElementById('event-end-date').value||null;
+  const timeRange=document.getElementById('event-time').value.trim();
   const description=document.getElementById('event-desc').value.trim();
   const volunteerNeeded=document.getElementById('event-volunteer').checked;
   const assignedStaff=document.getElementById('event-assigned').value||null;
   if(!title){alert('Please enter a title.');return;}
-  if(!author){alert('Please select who is submitting this event.');return;}
   if(!startDate){alert('Please enter a start date.');return;}
   const id=Date.now().toString();
-  const rec={id,title,eventType,startDate,endDate,description,volunteerNeeded,assignedStaff,createdBy:author,createdAt:new Date().toISOString()};
+  const rec={id,title,eventType,startDate,endDate,timeRange,description,volunteerNeeded,assignedStaff,createdAt:new Date().toISOString()};
   if(useLocalStorage){events.push(rec);lsSave();}
   else{await api('events',{method:'POST',body:rec});await loadEvents();}
   toggleAddEvent();renderEvents();
@@ -2711,13 +2716,14 @@ function renderEvents(){
   const typeBadges={'in-studio':'bm','external':'bot','promo':'bUP','closure':'bod','early-close':'bdu','other':'bia'};
   el.innerHTML=list.map(e=>{
     const dateStr=e.endDate&&e.endDate!==e.startDate?`${fmtDate(e.startDate)} – ${fmtDate(e.endDate)}`:fmtDate(e.startDate);
+    const timeStr=e.timeRange?` · ${e.timeRange}`:'';
     const assignedLabel=e.assignedStaff?sName(e.assignedStaff):(e.volunteerNeeded?'<span style="color:var(--warn);font-weight:600;">Volunteer needed — let Amanda or Mohogany know</span>':'No assignment');
     const assignOpts=`<option value="">Unassigned</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===e.assignedStaff?'selected':''}>${s.name}</option>`).join('')}`;
     return`<div class="mccard" style="padding:14px 16px;margin-bottom:9px;">
       <div style="display:flex;gap:10px;align-items:flex-start;">
         <div style="flex:1;">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;"><span class="badge ${typeBadges[e.eventType]||'bia'}">${typeLabels[e.eventType]||e.eventType}</span><strong style="font-size:14px;">${e.title}</strong></div>
-          <div style="font-size:12px;color:var(--mid);">${dateStr}</div>
+          <div style="font-size:12px;color:var(--mid);">${dateStr}${timeStr}</div>
           ${e.description?`<div style="font-size:13px;margin-top:6px;white-space:pre-wrap;">${e.description}</div>`:''}
           <div style="font-size:12px;color:var(--muted);margin-top:8px;">Assigned: ${assignedLabel}</div>
         </div>
@@ -2731,7 +2737,7 @@ function renderEvents(){
 }
 
 // View switching
-let currentView='guests',currentMgrTab='overview';
+let currentView='daily',currentMgrTab='overview';
 function setView(v){
   currentView=v;
   ['guests','changes','daily','manager'].forEach(x=>{document.getElementById('view-'+x).style.display=x===v?'block':'none';document.getElementById('btn-'+x).classList.toggle('active',x===v);});
@@ -2760,7 +2766,7 @@ document.addEventListener('keydown',e=>{
   }
 });
 
-loadAll().then(()=>{fillAll();renderGuests();onTypeChange();initFrmScript();});
+loadAll().then(()=>{fillAll();renderGuests();onTypeChange();initFrmScript();setDailyTab('notes');});
 </script>
 </body>
 </html>
