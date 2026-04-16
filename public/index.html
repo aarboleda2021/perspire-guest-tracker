@@ -74,7 +74,8 @@
   .dlg-wrap{overflow-x:auto;background:white;border:1.5px solid var(--border);border-radius:12px;}
   .dlg{border-collapse:collapse;width:100%;font-size:13px;}
   .dlg th,.dlg td{padding:8px 10px;text-align:center;border-right:1px solid var(--border);border-bottom:1px solid var(--border);}
-  .dlg th{background:var(--sand);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--mid);cursor:help;position:sticky;top:0;z-index:2;}
+  .dlg th{background:var(--sand);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--mid);position:sticky;top:0;z-index:2;}
+  .dlg th[title]{cursor:help;border-bottom:2px dotted var(--muted);}
   .dlg th.dlg-staff{text-align:left;position:sticky;left:0;z-index:3;background:var(--sand);}
   .dlg td.dlg-staff{text-align:left;font-weight:600;background:white;position:sticky;left:0;z-index:1;border-right:2px solid var(--border);}
   .dlg tr:last-child td{border-bottom:none;}
@@ -802,7 +803,7 @@
         <li><strong>Benefit(s) interested in</strong> — what drew them in (stress, sleep, recovery, detox, skin, etc.)</li>
         <li><strong>Membership/package they were interested in</strong> — tier discussed, if any</li>
         <li><strong>Reason they didn't purchase</strong> — too expensive, ClassPass user, needed to think, travels often, etc.</li>
-        <li><strong>Next steps</strong> — any follow-up plan, pipeline notes, or details to remember for next time</li>
+        <li><strong>Notes</strong> — any additional detail to remember for the guest's follow-up or second visit</li>
       </ul>
     </div>
     <div class="fg"><label class="fl">Confirmed by<span class="req">*</span></label><select class="fi" id="cl-by"></select></div>
@@ -2970,23 +2971,41 @@ function getDayOfWeek(){
 }
 
 const STUDIO_TASKS=[
-  {key:'call-green-stars',label:'Call tomorrow\'s Green ⭐ first-time visitors',days:[0,1,2,3,4,5,6]},
-  {key:'daily-cleaning',label:'Daily cleaning tasks complete',days:[0,1,2,3,4,5,6]},
+  {key:'call-green-stars',label:'Call tomorrow\'s Green ⭐ first-time visitors',days:[0,1,2,3,4,5,6],scripts:'green-star'},
+  {key:'daily-cleaning',label:'Daily cleaning tasks complete',days:[0,1,2,3,4,5,6],scripts:'cleaning'},
   {key:'halo-clean',label:'Clean halotherapy machines',days:[2],link:'https://docs.google.com/document/d/1VddlJh1Urc8RpQln0Fu0hp7Hc-98ygN1ItEhoRsRPrQ/edit?pli=1&tab=t.0#heading=h.bt97gz4kb186'},
   {key:'cintas',label:'Cintas supplies check',days:[5],special:'cintas'},
   {key:'fridge-front',label:'Defrost front fridge at closing',days:[6],link:'https://docs.google.com/document/d/1X4fgZw_mgRCxw3ILLLBwYbwN33xf-_oeUvuKVZjiHH0/edit?tab=t.0#heading=h.tvjv9ryqveop'},
   {key:'fridge-back',label:'Defrost back fridge at closing',days:[0],link:'https://docs.google.com/document/d/1X4fgZw_mgRCxw3ILLLBwYbwN33xf-_oeUvuKVZjiHH0/edit?tab=t.0#heading=h.tvjv9ryqveop'},
 ];
 
+// Green star appointment confirmation scripts
+const GREEN_STAR_SCRIPTS={
+  call:`Hi [Guest Name], this is [Your Name] from Perspire Peachtree Corners! I'm calling to confirm your first visit with us tomorrow at [time].\n\nAre you still able to make it?\n\nA few quick things to know:\n• We're located in The Forum shopping center, just a few doors down from Moe's Southwest Grill\n• Please plan to arrive 10 minutes early so we can give you a tour and get you settled in\n• Bring a water bottle — hydration is key before and after your session\n• Wear loose-fitting, comfortable clothing (you'll change at the studio but comfort while you travel helps)\n\nLooking forward to seeing you tomorrow! Any questions before you come in?`,
+  voicemail:`Hi [Guest Name], this is [Your Name] from Perspire Peachtree Corners! I'm just calling to confirm your first visit with us tomorrow at [time]. We're located in The Forum, a few doors down from Moe's. Please plan to arrive 10 minutes early, bring a water bottle, and wear loose-fitting clothing. Call us back at 404-947-8084 if anything changes — otherwise, see you tomorrow!`,
+  text:`Hi [Guest Name]! It's [Your Name] from Perspire Peachtree Corners 🧡 Just confirming your first visit tomorrow at [time]! A few things to know:\n\n📍 We're in The Forum, a few doors down from Moe's\n⏰ Please arrive 10 min early for your tour\n💧 Bring water\n👕 Wear loose-fitting, comfy clothes\n\nCan't wait to welcome you! Let us know if anything changes.`
+};
+
+// Daily cleaning tasks — placeholder for now; Amanda will provide the per-day lists
+const CLEANING_TASKS_BY_DAY={
+  0:['(Sunday cleaning list to be added)'],// Sun
+  1:['(Monday cleaning list to be added)'],// Mon
+  2:['(Tuesday cleaning list to be added)'],// Tue
+  3:['(Wednesday cleaning list to be added)'],// Wed
+  4:['(Thursday cleaning list to be added)'],// Thu
+  5:['(Friday cleaning list to be added)'],// Fri
+  6:['(Saturday cleaning list to be added)'],// Sat
+};
+
 const CINTAS_ITEMS=['Toilet Paper','Paper Towel','Hand Soap (Bathroom)','Hand Sanitizer (At Towel drop)','Chemical Levels (Disinfectant, Glass Cleaner, Floor Cleaner)','Mop Heads (2 front Drawers)'];
 
 const LOG_COLS=[
-  {key:'opportunities',short:'Opps',label:'Green ⭐ Opps',tip:'Log the total number of first-time guest visits you assisted during your shift (whether or not they purchased).'},
-  {key:'firstVisitsBooked',short:'FV Bkd',label:'First Visits Booked',tip:'Each MSA must book 3 first visits per shift. Visits do not need to occur that day, but they must be scheduled.'},
-  {key:'membershipSales',short:'Membs',label:'Memberships',tip:'Record the number of memberships you sold during your shift. Monthly goal: 10 (5 IRitual, 3 IRecover, 2 IRelax). Victor: 5.'},
-  {key:'packageSales',short:'Packs',label:'Packages',tip:'Record the number of packages you sold during your shift. Monthly goal: 5 (1 X20, 2 X8, 2 X4). Victor: 3.'},
-  {key:'outboundCalls',short:'Calls',label:'Outbound Calls',tip:'Each MSA is expected to complete 10 outbound lead calls per shift (log each call, even if no contact is reached).'},
-  {key:'preBooked',short:'Pre-bk',label:'Pre-booked Guests',tip:'Each MSA is expected to pre-book 10 guests per shift (future appointments only — at least one day in advance).'},
+  {key:'opportunities',label:'Green ⭐ Opportunities',tip:'Log the total number of first-time guest visits you assisted during your shift (whether or not they purchased).'},
+  {key:'firstVisitsBooked',label:'First Visits Booked',tip:'Each MSA must book 3 first visits per shift. Visits do not need to occur that day, but they must be scheduled.'},
+  {key:'membershipSales',label:'Membership Sales',tip:'Record the number of memberships you sold during your shift. Monthly goal: 10 (5 IRitual, 3 IRecover, 2 IRelax). Victor: 5.'},
+  {key:'packageSales',label:'Package Sales',tip:'Record the number of packages you sold during your shift. Monthly goal: 5 (1 X20, 2 X8, 2 X4). Victor: 3.'},
+  {key:'outboundCalls',label:'Outbound Calls',tip:'Each MSA is expected to complete 10 outbound lead calls per shift (log each call, even if no contact is reached).'},
+  {key:'preBooked',label:'Pre-booked Guests',tip:'Each MSA is expected to pre-book 10 guests per shift (future appointments only — at least one day in advance).'},
 ];
 
 let dailyTasks=[],dailyLogs=[];
@@ -3024,11 +3043,14 @@ async function renderToday(){
     const done=dailyTasks.find(x=>x.taskKey===t.key);
     const by=done?sName(done.completedBy):'';
     const when=done?new Date(done.completedAt).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):'';
+    let scriptBtn='';
+    if(t.scripts==='green-star')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openGreenStarScripts()">📞 View call scripts</button>`;
+    else if(t.scripts==='cleaning')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openCleaningList()">📋 View today's cleaning list</button>`;
     return`<div class="stask ${done?'done':''}" onclick="openTaskComplete('${t.key}')">
       <div class="stask-chk">${done?'<svg width="12" height="12" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div>
       <div class="stask-body">
         <div class="stask-lbl">${t.label}${t.link?`<a class="stask-link" href="${t.link}" target="_blank" onclick="event.stopPropagation()">How-to guide ↗</a>`:''}</div>
-        ${done?`<div class="stask-meta">✓ Completed by ${by} at ${when}</div>`:''}
+        ${done?`<div class="stask-meta">✓ Completed by ${by} at ${when}</div>`:scriptBtn}
       </div>
       ${done?`<button class="btn btn-g btn-sm" onclick="event.stopPropagation();undoTask('${t.key}')" style="font-size:11px;">Undo</button>`:''}
     </div>`;
@@ -3037,10 +3059,10 @@ async function renderToday(){
 
   // Daily log grid
   const staff=activeStaff();
-  const colsHeader=LOG_COLS.map(c=>`<th title="${c.tip}">${c.short}</th>`).join('');
+  const colsHeader=LOG_COLS.map(c=>`<th title="${c.tip}">${c.label}</th>`).join('');
   const rows=staff.map(s=>{
     const log=dailyLogs.find(l=>l.staffId===s.id)||{staffId:s.id};
-    const cells=LOG_COLS.map(c=>`<td><input type="number" min="0" value="${log[c.key]||''}" onblur="updateDailyLogCell('${s.id}','${c.key}',this.value)"></td>`).join('');
+    const cells=LOG_COLS.map(c=>{const v=log[c.key];const display=(v===0||v>0)?v:'';return`<td><input type="number" min="0" value="${display}" onblur="updateDailyLogCell('${s.id}','${c.key}',this.value)"></td>`;}).join('');
     const cl=log.contactLogsDone;
     const ax=log.axleFollowupsDone;
     return`<tr>
@@ -3056,11 +3078,41 @@ async function renderToday(){
       <thead><tr>
         <th class="dlg-staff">Staff</th>
         ${colsHeader}
-        <th title="All non-converted guest contact logs added to Mindbody today.">Contact Logs</th>
-        <th title="Axle follow-ups scheduled for tomorrow for all non-converted guests.">Axle Follow-ups</th>
+        <th title="Mindbody contact logs have been added for all non-converted guests from your shift today.">Contact logs completed for non-converted guests</th>
+        <th title="Axle follow-ups have been scheduled for tomorrow for all non-converted guests from your shift today.">Axle follow-ups scheduled for non-converted guests</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table></div>`;
+}
+
+// Green star call scripts popup
+function openGreenStarScripts(){
+  const s=GREEN_STAR_SCRIPTS;
+  document.getElementById('tp-script-title').textContent='📞 Green ⭐ appointment confirmation scripts';
+  document.getElementById('tp-script-sub').textContent='Call each first-time guest scheduled for tomorrow to confirm their visit.';
+  document.getElementById('tp-script-body').textContent=s.call;
+  document.getElementById('tp-script-tabs').innerHTML=
+    `<button class="stab active" onclick="showGreenStarScript('call',this)">Phone call</button>`+
+    `<button class="stab" onclick="showGreenStarScript('voicemail',this)">Voicemail</button>`+
+    `<button class="stab" onclick="showGreenStarScript('text',this)">Text</button>`;
+  document.getElementById('tp-script-modal').classList.add('open');
+}
+function showGreenStarScript(ch,btn){
+  document.getElementById('tp-script-body').textContent=GREEN_STAR_SCRIPTS[ch]||'';
+  btn.closest('.stabs').querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// Daily cleaning list popup (view-only)
+function openCleaningList(){
+  const dow=getDayOfWeek();
+  const list=CLEANING_TASKS_BY_DAY[dow]||[];
+  const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  document.getElementById('tp-script-title').textContent=`🧹 ${dayNames[dow]} cleaning tasks`;
+  document.getElementById('tp-script-sub').textContent='Complete all items below before marking this task done.';
+  document.getElementById('tp-script-tabs').innerHTML='';
+  document.getElementById('tp-script-body').innerHTML=list.map(item=>`<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:14px;">• ${item}</div>`).join('');
+  document.getElementById('tp-script-modal').classList.add('open');
 }
 
 // Open simple task-complete modal
@@ -3149,17 +3201,22 @@ async function confirmCintasComplete(){
 
 // Daily log cell updates
 async function updateDailyLogCell(staffId,colKey,val){
-  const v=val===''?null:parseInt(val);
-  if(val!==''&&(isNaN(v)||v<0))return;
   const d=getTodayStr();
   let log=dailyLogs.find(l=>l.staffId===staffId);
   if(!log){log={staffId,date:d,contactLogsDone:false,axleFollowupsDone:false};dailyLogs.push(log);}
-  log[colKey]=v||0;
+  if(val===''){
+    // Empty — clear the cell (treat as "not tracked")
+    delete log[colKey];
+  } else {
+    const v=parseInt(val);
+    if(isNaN(v)||v<0)return;
+    log[colKey]=v;// Preserves 0 explicitly
+  }
   log.updatedAt=new Date().toISOString();
   if(useLocalStorage){
     localStorage.setItem('psp-v7-dlogs-'+d,JSON.stringify(dailyLogs));
   } else {
-    const body={[colKey]:v||0};
+    const body={[colKey]:val===''?null:parseInt(val)};
     await api('daily?resource=logs&date='+d+'&staffId='+staffId,{method:'PUT',body});
   }
 }
