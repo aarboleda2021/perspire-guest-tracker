@@ -3561,6 +3561,30 @@ function renderTeamComparison(logs,month,monthLbl,el){
   `;
 }
 
+function computeRanking(allTotals,staffId,key){
+  // Returns {rank, total} — 1-indexed rank among teammates for this key
+  // Higher is better. Ties share rank (standard competition: 1,2,2,4).
+  const sorted=[...allTotals].sort((a,b)=>(b[key]||0)-(a[key]||0));
+  const me=allTotals.find(t=>t.staffId===staffId);
+  if(!me)return{rank:'—',total:allTotals.length,val:0};
+  const myVal=me[key]||0;
+  let rank=1;
+  for(const t of sorted){
+    if((t[key]||0)>myVal)rank++;
+  }
+  return{rank,total:allTotals.length,val:myVal};
+}
+
+function rankBadge(rank,total){
+  if(rank==='—')return'';
+  if(rank===1)return`<span style="color:#C9A227;font-weight:700;">🥇 1st of ${total}</span>`;
+  if(rank===2)return`<span style="color:#9A9A9A;font-weight:600;">🥈 2nd of ${total}</span>`;
+  if(rank===3)return`<span style="color:#CD7F32;font-weight:600;">🥉 3rd of ${total}</span>`;
+  const suffix=rank===1?'st':rank===2?'nd':rank===3?'rd':'th';
+  const color=rank===total?'var(--err)':'var(--mid)';
+  return`<span style="color:${color};font-weight:500;">${rank}${suffix} of ${total}</span>`;
+}
+
 function renderIndividualPerformance(logs,month,monthLbl,staffId,el){
   const staff=staffList.find(s=>s.id===staffId)||{};
   const myLogs=logs.filter(l=>l.staffId===staffId);
@@ -3574,66 +3598,96 @@ function renderIndividualPerformance(logs,month,monthLbl,staffId,el){
     return acc;
   },{opportunities:0,firstVisitsBooked:0,membershipSales:0,packageSales:0,outboundCalls:0,preBooked:0});
 
+  // Build totals for ALL non-lead staff for ranking
+  const teamStaff=activeStaff().filter(s=>s.id!=='mohogany');
+  const allTotals=teamStaff.map(s=>{
+    const sLogs=logs.filter(l=>l.staffId===s.id);
+    const t=sLogs.reduce((acc,l)=>{
+      acc.opportunities+=l.opportunities||0;
+      acc.firstVisitsBooked+=l.firstVisitsBooked||0;
+      acc.membershipSales+=l.membershipSales||0;
+      acc.packageSales+=l.packageSales||0;
+      acc.outboundCalls+=l.outboundCalls||0;
+      acc.preBooked+=l.preBooked||0;
+      return acc;
+    },{opportunities:0,firstVisitsBooked:0,membershipSales:0,packageSales:0,outboundCalls:0,preBooked:0});
+    t.staffId=s.id;t.name=s.name;
+    const{membershipConv,packageConv,purchaseConv}=computeConversions(t);
+    t.membershipConv=membershipConv;t.packageConv=packageConv;t.purchaseConv=purchaseConv;
+    return t;
+  });
+
+  const rOpps=computeRanking(allTotals,staffId,'opportunities');
+  const rFV=computeRanking(allTotals,staffId,'firstVisitsBooked');
+  const rMemb=computeRanking(allTotals,staffId,'membershipSales');
+  const rPack=computeRanking(allTotals,staffId,'packageSales');
+  const rCalls=computeRanking(allTotals,staffId,'outboundCalls');
+  const rPre=computeRanking(allTotals,staffId,'preBooked');
+  const rMConv=computeRanking(allTotals,staffId,'membershipConv');
+  const rPConv=computeRanking(allTotals,staffId,'packageConv');
+  const rAllConv=computeRanking(allTotals,staffId,'purchaseConv');
+
   const msGoal=staff.membershipGoal??(staffId==='victor'?5:10);
   const pkGoal=staff.packageGoal??(staffId==='victor'?3:5);
   const msPct=Math.min(100,Math.round((mtd.membershipSales/msGoal)*100)||0);
   const pkPct=Math.min(100,Math.round((mtd.packageSales/pkGoal)*100)||0);
   const{membershipConv,packageConv,purchaseConv}=computeConversions(mtd);
 
-  const[y,m]=month.split('-');
-  const lastDay=new Date(parseInt(y),parseInt(m),0).getDate();
-  const todayET=new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'}));
-  const isCurrentMonth=month===currentMonthStr();
-  const endDay=isCurrentMonth?todayET.getDate():lastDay;
-  const startDay=Math.max(1,endDay-13);
-  const days=[];
-  for(let d=startDay;d<=endDay;d++){
-    const dateStr=`${y}-${m}-${String(d).padStart(2,'0')}`;
-    const log=myLogs.find(l=>l.date===dateStr)||{};
-    days.push({day:d,total:(log.membershipSales||0)+(log.packageSales||0),opportunities:log.opportunities||0,memberships:log.membershipSales||0,packages:log.packageSales||0});
-  }
-  const maxBar=Math.max(...days.map(d=>d.memberships+d.packages),1);
-  const barsHtml=days.map(d=>{
-    const salesWidth=((d.memberships+d.packages)/maxBar*100)||0;
-    return`<div class="barchart-row" title="Day ${d.day}: ${d.opportunities} opps, ${d.memberships} memb, ${d.packages} pack">
-      <div class="barchart-label">${d.day}</div>
-      <div class="barchart-bar"><div class="barchart-fill ${salesWidth===0?'zero':''}" style="width:${salesWidth===0?100:salesWidth}%;">${d.memberships+d.packages>0?`${d.memberships+d.packages} sales`:'—'}</div></div>
-    </div>`;
-  }).join('');
-
   const isVictor=staffId==='victor';
   const msBreakdown=isVictor?`${msGoal} memberships (Victor's goal — half shifts)`:'5 IRitual · 3 IRecover · 2 IRelax';
   const pkBreakdown=isVictor?`${pkGoal} packages (Victor's goal — half shifts)`:'1 X20 · 2 X8 · 2 X4';
 
+  // Highlight "best" and "worst" metrics for the summary banner
+  const rankedMetrics=[
+    {lbl:'Memberships',rank:rMemb.rank},
+    {lbl:'Packages',rank:rPack.rank},
+    {lbl:'Opportunities',rank:rOpps.rank},
+    {lbl:'First Visits Booked',rank:rFV.rank},
+    {lbl:'Outbound Calls',rank:rCalls.rank},
+    {lbl:'Pre-booked Guests',rank:rPre.rank},
+    {lbl:'Membership Conv.',rank:rMConv.rank},
+    {lbl:'Package Conv.',rank:rPConv.rank},
+    {lbl:'Purchase Conv.',rank:rAllConv.rank},
+  ].filter(m=>m.rank!=='—');
+  const sortedByRank=[...rankedMetrics].sort((a,b)=>a.rank-b.rank);
+  const topMetric=sortedByRank[0];
+  const bottomMetric=sortedByRank[sortedByRank.length-1];
+  let summary='';
+  if(topMetric&&bottomMetric&&topMetric.rank!==bottomMetric.rank){
+    summary=`<div style="background:var(--sand);border:1.5px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:13px;line-height:1.6;">
+      <strong style="color:var(--ok);">💪 Strongest:</strong> ${topMetric.lbl} (ranked ${topMetric.rank}${topMetric.rank===1?'st':topMetric.rank===2?'nd':topMetric.rank===3?'rd':'th'} of ${allTotals.length})<br>
+      <strong style="color:var(--err);">🎯 Growth area:</strong> ${bottomMetric.lbl} (ranked ${bottomMetric.rank}${bottomMetric.rank===1?'st':bottomMetric.rank===2?'nd':bottomMetric.rank===3?'rd':'th'} of ${allTotals.length})
+    </div>`;
+  }
+
   el.innerHTML=`
     <div style="font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:4px;">${staff.name||'—'}'s performance</div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:18px;">${monthLbl} · Monthly goal: ${msGoal} memberships + ${pkGoal} packages</div>
+
+    ${summary}
 
     <div class="pgrid">
       <div class="pstat">
         <div class="pstat-lbl">Memberships</div>
         <div class="pstat-val">${mtd.membershipSales}<span style="font-size:14px;color:var(--muted);"> / ${msGoal}</span></div>
         <div class="progbar"><div class="progbar-fill ${msPct>=100?'ok':''}" style="width:${msPct}%;"></div></div>
-        <div class="pstat-sub">${msPct}% to goal${msPct>=100?' 🎉':''} · ${msBreakdown}</div>
+        <div class="pstat-sub">${msPct}% to goal${msPct>=100?' 🎉':''} · ${rankBadge(rMemb.rank,rMemb.total)}</div>
+        <div class="pstat-sub" style="margin-top:2px;">${msBreakdown}</div>
       </div>
       <div class="pstat">
         <div class="pstat-lbl">Packages</div>
         <div class="pstat-val">${mtd.packageSales}<span style="font-size:14px;color:var(--muted);"> / ${pkGoal}</span></div>
         <div class="progbar"><div class="progbar-fill ${pkPct>=100?'ok':''}" style="width:${pkPct}%;"></div></div>
-        <div class="pstat-sub">${pkPct}% to goal${pkPct>=100?' 🎉':''} · ${pkBreakdown}</div>
+        <div class="pstat-sub">${pkPct}% to goal${pkPct>=100?' 🎉':''} · ${rankBadge(rPack.rank,rPack.total)}</div>
+        <div class="pstat-sub" style="margin-top:2px;">${pkBreakdown}</div>
       </div>
-      <div class="pstat"><div class="pstat-lbl">Opportunities</div><div class="pstat-val">${mtd.opportunities}</div><div class="pstat-sub">Green ⭐ assisted</div></div>
-      <div class="pstat"><div class="pstat-lbl">First Visits Booked</div><div class="pstat-val">${mtd.firstVisitsBooked}</div><div class="pstat-sub">Scheduled</div></div>
-      <div class="pstat"><div class="pstat-lbl">Outbound Calls</div><div class="pstat-val">${mtd.outboundCalls}</div><div class="pstat-sub">Lead calls logged</div></div>
-      <div class="pstat"><div class="pstat-lbl">Pre-booked Guests</div><div class="pstat-val">${mtd.preBooked}</div><div class="pstat-sub">Future appointments</div></div>
-      <div class="pstat"><div class="pstat-lbl">Membership Conv. %</div><div class="pstat-val">${membershipConv}%</div><div class="pstat-sub">Memberships ÷ Opps</div></div>
-      <div class="pstat"><div class="pstat-lbl">Package Conv. %</div><div class="pstat-val">${packageConv}%</div><div class="pstat-sub">Packages ÷ Opps</div></div>
-      <div class="pstat"><div class="pstat-lbl">Purchase Conv. %</div><div class="pstat-val">${purchaseConv}%</div><div class="pstat-sub">All purchases ÷ Opps</div></div>
-    </div>
-
-    <div class="barchart">
-      <div class="barchart-title">Last ${days.length} days — daily sales</div>
-      ${barsHtml}
+      <div class="pstat"><div class="pstat-lbl">Opportunities</div><div class="pstat-val">${mtd.opportunities}</div><div class="pstat-sub">${rankBadge(rOpps.rank,rOpps.total)}</div></div>
+      <div class="pstat"><div class="pstat-lbl">First Visits Booked</div><div class="pstat-val">${mtd.firstVisitsBooked}</div><div class="pstat-sub">${rankBadge(rFV.rank,rFV.total)}</div></div>
+      <div class="pstat"><div class="pstat-lbl">Outbound Calls</div><div class="pstat-val">${mtd.outboundCalls}</div><div class="pstat-sub">${rankBadge(rCalls.rank,rCalls.total)}</div></div>
+      <div class="pstat"><div class="pstat-lbl">Pre-booked Guests</div><div class="pstat-val">${mtd.preBooked}</div><div class="pstat-sub">${rankBadge(rPre.rank,rPre.total)}</div></div>
+      <div class="pstat"><div class="pstat-lbl">Membership Conv. %</div><div class="pstat-val">${membershipConv}%</div><div class="pstat-sub">${rankBadge(rMConv.rank,rMConv.total)}</div></div>
+      <div class="pstat"><div class="pstat-lbl">Package Conv. %</div><div class="pstat-val">${packageConv}%</div><div class="pstat-sub">${rankBadge(rPConv.rank,rPConv.total)}</div></div>
+      <div class="pstat"><div class="pstat-lbl">Purchase Conv. %</div><div class="pstat-val">${purchaseConv}%</div><div class="pstat-sub">${rankBadge(rAllConv.rank,rAllConv.total)}</div></div>
     </div>
   `;
 }
