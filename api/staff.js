@@ -19,7 +19,7 @@ module.exports = async function handler(req, res) {
       active: s.active,
       membershipGoal: s.membership_goal !== null && s.membership_goal !== undefined ? s.membership_goal : (s.id === 'victor' ? 5 : 10),
       packageGoal: s.package_goal !== null && s.package_goal !== undefined ? s.package_goal : (s.id === 'victor' ? 3 : 5),
-      created_at: s.created_at
+      createdAt: s.created_at
     }));
     return res.status(200).json(result);
   }
