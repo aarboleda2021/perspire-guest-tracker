@@ -1867,7 +1867,7 @@ function renderGuestCard(c,actions,prefix=''){
     const stTxt=s==='completed'?`✓ ${log.channel}`:s==='overdue'?'! Overdue':s==='due-now'?'Due now':'Upcoming';
     const stCls=s==='completed'?'done':s==='overdue'?'late':s==='due-now'?'pending':'fut';
     const dates=windowDates(c.contractStartDate,wins[i][0],wins[i][1]);
-    return`<div class="tpi ${s}"><div class="tpn">${tp.label}</div><div class="tpw">${tp.window}</div>${dates?`<div style="font-size:10px;color:var(--muted);margin-bottom:3px;">${dates}</div>`:''}<div class="tpgl">${tp.goal}</div><span class="chtag ${ch.cls}">${ch.label}</span><div class="tpst ${stCls}">${stTxt}</div>${canLog?`<button class="tlbtn" onclick="openLog('${c.id}',${i})">Log outreach</button>`:''}${log?`<button class="tlbtn logged" disabled>✓ Logged</button>`:''}<button class="tlbtn" style="border-color:var(--info);color:var(--info);margin-top:3px;" onclick="event.stopPropagation();openTpScript('${c.type}',${i},'${c.id}')">View script</button>${log?.notes?`<div class="tpnts">"${log.notes}"</div>`:''}</div>`;
+    return`<div class="tpi ${s}"><div class="tpn">${tp.label}</div><div class="tpw">${tp.window}</div>${dates?`<div style="font-size:10px;color:var(--muted);margin-bottom:3px;">${dates}</div>`:''}<div class="tpgl">${tp.goal}</div><span class="chtag ${ch.cls}">${ch.label}</span><div class="tpst ${stCls}">${stTxt}</div>${canLog?`<button class="tlbtn" onclick="openLog('${c.id}',${i})">Log outreach</button>`:''}${log&&actions?`<button class="tlbtn logged" onclick="openLog('${c.id}',${i})" title="Edit this log">✓ Logged · Edit</button>`:log?`<button class="tlbtn logged" disabled>✓ Logged</button>`:''}<button class="tlbtn" style="border-color:var(--info);color:var(--info);margin-top:3px;" onclick="event.stopPropagation();openTpScript('${c.type}',${i},'${c.id}')">View script</button>${log?.notes?`<div class="tpnts">"${log.notes}"</div>`:''}</div>`;
   }).join('');
   const actHtml=actions?`<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
     <button class="btn btn-g btn-sm" onclick="openEditGuest('${c.id}')">Edit</button>
@@ -2402,7 +2402,7 @@ function renderNurtureCard(n,prefix=''){
     const stTxt=s==='completed'?`✓ ${log.channel}`:s==='overdue'?'! Overdue':s==='due-now'?'Due now':'Upcoming';
     const stCls=s==='completed'?'done':s==='overdue'?'late':s==='due-now'?'pending':'fut';
     const dates=windowDates(n.startDate,wins[i][0],wins[i][1]);
-    return`<div class="tpi ${s}"><div class="tpn">${tp.label}</div><div class="tpw">${tp.window}</div>${dates?`<div style="font-size:10px;color:var(--muted);margin-bottom:3px;">${dates}</div>`:''}<div class="tpgl">${tp.goal}</div><span class="chtag ${ch.cls}">${ch.label}</span><div class="tpst ${stCls}">${stTxt}</div>${canLog?`<button class="tlbtn" onclick="openNurtureLog('${n.id}',${i})">Log outreach</button>`:''}${log?`<button class="tlbtn logged" disabled>✓ Logged</button>`:''}<button class="tlbtn" style="border-color:var(--info);color:var(--info);margin-top:3px;" onclick="event.stopPropagation();openNurtureScript('${n.type}',${i},'${n.id}')">View script</button>${log?.notes?`<div class="tpnts">"${log.notes}"</div>`:''}</div>`;
+    return`<div class="tpi ${s}"><div class="tpn">${tp.label}</div><div class="tpw">${tp.window}</div>${dates?`<div style="font-size:10px;color:var(--muted);margin-bottom:3px;">${dates}</div>`:''}<div class="tpgl">${tp.goal}</div><span class="chtag ${ch.cls}">${ch.label}</span><div class="tpst ${stCls}">${stTxt}</div>${canLog?`<button class="tlbtn" onclick="openNurtureLog('${n.id}',${i})">Log outreach</button>`:''}${log&&n.status==='active'?`<button class="tlbtn logged" onclick="openNurtureLog('${n.id}',${i})" title="Edit this log">✓ Logged · Edit</button>`:log?`<button class="tlbtn logged" disabled>✓ Logged</button>`:''}<button class="tlbtn" style="border-color:var(--info);color:var(--info);margin-top:3px;" onclick="event.stopPropagation();openNurtureScript('${n.type}',${i},'${n.id}')">View script</button>${log?.notes?`<div class="tpnts">"${log.notes}"</div>`:''}</div>`;
   }).join('');
 
   const infoBox=isReact
@@ -2435,9 +2435,10 @@ function openNurtureLog(nid,idx){
   const n=nurtures.find(x=>x.id===nid);
   const tps=getNurtureTPs(n);
   const tp=tps[idx];
-  document.getElementById('log-sub').textContent=`${n.guestName} · ${n.type==='reactivation'?'Reactivation':'Nurture'} ${tp.label} · ${tp.window}`;
-  document.getElementById('log-notes').value='';
-  document.getElementById('log-channel').value='Call — reached member';
+  const existing=n.logs?.[idx];
+  document.getElementById('log-sub').textContent=`${n.guestName} · ${n.type==='reactivation'?'Reactivation':'Nurture'} ${tp.label} · ${tp.window}${existing?' · editing':''}`;
+  document.getElementById('log-notes').value=existing?.notes||'';
+  document.getElementById('log-channel').value=existing?.channel||'Call — reached member';
   document.getElementById('log-vs').value='healthy';
   document.getElementById('log-modal').classList.add('open');
 }
@@ -3037,9 +3038,10 @@ let mId=null,mIdx=null;
 function openLog(cid,idx){
   mId=cid;mIdx=idx;
   const c=guests.find(x=>x.id===cid),tp=getTPs(c.type)[idx];
-  document.getElementById('log-sub').textContent=`${c.name} · ${tp.label} · ${tp.window}`;
-  document.getElementById('log-notes').value='';
-  document.getElementById('log-channel').value='Call — reached member';
+  const existing=c.logs?.[idx];
+  document.getElementById('log-sub').textContent=`${c.name} · ${tp.label} · ${tp.window}${existing?' · editing':''}`;
+  document.getElementById('log-notes').value=existing?.notes||'';
+  document.getElementById('log-channel').value=existing?.channel||'Call — reached member';
   document.getElementById('log-vs').value=c.visitStatus||'healthy';
   document.getElementById('log-modal').classList.add('open');
 }
