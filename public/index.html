@@ -311,6 +311,7 @@
 
 <!-- ══ NEW GUESTS ══════════════════════════════════════════════════════════ -->
 <div id="view-guests" style="display:none;">
+  <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Track new members and package holders through their first 90 days with guided touchpoints and visit milestones.</div>
   <div class="toolbar">
     <span class="tlbl">Viewing as</span>
     <select id="staff-sel" onchange="renderGuests()"></select>
@@ -352,6 +353,7 @@
 
 <!-- ══ MEMBERSHIP CHANGES ════════════════════════════════════════════════ -->
 <div id="view-changes" style="display:none;">
+  <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Log and process membership changes — terminations, suspensions, downgrades, and upgrades — with outreach scripts and checklists.</div>
   <div class="toolbar">
     <span class="tlbl">Filter</span>
     <select id="chg-filter" onchange="renderChanges()">
@@ -558,6 +560,7 @@
   </div>
 
   <div id="daily-notes">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Leave notes for the next shift — important updates, reminders, or anything the team needs to know.</div>
     <div class="toolbar" style="margin-bottom:14px;">
       <span class="tlbl">Filter</span>
       <select id="notes-filter" onchange="renderShiftNotes()">
@@ -596,6 +599,7 @@
   </div>
 
   <div id="daily-events" style="display:none;">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Manage upcoming studio events and keep track of active promo codes for the team.</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
       <!-- LEFT: EVENTS -->
       <div>
@@ -689,12 +693,14 @@
   </div>
 
   <div id="daily-today" style="display:none;">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Complete your daily studio tasks and log your shift numbers. Everyone fills in their own row.</div>
     <div id="today-header" style="margin-bottom:18px;"></div>
     <div id="today-studio-tasks"></div>
     <div id="today-daily-log" style="margin-top:26px;"></div>
   </div>
 
   <div id="daily-perf" style="display:none;">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">View monthly sales performance, conversion rates, and team rankings. Select a team member to see their individual stats.</div>
     <div class="toolbar" style="margin-bottom:14px;">
       <span class="tlbl">Viewing</span>
       <select id="perf-staff" onchange="renderPerformance()"></select>
@@ -3999,31 +4005,34 @@ function renderTeamComparison(logs,month,monthLbl,el){
   const teamPConv=teamTotals.o>0?Math.round((teamTotals.p/teamTotals.o)*100):0;
   const teamAllConv=teamTotals.o>0?Math.round(((teamTotals.m+teamTotals.p)/teamTotals.o)*100):0;
 
+  const teamMPct=Math.min(100,Math.round((teamTotals.m/teamM)*100)||0);
+  const teamPPct=Math.min(100,Math.round((teamTotals.p/teamP)*100)||0);
+
   el.innerHTML=`
     <div style="font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:4px;">${monthLbl}</div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:18px;">Team-wide performance comparison</div>
 
-    <div class="pgrid">
-      <div class="pstat"><div class="pstat-lbl">Team Memberships</div><div class="pstat-val">${teamTotals.m}<span style="font-size:14px;color:var(--muted);"> / ${teamM}</span></div><div class="progbar"><div class="progbar-fill ${teamTotals.m>=teamM?'ok':''}" style="width:${Math.min(100,Math.round((teamTotals.m/teamM)*100)||0)}%;"></div></div></div>
-      <div class="pstat"><div class="pstat-lbl">Team Packages</div><div class="pstat-val">${teamTotals.p}<span style="font-size:14px;color:var(--muted);"> / ${teamP}</span></div><div class="progbar"><div class="progbar-fill ${teamTotals.p>=teamP?'ok':''}" style="width:${Math.min(100,Math.round((teamTotals.p/teamP)*100)||0)}%;"></div></div></div>
-      <div class="pstat"><div class="pstat-lbl">Team Opportunities</div><div class="pstat-val">${teamTotals.o}</div></div>
-      <div class="pstat"><div class="pstat-lbl">Team First Visits Booked</div><div class="pstat-val">${teamTotals.fv}</div></div>
-      <div class="pstat"><div class="pstat-lbl">Team Outbound Calls</div><div class="pstat-val">${teamTotals.c}</div></div>
-      <div class="pstat"><div class="pstat-lbl">Team Pre-booked</div><div class="pstat-val">${teamTotals.pb}</div></div>
-      <div class="pstat"><div class="pstat-lbl">Membership Conv. %</div><div class="pstat-val">${teamMConv}%</div><div class="pstat-sub">Memberships ÷ Opps</div></div>
-      <div class="pstat"><div class="pstat-lbl">Package Conv. %</div><div class="pstat-val">${teamPConv}%</div><div class="pstat-sub">Packages ÷ Opps</div></div>
-      <div class="pstat"><div class="pstat-lbl">Purchase Conv. %</div><div class="pstat-val">${teamAllConv}%</div><div class="pstat-sub">All purchases ÷ Opps</div></div>
+    <div class="pgrid3">
+      <div class="pstat"><div class="pstat-lbl">Memberships</div><div class="pstat-val">${teamTotals.m}<span style="font-size:14px;color:var(--muted);"> / ${teamM}</span></div><div class="pstat-sub">${teamMPct}% of team goal</div><div class="progbar"><div class="progbar-fill ${teamTotals.m>=teamM?'ok':''}" style="width:${teamMPct}%;"></div></div></div>
+      <div class="pstat"><div class="pstat-lbl">Packages</div><div class="pstat-val">${teamTotals.p}<span style="font-size:14px;color:var(--muted);"> / ${teamP}</span></div><div class="pstat-sub">${teamPPct}% of team goal</div><div class="progbar"><div class="progbar-fill ${teamTotals.p>=teamP?'ok':''}" style="width:${teamPPct}%;"></div></div></div>
+      <div class="pstat"><div class="pstat-lbl">Purchase Conv.</div><div class="pstat-val">${teamAllConv}%</div><div class="pstat-sub">All purchases ÷ Opps</div></div>
     </div>
-
-    <div style="background:var(--sand);border:1.5px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:12px;line-height:1.7;color:var(--mid);">
-      <div style="font-weight:600;color:var(--dark);margin-bottom:6px;">Individual monthly goals:</div>
-      ${teamStaff.map(s=>`• <strong>${s.name}</strong>: ${s.membershipGoal??(s.id==='victor'?5:10)} memberships · ${s.packageGoal??(s.id==='victor'?3:5)} packages`).join('<br>')}
+    <div class="pgrid3">
+      <div class="pstat"><div class="pstat-lbl">Opportunities</div><div class="pstat-val">${teamTotals.o}</div></div>
+      <div class="pstat"><div class="pstat-lbl">First Visits Booked</div><div class="pstat-val">${teamTotals.fv}</div></div>
+      <div class="pstat"><div class="pstat-lbl">Outbound Calls</div><div class="pstat-val">${teamTotals.c}</div></div>
+      <div class="pstat"><div class="pstat-lbl">Pre-booked</div><div class="pstat-val">${teamTotals.pb}</div></div>
+      <div class="pstat"><div class="pstat-lbl">Membership Conv.</div><div class="pstat-val">${teamMConv}%</div><div class="pstat-sub">Memberships ÷ Opps</div></div>
+      <div class="pstat"><div class="pstat-lbl">Package Conv.</div><div class="pstat-val">${teamPConv}%</div><div class="pstat-sub">Packages ÷ Opps</div></div>
     </div>
 
     <div class="sec-hdr"><div class="sec-title">Per-staff breakdown</div></div>
     <div class="dlg-wrap"><table class="dlg">
       <thead><tr><th class="dlg-staff">Staff</th><th>Opps</th><th>FV Bkd</th><th>Memb</th><th>Packs</th><th>Calls</th><th>Pre-bk</th><th>Memb Conv.</th><th>Pkg Conv.</th><th>Purchase Conv.</th></tr></thead>
-      <tbody>${teamRows}</tbody>
+      <tbody>${teamRows}
+      <tr style="border-top:2px solid var(--border);font-weight:700;background:var(--sand);">
+        <td class="dlg-staff">Team total</td><td>${teamTotals.o}</td><td>${teamTotals.fv}</td><td>${teamTotals.m}/${teamM}</td><td>${teamTotals.p}/${teamP}</td><td>${teamTotals.c}</td><td>${teamTotals.pb}</td><td>${teamMConv}%</td><td>${teamPConv}%</td><td>${teamAllConv}%</td>
+      </tr></tbody>
     </table></div>
   `;
 }
@@ -4104,25 +4113,28 @@ function renderIndividualPerformance(logs,month,monthLbl,staffId,el){
   const pkBreakdown=`${pkGoal} packages`;
 
   // Highlight "best" and "worst" metrics for the summary banner
+  const ord=n=>n===1?'st':n===2?'nd':n===3?'rd':'th';
   const rankedMetrics=[
-    {lbl:'Memberships',rank:rMemb.rank},
-    {lbl:'Packages',rank:rPack.rank},
-    {lbl:'Opportunities',rank:rOpps.rank},
-    {lbl:'First Visits Booked',rank:rFV.rank},
-    {lbl:'Outbound Calls',rank:rCalls.rank},
-    {lbl:'Pre-booked Guests',rank:rPre.rank},
-    {lbl:'Membership Conv.',rank:rMConv.rank},
-    {lbl:'Package Conv.',rank:rPConv.rank},
-    {lbl:'Purchase Conv.',rank:rAllConv.rank},
+    {lbl:'Memberships',rank:rMemb.rank,val:rMemb.val},
+    {lbl:'Packages',rank:rPack.rank,val:rPack.val},
+    {lbl:'Opportunities',rank:rOpps.rank,val:rOpps.val},
+    {lbl:'First Visits Booked',rank:rFV.rank,val:rFV.val},
+    {lbl:'Outbound Calls',rank:rCalls.rank,val:rCalls.val},
+    {lbl:'Pre-booked Guests',rank:rPre.rank,val:rPre.val},
+    {lbl:'Membership Conv.',rank:rMConv.rank,val:rMConv.val},
+    {lbl:'Package Conv.',rank:rPConv.rank,val:rPConv.val},
+    {lbl:'Purchase Conv.',rank:rAllConv.rank,val:rAllConv.val},
   ].filter(m=>m.rank!=='—');
-  const sortedByRank=[...rankedMetrics].sort((a,b)=>a.rank-b.rank);
+  const sortedByRank=[...rankedMetrics].sort((a,b)=>a.rank-b.rank||(b.val-a.val));
   const topMetric=sortedByRank[0];
   const bottomMetric=sortedByRank[sortedByRank.length-1];
   let summary='';
-  if(topMetric&&bottomMetric&&topMetric.rank!==bottomMetric.rank){
+  if(topMetric&&bottomMetric){
+    const allTied=topMetric.rank===bottomMetric.rank;
     summary=`<div style="background:var(--sand);border:1.5px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:13px;line-height:1.6;">
-      <strong style="color:var(--ok);">💪 Strongest:</strong> ${topMetric.lbl} (ranked ${topMetric.rank}${topMetric.rank===1?'st':topMetric.rank===2?'nd':topMetric.rank===3?'rd':'th'} of ${allTotals.length})<br>
-      <strong style="color:var(--err);">🎯 Growth area:</strong> ${bottomMetric.lbl} (ranked ${bottomMetric.rank}${bottomMetric.rank===1?'st':bottomMetric.rank===2?'nd':bottomMetric.rank===3?'rd':'th'} of ${allTotals.length})
+      ${allTied?`<strong>📊</strong> All metrics currently ranked ${topMetric.rank}${ord(topMetric.rank)} of ${allTotals.length} — keep logging daily numbers to see strengths emerge!`
+      :`<strong style="color:var(--ok);">💪 Strongest:</strong> ${topMetric.lbl} (ranked ${topMetric.rank}${ord(topMetric.rank)} of ${allTotals.length})<br>
+      <strong style="color:var(--err);">🎯 Growth area:</strong> ${bottomMetric.lbl} (ranked ${bottomMetric.rank}${ord(bottomMetric.rank)} of ${allTotals.length})`}
     </div>`;
   }
 
