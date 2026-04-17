@@ -590,7 +590,10 @@
           </select>
         </div>
       </div>
-      <div class="fg"><label class="fl">Keep visible until (optional)</label><input type="date" class="fi" id="note-keep-until"></div>
+      <div class="frow">
+        <div class="fg"><label class="fl">Assign to (optional)</label><select class="fi" id="note-assigned-to"><option value="">— No one specific —</option></select></div>
+        <div class="fg"><label class="fl">Keep visible until (optional)</label><input type="date" class="fi" id="note-keep-until"></div>
+      </div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:13px;">Notes auto-archive 48 hours after creation unless a "Keep visible until" date is set.</div>
       <div style="display:flex;gap:10px;justify-content:flex-end;">
         <button class="btn btn-g" onclick="toggleAddNote()">Cancel</button>
@@ -3231,6 +3234,7 @@ function toggleAddNote(){
     document.getElementById('note-priority').value='fyi';
     document.getElementById('note-keep-until').value='';
     document.getElementById('note-author').innerHTML=staffOptions('');
+    document.getElementById('note-assigned-to').innerHTML=`<option value="">— No one specific —</option>`+activeStaff().map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
   }
 }
 
@@ -3241,8 +3245,9 @@ async function addShiftNote(){
   if(!author){alert('Please select who is submitting this note.');return;}
   const priority=document.getElementById('note-priority').value;
   const keepUntil=document.getElementById('note-keep-until').value||null;
+  const assignedTo=document.getElementById('note-assigned-to').value||null;
   const id=Date.now().toString();
-  const rec={id,content,priority,createdBy:author,keepUntil,createdAt:new Date().toISOString(),resolvedAt:null,resolvedBy:null};
+  const rec={id,content,priority,createdBy:author,keepUntil,assignedTo,createdAt:new Date().toISOString(),resolvedAt:null,resolvedBy:null};
   if(useLocalStorage){shiftNotes.unshift(rec);lsSave();}
   else{await api('shift-notes',{method:'POST',body:rec});await loadShiftNotes();}
   toggleAddNote();renderShiftNotes();
@@ -3278,10 +3283,12 @@ function editNote(id){
   const n=shiftNotes.find(x=>x.id===id);if(!n)return;
   const el=document.getElementById('note-card-'+id);
   const prioOpts=['normal','urgent'].map(p=>`<option value="${p}" ${n.priority===p?'selected':''}>${p==='urgent'?'⚠ Urgent':'Normal'}</option>`).join('');
+  const assignOpts=`<option value="">— No one specific —</option>`+activeStaff().map(s=>`<option value="${s.id}" ${s.id===n.assignedTo?'selected':''}>${s.name}</option>`).join('');
   el.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px;padding:14px 16px;">
     <div class="fg" style="margin:0;"><label class="fl">Note</label><textarea class="fi" id="en-content-${id}" rows="3">${n.content||''}</textarea></div>
     <div class="frow"><div class="fg" style="margin:0;"><label class="fl">Priority</label><select class="fi" id="en-prio-${id}">${prioOpts}</select></div>
     <div class="fg" style="margin:0;"><label class="fl">Keep visible until</label><input type="date" class="fi" id="en-keep-${id}" value="${n.keepUntil||''}"></div></div>
+    <div class="fg" style="margin:0;"><label class="fl">Assign to</label><select class="fi" id="en-assigned-${id}">${assignOpts}</select></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-sm btn-g" onclick="renderShiftNotes()">Cancel</button><button class="btn btn-sm btn-p" onclick="saveNoteEdit('${id}')">Save</button></div>
   </div>`;
 }
@@ -3289,11 +3296,12 @@ async function saveNoteEdit(id){
   const content=document.getElementById('en-content-'+id).value.trim();
   const priority=document.getElementById('en-prio-'+id).value;
   const keepUntil=document.getElementById('en-keep-'+id).value||null;
+  const assignedTo=document.getElementById('en-assigned-'+id).value||null;
   if(!content){alert('Please enter a note.');return;}
   const n=shiftNotes.find(x=>x.id===id);if(!n)return;
-  n.content=content;n.priority=priority;n.keepUntil=keepUntil;
+  n.content=content;n.priority=priority;n.keepUntil=keepUntil;n.assignedTo=assignedTo;
   if(useLocalStorage){lsSave();}
-  else{await api('shift-notes?id='+id,{method:'PUT',body:{content,priority,keepUntil}});}
+  else{await api('shift-notes?id='+id,{method:'PUT',body:{content,priority,keepUntil,assignedTo}});}
   renderShiftNotes();
 }
 
@@ -3312,9 +3320,11 @@ function renderShiftNotes(){
     const resolved=!!n.resolvedAt;
     const createdStr=new Date(n.createdAt).toLocaleString('en-US',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});
     const keepLbl=n.keepUntil?` · keeping until ${fmtDate(n.keepUntil)}`:'';
+    const assignedLbl=n.assignedTo?`<span class="badge bm" style="margin-right:6px;">For: ${sName(n.assignedTo)}</span>`:'';
     return`<div class="mccard ${urgent&&!resolved?'isurg':''}" id="note-card-${n.id}" style="padding:14px 16px;margin-bottom:9px;${resolved?'opacity:.6;':''}">
       <div style="display:flex;gap:10px;align-items:flex-start;">
         <div style="flex:1;">
+          ${assignedLbl?`<div style="margin-bottom:6px;">${assignedLbl}</div>`:''}
           <div style="font-size:13px;white-space:pre-wrap;">${n.content}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:6px;">${urgent?'<span class="badge bURG">URGENT</span> ':''}${sName(n.createdBy)||'Unknown'} · ${createdStr}${keepLbl}${resolved?` · ✓ Resolved by ${sName(n.resolvedBy)||'?'}`:''}</div>
         </div>
