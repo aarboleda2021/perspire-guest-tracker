@@ -167,6 +167,8 @@
   .tlbtn:hover{background:var(--tc);color:white;}
   .tlbtn.logged{border-color:var(--ok);color:var(--ok);background:var(--okp);cursor:default;}
   .tlbtn.logged:hover{background:var(--okp);color:var(--ok);}
+  .tlbtn.logged.editable{cursor:pointer;}
+  .tlbtn.logged.editable:hover{background:var(--ok);color:white;border-color:var(--ok);}
   .tpnts{font-size:11px;color:var(--mid);margin-top:4px;font-style:italic;word-break:break-word;}
   .cadbox{background:var(--infop);border:1.5px solid #B3D4E0;border-radius:10px;padding:11px 14px;margin-top:12px;}
   .cadbox-t{font-size:11px;font-weight:600;color:var(--info);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;}
@@ -1867,7 +1869,7 @@ function renderGuestCard(c,actions,prefix=''){
     const stTxt=s==='completed'?`✓ ${log.channel}`:s==='overdue'?'! Overdue':s==='due-now'?'Due now':'Upcoming';
     const stCls=s==='completed'?'done':s==='overdue'?'late':s==='due-now'?'pending':'fut';
     const dates=windowDates(c.contractStartDate,wins[i][0],wins[i][1]);
-    return`<div class="tpi ${s}"><div class="tpn">${tp.label}</div><div class="tpw">${tp.window}</div>${dates?`<div style="font-size:10px;color:var(--muted);margin-bottom:3px;">${dates}</div>`:''}<div class="tpgl">${tp.goal}</div><span class="chtag ${ch.cls}">${ch.label}</span><div class="tpst ${stCls}">${stTxt}</div>${canLog?`<button class="tlbtn" onclick="openLog('${c.id}',${i})">Log outreach</button>`:''}${log&&actions?`<button class="tlbtn logged" onclick="openLog('${c.id}',${i})" title="Edit this log">✓ Logged · Edit</button>`:log?`<button class="tlbtn logged" disabled>✓ Logged</button>`:''}<button class="tlbtn" style="border-color:var(--info);color:var(--info);margin-top:3px;" onclick="event.stopPropagation();openTpScript('${c.type}',${i},'${c.id}')">View script</button>${log?.notes?`<div class="tpnts">"${log.notes}"</div>`:''}</div>`;
+    return`<div class="tpi ${s}"><div class="tpn">${tp.label}</div><div class="tpw">${tp.window}</div>${dates?`<div style="font-size:10px;color:var(--muted);margin-bottom:3px;">${dates}</div>`:''}<div class="tpgl">${tp.goal}</div><span class="chtag ${ch.cls}">${ch.label}</span><div class="tpst ${stCls}">${stTxt}</div>${canLog?`<button class="tlbtn" onclick="openLog('${c.id}',${i})">Log outreach</button>`:''}${log&&actions?`<button class="tlbtn logged editable" onclick="openLog('${c.id}',${i})" title="Click to edit this log">✓ Logged · Edit</button>`:log?`<button class="tlbtn logged" disabled>✓ Logged</button>`:''}<button class="tlbtn" style="border-color:var(--info);color:var(--info);margin-top:3px;" onclick="event.stopPropagation();openTpScript('${c.type}',${i},'${c.id}')">View script</button>${log?.notes?`<div class="tpnts">"${log.notes}"</div>`:''}</div>`;
   }).join('');
   const actHtml=actions?`<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
     <button class="btn btn-g btn-sm" onclick="openEditGuest('${c.id}')">Edit</button>
@@ -2402,7 +2404,7 @@ function renderNurtureCard(n,prefix=''){
     const stTxt=s==='completed'?`✓ ${log.channel}`:s==='overdue'?'! Overdue':s==='due-now'?'Due now':'Upcoming';
     const stCls=s==='completed'?'done':s==='overdue'?'late':s==='due-now'?'pending':'fut';
     const dates=windowDates(n.startDate,wins[i][0],wins[i][1]);
-    return`<div class="tpi ${s}"><div class="tpn">${tp.label}</div><div class="tpw">${tp.window}</div>${dates?`<div style="font-size:10px;color:var(--muted);margin-bottom:3px;">${dates}</div>`:''}<div class="tpgl">${tp.goal}</div><span class="chtag ${ch.cls}">${ch.label}</span><div class="tpst ${stCls}">${stTxt}</div>${canLog?`<button class="tlbtn" onclick="openNurtureLog('${n.id}',${i})">Log outreach</button>`:''}${log&&n.status==='active'?`<button class="tlbtn logged" onclick="openNurtureLog('${n.id}',${i})" title="Edit this log">✓ Logged · Edit</button>`:log?`<button class="tlbtn logged" disabled>✓ Logged</button>`:''}<button class="tlbtn" style="border-color:var(--info);color:var(--info);margin-top:3px;" onclick="event.stopPropagation();openNurtureScript('${n.type}',${i},'${n.id}')">View script</button>${log?.notes?`<div class="tpnts">"${log.notes}"</div>`:''}</div>`;
+    return`<div class="tpi ${s}"><div class="tpn">${tp.label}</div><div class="tpw">${tp.window}</div>${dates?`<div style="font-size:10px;color:var(--muted);margin-bottom:3px;">${dates}</div>`:''}<div class="tpgl">${tp.goal}</div><span class="chtag ${ch.cls}">${ch.label}</span><div class="tpst ${stCls}">${stTxt}</div>${canLog?`<button class="tlbtn" onclick="openNurtureLog('${n.id}',${i})">Log outreach</button>`:''}${log&&n.status==='active'?`<button class="tlbtn logged editable" onclick="openNurtureLog('${n.id}',${i})" title="Click to edit this log">✓ Logged · Edit</button>`:log?`<button class="tlbtn logged" disabled>✓ Logged</button>`:''}<button class="tlbtn" style="border-color:var(--info);color:var(--info);margin-top:3px;" onclick="event.stopPropagation();openNurtureScript('${n.type}',${i},'${n.id}')">View script</button>${log?.notes?`<div class="tpnts">"${log.notes}"</div>`:''}</div>`;
   }).join('');
 
   const infoBox=isReact
