@@ -1035,6 +1035,73 @@ function mmdd(d){return`${String(d.getMonth()+1).padStart(2,'0')}-${String(d.get
 function isClosed(d){if(!d)return false;const h=getClosedDates(d.getFullYear());return h.closed.includes(mmdd(d));}
 function isEarlyClose(d){if(!d)return false;const h=getClosedDates(d.getFullYear());return h.earlyClose.includes(mmdd(d));}
 
+// Holiday studio tasks — sign on door + sauna reserve timer
+function getHolidayName(md,y){
+  const h=getClosedDates(y);const easter=easterDate(y);
+  const memDay=h.closed.find(d=>d.startsWith('05-')&&d!=='05-01');
+  const laborDay=h.closed.find(d=>d.startsWith('09-'));
+  const thanksgiving=h.closed.find(d=>d.startsWith('11-'));
+  const thanksgivingEve=thanksgiving?dayBefore(thanksgiving,y):null;
+  const names={'01-01':"New Year's Day",'07-04':'4th of July','10-31':'Halloween','12-24':'Christmas Eve','12-25':'Christmas Day','12-31':"New Year's Eve"};
+  if(md===easter)return'Easter';
+  if(md===memDay)return'Memorial Day';
+  if(md===laborDay)return'Labor Day';
+  if(md===thanksgiving)return'Thanksgiving';
+  if(md===thanksgivingEve)return'Thanksgiving Eve';
+  return names[md]||null;
+}
+function storeCloseHour(dow){return(dow>=1&&dow<=5)?21:20;}// Mon-Fri 9pm, Sat-Sun 8pm
+function storeOpenHour(dow){return(dow>=1&&dow<=5)?7:8;}// Mon-Fri 7am, Sat-Sun 8am
+function getHolidayTasks(dateStr){
+  const d=parseDate(dateStr);if(!d)return[];
+  const y=d.getFullYear();const h=getClosedDates(y);const md=mmdd(d);
+  if(h.closed.includes(md))return[];// studio closed today, no tasks
+  const isEarlyToday=h.earlyClose.includes(md);
+  const tom=new Date(d);tom.setDate(tom.getDate()+1);
+  const tomMD=mmdd(tom);
+  const tomY=tom.getFullYear();
+  const hTom=tomY!==y?getClosedDates(tomY):h;
+  const isClosedTomorrow=hTom.closed.includes(tomMD);
+  if(!isEarlyToday&&!isClosedTomorrow)return[];
+  // Find all consecutive closure/early-close days to determine next open day
+  const closureNames=[];
+  if(isEarlyToday)closureNames.push(getHolidayName(md,y)||'Early close');
+  let look=new Date(tom);
+  while(true){
+    const lookMD=mmdd(look);const lookY=look.getFullYear();
+    const hL=lookY!==y?getClosedDates(lookY):h;
+    if(hL.closed.includes(lookMD)){closureNames.push(getHolidayName(lookMD,lookY)||lookMD);look.setDate(look.getDate()+1);}
+    else if(hL.earlyClose.includes(lookMD)){closureNames.push(getHolidayName(lookMD,lookY)||lookMD);look.setDate(look.getDate()+1);}
+    else break;
+  }
+  // look = next fully open day
+  const closeHour=isEarlyToday?15:storeCloseHour(d.getDay());
+  const openHour=storeOpenHour(look.getDay());
+  const closeTime=new Date(d.getFullYear(),d.getMonth(),d.getDate(),closeHour);
+  const readyTime=new Date(look.getFullYear(),look.getMonth(),look.getDate(),openHour-1);
+  const totalHours=Math.round((readyTime-closeTime)/(1000*60*60));
+  const uniqueNames=[...new Set(closureNames)];
+  const closureDesc=uniqueNames.join(' + ');
+  const tasks=[];
+  // Sign on door
+  const signDesc=isEarlyToday
+    ?`Put closure sign on the door — closing early at 3pm today${isClosedTomorrow?' + closed tomorrow':''} (${closureDesc})`
+    :`Put closure sign on the door — closed tomorrow (${closureDesc})`;
+  tasks.push({key:`holiday-sign-${dateStr}`,label:'🚪 '+signDesc,holiday:true});
+  // Sauna reserve
+  let saunaDesc;
+  if(totalHours>36){
+    saunaDesc=`Turn OFF saunas completely — closure period exceeds 36-hour reserve max (${totalHours} hours until reopen on ${look.toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric'})})`;
+  } else {
+    const closeStr=isEarlyToday?'3:00 PM':(closeHour===21?'9:00 PM':'8:00 PM');
+    const readyStr=`${openHour-1}:00 AM`;
+    const nextOpenStr=look.toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric'});
+    saunaDesc=`Set sauna reserve timer to ${totalHours} hours at close (${closeStr} today → ${readyStr} ${nextOpenStr})`;
+  }
+  tasks.push({key:`holiday-sauna-${dateStr}`,label:'🔥 '+saunaDesc,holiday:true});
+  return tasks;
+}
+
 function atRiskDays(t){
   t=t.toLowerCase();
   if(t.includes('iritual')||t.includes('irecover'))return 7;
@@ -3531,8 +3598,8 @@ async function renderToday(){
     </div>
   </div>${readOnlyNotice}`;
 
-  // Studio tasks
-  const applicable=STUDIO_TASKS.filter(t=>t.days.includes(dow));
+  // Studio tasks (regular + holiday)
+  const applicable=[...STUDIO_TASKS.filter(t=>t.days.includes(dow)),...getHolidayTasks(viewDate)];
   const tasksHtml=applicable.map(t=>{
     const done=dailyTasks.find(x=>x.taskKey===t.key);
     const by=done?sName(done.completedBy):'';
@@ -3547,7 +3614,7 @@ async function renderToday(){
       cintasSummary=`<div style="margin-top:8px;padding:10px 12px;background:white;border:1px solid var(--border);border-radius:8px;font-size:12px;line-height:1.7;">${CINTAS_ITEMS.map((item,i)=>{const d=done.taskData[i]||{};return`<div><strong>${item}:</strong> ${statusLabels[d.status]||'—'}${d.notes?` <span style="color:var(--muted);">— ${d.notes}</span>`:''}</div>`;}).join('')}</div>`;
     }
     const clickHandler=t.special==='cintas'?`openCintas()`:`openTaskComplete('${t.key}')`;
-    return`<div class="stask ${done?'done':''}" onclick="${clickHandler}">
+    return`<div class="stask ${done?'done':''}" onclick="${clickHandler}" ${t.holiday?'style="border:1.5px dashed var(--warn);background:var(--warnp);"':''}>
       <div class="stask-chk">${done?'<svg width="12" height="12" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div>
       <div class="stask-body">
         <div class="stask-lbl">${t.label}${t.link?`<a class="stask-link" href="${t.link}" target="_blank" onclick="event.stopPropagation()">How-to guide ↗</a>`:''}</div>
@@ -3634,7 +3701,7 @@ function openCleaningList(){
 // Open simple task-complete modal
 let _pendingTaskKey=null;
 function openTaskComplete(key){
-  const t=STUDIO_TASKS.find(x=>x.key===key);if(!t)return;
+  const t=STUDIO_TASKS.find(x=>x.key===key)||getHolidayTasks(getViewDate()).find(x=>x.key===key);if(!t)return;
   if(t.special==='cintas'){openCintas(key);return;}
   _pendingTaskKey=key;
   document.getElementById('task-title').textContent=t.label;
