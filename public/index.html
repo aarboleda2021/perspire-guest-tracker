@@ -1775,7 +1775,7 @@ function renderGuests(){
     <div class="sc"><div class="scl">Touchpoints due this week</div><div class="scv ${dn>0?'w':''}">${dn}</div></div>
     <div class="sc"><div class="scl">Approaching milestones</div><div class="scv ${ms>0?'u':''}">${ms}</div></div>
     <div class="sc"><div class="scl">Welcome emails needed</div><div class="scv ${needWelcome>0?'w':''}">${needWelcome}</div></div>
-    <div class="sc"><div class="scl">Agreements needed</div><div class="scv ${needAgreement>0?'w':''}">${needAgreement}</div></div>`;
+    <div class="sc"><div class="scl">Membership agreements needed</div><div class="scv ${needAgreement>0?'w':''}">${needAgreement}</div></div>`;
   let list=mine;
   if(fil==='deactivated')list=mine;
   else if(fil==='overdue')list=mine.filter(c=>guestStatus(c)==='overdue');
