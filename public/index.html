@@ -539,6 +539,12 @@
         <button class="btn btn-p" onclick="addStaff()">Add staff</button>
       </div>
     </div>
+    <div style="margin-top:28px;padding:18px;background:var(--sand);border:1.5px solid var(--border);border-radius:12px;">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Data backup</div>
+      <p style="font-size:13px;color:var(--mid);line-height:1.5;margin-bottom:12px;">Download a full backup of all dashboard data as a JSON file. Includes guests, membership changes, staff, events, promo codes, shift notes, nurtures, daily logs, and task completions. We recommend backing up at least once a month.</p>
+      <button class="btn btn-p" onclick="exportAllData()">📦 Download full backup</button>
+      <span id="backup-status" style="font-size:12px;color:var(--muted);margin-left:10px;"></span>
+    </div>
   </div>
 </div>
 
@@ -3130,6 +3136,47 @@ function exportNurtures(){
   const rows=[['Guest Name','Type','Old Tier','New Tier','Start Date','Assigned Staff','Status','Freeze Duration','TP1 Done','TP2 Done','TP3 Done']];
   nurtures.forEach(n=>{rows.push([n.guestName,n.type,n.oldTier,n.newTier,toInputDate(n.startDate),sName(n.assignedStaff||'mohogany'),n.status,n.freezeDuration||'',n.logs?.[0]?'Yes':'No',n.logs?.[1]?'Yes':'No',n.logs?.[2]?'Yes':'No']);});
   downloadCSV('perspire-nurtures.csv',rows);
+}
+
+async function exportAllData(){
+  const status=document.getElementById('backup-status');
+  status.textContent='Preparing backup...';
+  try{
+    const backup={
+      exportDate:new Date().toISOString(),
+      version:'perspire-ptc-backup-v1',
+      guests,changes,staff:staffList,nurtures,shiftNotes,events,
+      dailyLogs:[],dailyTasks:[]
+    };
+    // Fetch recent daily data (last 90 days)
+    if(!useLocalStorage){
+      try{
+        const today=getTodayStr();
+        const d=parseDate(today);d.setDate(d.getDate()-90);
+        const from=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const [logs,tasks]=await Promise.all([
+          api(`daily?resource=logs&dateFrom=${from}&dateTo=${today}`),
+          api(`daily?resource=tasks&date=${today}`)
+        ]);
+        backup.dailyLogs=logs||[];
+        backup.dailyTasks=tasks||[];
+      }catch(e){/* non-critical */}
+    }
+    const json=JSON.stringify(backup,null,2);
+    const blob=new Blob([json],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    const dateStr=new Date().toISOString().slice(0,10);
+    a.href=url;a.download=`perspire-ptc-backup-${dateStr}.json`;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    status.textContent=`✓ Backup downloaded (${(json.length/1024).toFixed(0)} KB)`;
+    status.style.color='var(--ok)';
+    setTimeout(()=>{status.textContent='';status.style.color='';},5000);
+  }catch(e){
+    status.textContent='Error: '+e.message;
+    status.style.color='var(--err)';
+  }
 }
 
 // ── DAILY HUB ─────────────────────────────────────────────────────────────
