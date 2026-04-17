@@ -40,6 +40,7 @@
   .sc{background:white;border-radius:12px;padding:14px 18px;border:1.5px solid var(--border);}
   .scl{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;}
   .scv{font-family:'DM Serif Display',serif;font-size:26px;color:var(--dark);line-height:1;}
+  .srow6{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:22px;}
   .scv.d{color:var(--err);} .scv.w{color:var(--warn);} .scv.s{color:var(--ok);} .scv.u{color:var(--urg);}
 
   /* BADGES */
@@ -278,8 +279,12 @@
   .empty p{font-size:13px;line-height:1.7;}
   .rassign-info{background:var(--tcp);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--tc);margin-bottom:14px;}
 
+  @media(max-width:860px){
+    .srow6{grid-template-columns:repeat(3,1fr);}
+  }
   @media(max-width:640px){
     .srow{grid-template-columns:repeat(2,1fr);}
+    .srow6{grid-template-columns:repeat(2,1fr);}
     .frow{grid-template-columns:1fr;}
     .tpg{grid-template-columns:repeat(2,1fr);}
     .hdr-title{display:none;}
@@ -341,7 +346,7 @@
       <button class="btn btn-p" onclick="addGuest()">Add client</button>
     </div>
   </div>
-  <div class="srow" id="guest-stats"></div>
+  <div class="srow6" id="guest-stats"></div>
   <div id="guest-list"></div>
 </div>
 
