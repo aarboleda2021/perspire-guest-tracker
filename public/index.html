@@ -737,6 +737,16 @@
       <div class="fg"><label class="fl">Contract start date</label><input type="date" class="fi" id="eg-date"></div>
       <div class="fg"><label class="fl">Assigned staff</label><select class="fi" id="eg-staff"></select></div>
     </div>
+    <div class="frow">
+      <div class="fci" style="flex:1;">
+        <input type="checkbox" class="fchk" id="eg-welcome-email">
+        <div><div class="fchk-lbl">Welcome email sent</div></div>
+      </div>
+      <div class="fci" style="flex:1;" id="eg-agreement-wrap">
+        <input type="checkbox" class="fchk" id="eg-agreement">
+        <div><div class="fchk-lbl">Membership agreement signed</div></div>
+      </div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-g" onclick="closeModal('edit-guest-modal')">Cancel</button>
       <button class="btn btn-p" onclick="saveEditGuest()">Save changes</button>
@@ -1685,11 +1695,15 @@ function renderGuests(){
   const ot=active.filter(c=>guestStatus(c)==='on-track').length;
   const deactCt=mineAll.filter(c=>c.deactivated).length;
   const ms=active.filter(c=>hasApproachingOrReached(c)).length;
+  const needWelcome=active.filter(c=>!c.welcomeEmailSent).length;
+  const needAgreement=active.filter(c=>c.type==='member'&&!c.agreementSigned).length;
   document.getElementById('guest-stats').innerHTML=`
     <div class="sc"><div class="scl">Active clients</div><div class="scv">${active.length}</div></div>
     <div class="sc"><div class="scl">Touchpoints overdue</div><div class="scv ${ov>0?'d':''}">${ov}</div></div>
     <div class="sc"><div class="scl">Touchpoints due this week</div><div class="scv ${dn>0?'w':''}">${dn}</div></div>
-    <div class="sc"><div class="scl">Approaching milestones</div><div class="scv ${ms>0?'u':''}">${ms}</div></div>`;
+    <div class="sc"><div class="scl">Approaching milestones</div><div class="scv ${ms>0?'u':''}">${ms}</div></div>
+    <div class="sc"><div class="scl">Welcome emails needed</div><div class="scv ${needWelcome>0?'w':''}">${needWelcome}</div></div>
+    <div class="sc"><div class="scl">Agreements needed</div><div class="scv ${needAgreement>0?'w':''}">${needAgreement}</div></div>`;
   let list=mine;
   if(fil==='deactivated')list=mine;
   else if(fil==='overdue')list=mine.filter(c=>guestStatus(c)==='overdue');
@@ -1781,8 +1795,8 @@ function renderGuestCard(c,actions,prefix=''){
   return`<div class="ccard ${st==='overdue'?'isod':st==='due-now'?'isdu':''}" id="${prefix}ccard-${c.id}">
     <div class="chdr" onclick="toggleCard('${prefix}ccard-${c.id}')">
       <div class="cav">${initials(c.name)}</div>
-      <div class="ci"><div class="cn">${c.name}</div><div class="cm">${c.type==='member'?`${c.totalVisits||0} visits · `:''}${nxt?`Next: ${nxt.label} ${nxt.text} · `:'All touchpoints complete · '}${sName(c.assignedStaff)}</div></div>
-      <div class="cbdg">${tBdg}${c.deactivated?`<span class="badge bia">Deactivated</span>`:sBdg}${!c.deactivated&&c.visitStatus==='at-risk'?`<span class="badge bod">At-risk</span>`:''}</div>
+      <div class="ci"><div class="cn">${c.name}</div><div class="cm">${c.totalVisits||0} visits · ${nxt?`Next: ${nxt.label} ${nxt.text} · `:'All touchpoints complete · '}${sName(c.assignedStaff)}</div></div>
+      <div class="cbdg">${!c.deactivated&&!c.welcomeEmailSent?'<span class="badge bdu" title="Welcome email not sent">📧</span>':''}${!c.deactivated&&c.type==='member'&&!c.agreementSigned?'<span class="badge bod" title="Agreement not signed">📋</span>':''}${tBdg}${c.deactivated?`<span class="badge bia">Deactivated</span>`:sBdg}${!c.deactivated&&c.visitStatus==='at-risk'?`<span class="badge bod">At-risk</span>`:''}</div>
       <svg class="xic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
     </div>
     <div class="cbody">
@@ -2880,6 +2894,9 @@ function openEditGuest(id){
   updateEditTierOpts();document.getElementById('eg-tier').value=c.tier;
   document.getElementById('eg-date').value=toInputDate(c.contractStartDate);
   fillStaff('eg-staff');document.getElementById('eg-staff').value=c.assignedStaff;
+  document.getElementById('eg-welcome-email').checked=!!c.welcomeEmailSent;
+  document.getElementById('eg-agreement').checked=!!c.agreementSigned;
+  document.getElementById('eg-agreement-wrap').style.display=c.type==='member'?'flex':'none';
   document.getElementById('edit-guest-modal').classList.add('open');
 }
 async function saveEditGuest(){
@@ -2891,8 +2908,10 @@ async function saveEditGuest(){
   const d=parseDate(dv);
   if(d)c.contractStartDate=useLocalStorage?d.toISOString():`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   c.assignedStaff=document.getElementById('eg-staff').value;
+  c.welcomeEmailSent=document.getElementById('eg-welcome-email').checked;
+  c.agreementSigned=document.getElementById('eg-agreement').checked;
   if(useLocalStorage){lsSave();}
-  else{await api('guests?id='+editGuestId,{method:'PUT',body:{name:c.name,type:c.type,tier:c.tier,contractStartDate:c.contractStartDate,assignedStaff:c.assignedStaff}});await loadGuests();}
+  else{await api('guests?id='+editGuestId,{method:'PUT',body:{name:c.name,type:c.type,tier:c.tier,contractStartDate:c.contractStartDate,assignedStaff:c.assignedStaff,welcomeEmailSent:c.welcomeEmailSent,agreementSigned:c.agreementSigned}});await loadGuests();}
   closeModal('edit-guest-modal');renderGuests();
 }
 
@@ -3169,7 +3188,7 @@ function renderShiftNotes(){
           <div style="font-size:11px;color:var(--muted);margin-top:6px;">${urgent?'<span class="badge bURG">URGENT</span> ':''}${sName(n.createdBy)||'Unknown'} · ${createdStr}${keepLbl}${resolved?` · ✓ Resolved by ${sName(n.resolvedBy)||'?'}`:''}</div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap;">
-          ${resolved?`<button class="btn btn-g btn-sm" onclick="unresolveNote('${n.id}')">Reopen</button>`:`<span style="font-size:11px;color:var(--muted);">Resolving as:</span><select id="resolve-by-${n.id}" class="fi" style="font-size:12px;padding:5px 8px;width:auto;">${staffOptions('')}</select><button class="btn btn-g btn-sm" onclick="resolveNote('${n.id}')">Mark resolved ✓</button>`}
+          ${resolved?`<button class="btn btn-g btn-sm" onclick="unresolveNote('${n.id}')">Reopen</button>`:`<select id="resolve-by-${n.id}" class="fi" style="font-size:12px;padding:5px 8px;width:auto;"><option value="" disabled selected>Your name</option>${staffOptions('').replace('<option value="">—</option>','')}</select><button class="btn btn-g btn-sm" onclick="resolveNote('${n.id}')">Resolve ✓</button>`}
           <button class="btn btn-sm btn-g" onclick="editNote('${n.id}')">Edit</button>
           <button class="btn btn-sm btn-do" onclick="removeNote('${n.id}')">Delete</button>
         </div>
@@ -3555,6 +3574,20 @@ async function renderToday(){
       <td>${axCell}</td>
     </tr>`;
   }).join('');
+  // Totals row
+  const totals=LOG_COLS.map(c=>{
+    const sum=staff.reduce((s,st)=>{const log=dailyLogs.find(l=>l.staffId===st.id)||{};const v=log[c.key];return s+((v===0||v>0)?v:0);},0);
+    return`<td style="font-weight:700;background:var(--sand);">${sum}</td>`;
+  }).join('');
+  const clDone=staff.filter(s=>{const log=dailyLogs.find(l=>l.staffId===s.id);return log&&log.contactLogsDone;}).length;
+  const axDone=staff.filter(s=>{const log=dailyLogs.find(l=>l.staffId===s.id);return log&&log.axleFollowupsDone;}).length;
+  const totalsRow=`<tr style="border-top:2px solid var(--border);">
+    <td class="dlg-staff" style="font-weight:700;background:var(--sand);">Team total</td>
+    ${totals}
+    <td style="font-weight:700;background:var(--sand);">${clDone}/${staff.length}</td>
+    <td style="font-weight:700;background:var(--sand);">${axDone}/${staff.length}</td>
+  </tr>`;
+
   document.getElementById('today-daily-log').innerHTML=`<div class="sec-hdr"><div class="sec-title">Team daily log</div></div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Hover over column headers for details. Anyone can fill in any row.</div>
     <div class="dlg-wrap"><table class="dlg">
@@ -3564,7 +3597,7 @@ async function renderToday(){
         <th title="Mindbody contact logs have been added for all non-converted guests.">Contact logs completed for non-converted guests</th>
         <th title="Axle follow-ups scheduled for tomorrow for all non-converted guests.">Axle follow-ups scheduled for non-converted guests</th>
       </tr></thead>
-      <tbody>${rows}</tbody>
+      <tbody>${rows}${totalsRow}</tbody>
     </table></div>`;
 }
 
@@ -3864,8 +3897,7 @@ function renderTeamComparison(logs,month,monthLbl,el){
 
     <div style="background:var(--sand);border:1.5px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:12px;line-height:1.7;color:var(--mid);">
       <div style="font-weight:600;color:var(--dark);margin-bottom:6px;">Individual monthly goals:</div>
-      • <strong>10 memberships</strong>: 5 IRitual · 3 IRecover · 2 IRelax<br>
-      • <strong>5 packages</strong>: 1 X20 · 2 X8 · 2 X4
+      ${staff.map(s=>`• <strong>${s.name}</strong>: ${s.membershipGoal} memberships · ${s.packageGoal} packages`).join('<br>')}
     </div>
 
     <div class="sec-hdr"><div class="sec-title">Per-staff breakdown</div></div>
@@ -3948,9 +3980,8 @@ function renderIndividualPerformance(logs,month,monthLbl,staffId,el){
   const pkPct=Math.min(100,Math.round((mtd.packageSales/pkGoal)*100)||0);
   const{membershipConv,packageConv,purchaseConv}=computeConversions(mtd);
 
-  const isVictor=staffId==='victor';
-  const msBreakdown=isVictor?`${msGoal} memberships (Victor's goal — half shifts)`:'5 IRitual · 3 IRecover · 2 IRelax';
-  const pkBreakdown=isVictor?`${pkGoal} packages (Victor's goal — half shifts)`:'1 X20 · 2 X8 · 2 X4';
+  const msBreakdown=`${msGoal} memberships`;
+  const pkBreakdown=`${pkGoal} packages`;
 
   // Highlight "best" and "worst" metrics for the summary banner
   const rankedMetrics=[
