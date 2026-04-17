@@ -2128,6 +2128,7 @@ function renderMgrDashboard(){
   });
 
   // Onboarding checks
+  const activeGuests=guests.filter(c=>!c.deactivated);
   const unsignedAgreements=activeGuests.filter(c=>c.type==='member'&&!c.agreementSigned).length;
   const unsentWelcomeEmails=activeGuests.filter(c=>!c.welcomeEmailSent).length;
 
@@ -4016,7 +4017,7 @@ function renderTeamComparison(logs,month,monthLbl,el){
 
     <div style="background:var(--sand);border:1.5px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:12px;line-height:1.7;color:var(--mid);">
       <div style="font-weight:600;color:var(--dark);margin-bottom:6px;">Individual monthly goals:</div>
-      ${staff.map(s=>`• <strong>${s.name}</strong>: ${s.membershipGoal} memberships · ${s.packageGoal} packages`).join('<br>')}
+      ${teamStaff.map(s=>`• <strong>${s.name}</strong>: ${s.membershipGoal??(s.id==='victor'?5:10)} memberships · ${s.packageGoal??(s.id==='victor'?3:5)} packages`).join('<br>')}
     </div>
 
     <div class="sec-hdr"><div class="sec-title">Per-staff breakdown</div></div>
