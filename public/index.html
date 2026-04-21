@@ -2230,6 +2230,12 @@ function renderMgrDashboard(){
     return activeStaffIds.some(sid=>!acks[sid]);
   }).length;
 
+  // Learning Library — count recordings not yet completed by the whole team
+  const incompleteRecordings=recordings.filter(r=>{
+    const comps=r.completions||{};
+    return activeStaffIds.some(sid=>!comps[sid]);
+  }).length;
+
   // Build alert cards — always show all categories, with 0 if nothing
   const alertDef=[
     {count:urgentChanges.length,label:'Urgent bill dates',sub:'Process before close of business',urgentColor:'var(--urg)',urgentBg:'var(--urgp)',tab:'changes'},
@@ -2242,6 +2248,7 @@ function renderMgrDashboard(){
     {count:upcomingReacts.length,label:'Reactivations coming up',sub:'Send welcome-back outreach',urgentColor:'var(--ok)',urgentBg:'var(--okp)',tab:'nurture'},
     {count:urgentNotes.length,label:'Urgent shift notes',sub:'Unresolved and flagged',urgentColor:'var(--urg)',urgentBg:'var(--urgp)',tab:null,goto:'daily-notes'},
     {count:pendingAnnouncements,label:'Announcements pending ack',sub:'Leadership announcements awaiting staff review',urgentColor:'var(--info)',urgentBg:'var(--infop)',tab:null,goto:'daily-notes'},
+    {count:incompleteRecordings,label:'Training recordings pending',sub:'Recordings not yet completed by all staff',urgentColor:'var(--info)',urgentBg:'var(--infop)',tab:null,goto:'daily-learning'},
   ];
   const alerts=alertDef.map(a=>({
     ...a,
@@ -2280,7 +2287,7 @@ function renderMgrDashboard(){
   html+=`<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 10px;">Needs attention</div>`;
   html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-bottom:22px;">`;
   html+=alerts.map(a=>{
-    const onclick=a.tab?`onclick="setMgrTab('${a.tab}')"`:(a.goto?`onclick="setView('daily');setDailyTab('notes')"`:'');
+    const onclick=a.tab?`onclick="setMgrTab('${a.tab}')"`:(a.goto?`onclick="setView('daily');setDailyTab('${a.goto.replace('daily-','')}')"`:'');
     return`<div style="background:${a.bg};border:1.5px solid ${a.color};border-radius:12px;padding:14px 16px;cursor:pointer;transition:transform .1s;" ${onclick} onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
       <div style="display:flex;align-items:center;gap:12px;">
         <div style="font-family:'DM Serif Display',serif;font-size:32px;color:${a.color};line-height:1;">${a.count}</div>
