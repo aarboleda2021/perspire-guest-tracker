@@ -561,6 +561,7 @@
     <button class="tab active" onclick="setDailyTab('notes')" id="tab-notes">Shift Notes</button>
     <button class="tab" onclick="setDailyTab('today')" id="tab-today">Today's Tasks</button>
     <button class="tab" onclick="setDailyTab('events')" id="tab-events">Events & Promos</button>
+    <button class="tab" onclick="setDailyTab('learning')" id="tab-learning">Learning Library</button>
     <button class="tab" onclick="setDailyTab('perf')" id="tab-perf">Monthly Team Performance</button>
   </div>
 
@@ -743,6 +744,31 @@
     <div id="today-header" style="margin-bottom:18px;"></div>
     <div id="today-studio-tasks"></div>
     <div id="today-daily-log" style="margin-top:26px;"></div>
+  </div>
+
+  <div id="daily-learning" style="display:none;">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Watch Perspire corporate sales training recordings and log your biggest takeaway from each. Everyone sees who has completed what.</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Training recordings</div>
+      <button class="btn btn-p btn-sm" onclick="toggleAddRecording()">+ Add recording</button>
+    </div>
+    <div class="aform" id="add-recording-form">
+      <div class="aft">Add a training recording</div>
+      <div class="frow">
+        <div class="fg"><label class="fl">Title<span class="req">*</span></label><input type="text" class="fi" id="rec-title" placeholder="e.g. Session 3 — Handling Objections"></div>
+        <div class="fg"><label class="fl">Week of<span class="req">*</span></label><input type="date" class="fi" id="rec-week"></div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label class="fl">Video link<span class="req">*</span></label><input type="text" class="fi" id="rec-url" placeholder="https://us02web.zoom.us/rec/share/..."></div>
+        <div class="fg"><label class="fl">Passcode (optional)</label><input type="text" class="fi" id="rec-passcode" placeholder="e.g. !3Pbv2Vp"></div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
+        <button class="btn btn-g" onclick="toggleAddRecording()">Cancel</button>
+        <button class="btn btn-p" onclick="addRecording()">Add recording</button>
+      </div>
+    </div>
+    <div id="learning-summary" style="margin-bottom:18px;"></div>
+    <div id="recordings-list"></div>
   </div>
 
   <div id="daily-perf" style="display:none;">
@@ -1614,7 +1640,7 @@ function showChangeScript(key,ch,btn){
 
 // ── STATE ─────────────────────────────────────────────────────────────────
 
-let guests=[],changes=[],staffList=[],nurtures=[],shiftNotes=[],events=[],announcements=[];
+let guests=[],changes=[],staffList=[],nurtures=[],shiftNotes=[],events=[],announcements=[],recordings=[];
 
 const DEFAULT_STAFF=[
   {id:'crystal', name:'Crystal', active:true, membershipGoal:10, packageGoal:5},
@@ -1627,7 +1653,7 @@ const DEFAULT_STAFF=[
 ];
 
 // Storage keys for local fallback mode
-const LS_GUESTS='psp-v7-guests',LS_CHANGES='psp-v7-changes',LS_STAFF='psp-v7-staff',LS_NURTURES='psp-v7-nurtures',LS_NOTES='psp-v7-notes',LS_EVENTS='psp-v7-events',LS_ANNOUNCE='psp-v7-announce';
+const LS_GUESTS='psp-v7-guests',LS_CHANGES='psp-v7-changes',LS_STAFF='psp-v7-staff',LS_NURTURES='psp-v7-nurtures',LS_NOTES='psp-v7-notes',LS_EVENTS='psp-v7-events',LS_ANNOUNCE='psp-v7-announce',LS_RECORDINGS='psp-v7-recordings';
 let useLocalStorage=false;
 
 // ── API HELPERS ───────────────────────────────────────────────────────────
@@ -1658,6 +1684,7 @@ function lsSave(){
     localStorage.setItem(LS_NOTES,JSON.stringify(shiftNotes));
     localStorage.setItem(LS_EVENTS,JSON.stringify(events));
     localStorage.setItem(LS_ANNOUNCE,JSON.stringify(announcements));
+    localStorage.setItem(LS_RECORDINGS,JSON.stringify(recordings));
   }catch(e){}
 }
 
@@ -1689,9 +1716,13 @@ async function loadAnnouncements(){
   if(useLocalStorage){announcements=lsGet(LS_ANNOUNCE,[]);return;}
   announcements=await api('announcements');
 }
+async function loadRecordings(){
+  if(useLocalStorage){recordings=lsGet(LS_RECORDINGS,[]);return;}
+  recordings=await api('recordings');
+}
 async function loadAll(){
   try{
-    await Promise.all([loadGuests(),loadChanges(),loadStaff(),loadNurtures(),loadShiftNotes(),loadEvents(),loadAnnouncements()]);
+    await Promise.all([loadGuests(),loadChanges(),loadStaff(),loadNurtures(),loadShiftNotes(),loadEvents(),loadAnnouncements(),loadRecordings()]);
   }catch(e){
     console.warn('API unavailable, using local storage fallback.',e.message);
     useLocalStorage=true;
@@ -1702,6 +1733,7 @@ async function loadAll(){
     shiftNotes=lsGet(LS_NOTES,[]);
     events=lsGet(LS_EVENTS,[]);
     announcements=lsGet(LS_ANNOUNCE,[]);
+    recordings=lsGet(LS_RECORDINGS,[]);
   }
 }
 
@@ -3215,7 +3247,7 @@ async function exportAllData(){
     const backup={
       exportDate:new Date().toISOString(),
       version:'perspire-ptc-backup-v1',
-      guests,changes,staff:staffList,nurtures,shiftNotes,events,announcements,
+      guests,changes,staff:staffList,nurtures,shiftNotes,events,announcements,recordings,
       dailyLogs:[],dailyTasks:[]
     };
     // Fetch recent daily data (last 90 days)
@@ -3259,12 +3291,13 @@ function staffOptions(selected){
 
 function setDailyTab(tab){
   currentDailyTab=tab;
-  const map={notes:'daily-notes',events:'daily-events',today:'daily-today',perf:'daily-perf'};
+  const map={notes:'daily-notes',events:'daily-events',today:'daily-today',learning:'daily-learning',perf:'daily-perf'};
   Object.entries(map).forEach(([k,id])=>document.getElementById(id).style.display=k===tab?'block':'none');
-  ['notes','events','today','perf'].forEach(s=>document.getElementById('tab-'+s).classList.toggle('active',s===tab));
+  ['notes','events','today','learning','perf'].forEach(s=>document.getElementById('tab-'+s).classList.toggle('active',s===tab));
   if(tab==='notes'){renderShiftNotes();renderAnnouncements();}
   else if(tab==='events')renderEvents();
   else if(tab==='today')renderToday();
+  else if(tab==='learning')renderRecordings();
   else if(tab==='perf')initPerformance();
 }
 
@@ -3538,6 +3571,194 @@ function renderAnnouncements(){
       ${ackList}
       ${notYetList}
       ${ackForm}
+    </div>`;
+  }).join('');
+}
+
+// ── LEARNING LIBRARY (training recordings) ──────────────────────────────
+function toggleAddRecording(){
+  const f=document.getElementById('add-recording-form');f.classList.toggle('open');
+  if(f.classList.contains('open')){
+    document.getElementById('rec-title').value='';
+    document.getElementById('rec-url').value='';
+    document.getElementById('rec-passcode').value='';
+    // Default to start of current week (Monday)
+    const today=new Date();const day=today.getDay();const diff=today.getDate()-day+(day===0?-6:1);
+    const mon=new Date(today.setDate(diff));
+    document.getElementById('rec-week').value=`${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}-${String(mon.getDate()).padStart(2,'0')}`;
+  }
+}
+
+async function addRecording(){
+  const title=document.getElementById('rec-title').value.trim();
+  const weekOf=document.getElementById('rec-week').value;
+  const videoUrl=document.getElementById('rec-url').value.trim();
+  const passcode=document.getElementById('rec-passcode').value.trim();
+  if(!title){alert('Please enter a title.');return;}
+  if(!weekOf){alert('Please select a "Week of" date.');return;}
+  if(!videoUrl){alert('Please enter the video link.');return;}
+  if(!videoUrl.match(/^https?:\/\//)){alert('Video link must start with http:// or https://');return;}
+  const id=Date.now().toString();
+  const rec={id,title,weekOf,videoUrl,passcode:passcode||null,completions:{},takeaways:{},createdAt:new Date().toISOString()};
+  if(useLocalStorage){recordings.unshift(rec);lsSave();}
+  else{await api('recordings',{method:'POST',body:rec});await loadRecordings();}
+  toggleAddRecording();renderRecordings();
+}
+
+async function removeRecording(id){
+  if(!confirm('Delete this recording? All completion data and takeaways will be lost.'))return;
+  if(useLocalStorage){recordings=recordings.filter(x=>x.id!==id);lsSave();}
+  else{await api('recordings?id='+id,{method:'DELETE'});await loadRecordings();}
+  renderRecordings();
+}
+
+function editRecording(id){
+  const r=recordings.find(x=>x.id===id);if(!r)return;
+  const el=document.getElementById('rec-card-'+id);
+  el.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px;padding:14px 16px;">
+    <div class="aft">Edit recording</div>
+    <div class="frow">
+      <div class="fg" style="margin:0;"><label class="fl">Title</label><input type="text" class="fi" id="er-title-${id}" value="${(r.title||'').replace(/"/g,'&quot;')}"></div>
+      <div class="fg" style="margin:0;"><label class="fl">Week of</label><input type="date" class="fi" id="er-week-${id}" value="${r.weekOf||''}"></div>
+    </div>
+    <div class="frow">
+      <div class="fg" style="margin:0;"><label class="fl">Video link</label><input type="text" class="fi" id="er-url-${id}" value="${(r.videoUrl||'').replace(/"/g,'&quot;')}"></div>
+      <div class="fg" style="margin:0;"><label class="fl">Passcode</label><input type="text" class="fi" id="er-passcode-${id}" value="${(r.passcode||'').replace(/"/g,'&quot;')}"></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;"><button class="btn btn-sm btn-g" onclick="renderRecordings()">Cancel</button><button class="btn btn-sm btn-p" onclick="saveRecordingEdit('${id}')">Save changes</button></div>
+  </div>`;
+}
+
+async function saveRecordingEdit(id){
+  const title=document.getElementById('er-title-'+id).value.trim();
+  const weekOf=document.getElementById('er-week-'+id).value;
+  const videoUrl=document.getElementById('er-url-'+id).value.trim();
+  const passcode=document.getElementById('er-passcode-'+id).value.trim();
+  if(!title){alert('Please enter a title.');return;}
+  if(!weekOf){alert('Please select a "Week of" date.');return;}
+  if(!videoUrl){alert('Please enter the video link.');return;}
+  if(!videoUrl.match(/^https?:\/\//)){alert('Video link must start with http:// or https://');return;}
+  const r=recordings.find(x=>x.id===id);if(!r)return;
+  r.title=title;r.weekOf=weekOf;r.videoUrl=videoUrl;r.passcode=passcode||null;
+  if(useLocalStorage){lsSave();}
+  else{await api('recordings?id='+id,{method:'PUT',body:{title,weekOf,videoUrl,passcode:r.passcode}});}
+  renderRecordings();
+}
+
+async function markRecordingComplete(recId){
+  const sel=document.getElementById('rec-staff-'+recId);
+  const takeawayEl=document.getElementById('rec-takeaway-'+recId);
+  const staffId=sel?sel.value:'';
+  const takeaway=takeawayEl?takeawayEl.value.trim():'';
+  if(!staffId){alert('Please select your name first.');return;}
+  if(!takeaway){alert('Please write your biggest takeaway from this recording before marking complete.');return;}
+  const r=recordings.find(x=>x.id===recId);if(!r)return;
+  if(!r.completions)r.completions={};
+  if(!r.takeaways)r.takeaways={};
+  r.completions[staffId]=new Date().toISOString();
+  r.takeaways[staffId]=takeaway;
+  if(useLocalStorage){lsSave();}
+  else{await api('recordings?id='+recId,{method:'PUT',body:{completions:r.completions,takeaways:r.takeaways}});}
+  renderRecordings();
+}
+
+async function undoRecordingComplete(recId,staffId){
+  if(!confirm(`Remove ${sName(staffId)||'your'} completion for this recording?`))return;
+  const r=recordings.find(x=>x.id===recId);if(!r)return;
+  if(r.completions)delete r.completions[staffId];
+  if(r.takeaways)delete r.takeaways[staffId];
+  if(useLocalStorage){lsSave();}
+  else{await api('recordings?id='+recId,{method:'PUT',body:{completions:r.completions||{},takeaways:r.takeaways||{}}});}
+  renderRecordings();
+}
+
+function fmtWeekOf(s){
+  const d=parseDate(s);if(!d)return s;
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+
+function renderRecordings(){
+  const el=document.getElementById('recordings-list');
+  const summaryEl=document.getElementById('learning-summary');
+  const teamStaff=activeStaff().filter(s=>s.id!=='mohogany');
+  const allStaff=activeStaff();
+
+  // Summary grid: staff x recordings
+  if(recordings.length&&allStaff.length){
+    const sortedRecs=[...recordings].sort((a,b)=>new Date(b.weekOf)-new Date(a.weekOf));
+    const headers=sortedRecs.map(r=>`<th style="min-width:80px;font-size:11px;text-align:center;">${r.title.replace(/^Session /i,'S')}<div style="font-weight:400;font-size:9px;color:var(--muted);margin-top:2px;">${fmtWeekOf(r.weekOf)}</div></th>`).join('');
+    const rows=allStaff.map(s=>{
+      const cells=sortedRecs.map(r=>{
+        const done=r.completions&&r.completions[s.id];
+        const takeaway=r.takeaways&&r.takeaways[s.id];
+        const title=takeaway?`${sName(s.id)}: ${takeaway.replace(/"/g,'&quot;')}`:'';
+        return`<td style="text-align:center;" title="${title}">${done?'<span style="color:var(--ok);font-weight:700;">✓</span>':'<span style="color:var(--muted);">—</span>'}</td>`;
+      }).join('');
+      return`<tr><td class="dlg-staff">${s.name}</td>${cells}</tr>`;
+    }).join('');
+    summaryEl.innerHTML=`<div class="sec-hdr"><div class="sec-title">Team completion grid</div><div style="font-size:11px;color:var(--muted);">Hover a ✓ to see that person's takeaway</div></div>
+      <div class="dlg-wrap"><table class="dlg">
+        <thead><tr><th class="dlg-staff">Staff</th>${headers}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`;
+  } else {
+    summaryEl.innerHTML='';
+  }
+
+  if(!recordings.length){el.innerHTML=`<div class="empty" style="padding:24px;"><div class="empty-icon">📹</div><p>No training recordings yet. Click "+ Add recording" to post the first one.</p></div>`;return;}
+
+  const sortedList=[...recordings].sort((a,b)=>new Date(b.weekOf)-new Date(a.weekOf));
+  el.innerHTML=sortedList.map(r=>{
+    const completedCount=Object.keys(r.completions||{}).length;
+    const totalStaff=allStaff.length;
+    const passcodeHtml=r.passcode?`<span style="display:inline-block;margin-left:10px;padding:3px 10px;background:var(--sand);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:12px;">🔒 ${r.passcode}</span>`:'';
+    // Completions + takeaways list (everyone can see all)
+    const completionsList=Object.entries(r.completions||{}).map(([sid,when])=>{
+      const s=allStaff.find(x=>x.id===sid);if(!s)return'';
+      const tw=(r.takeaways||{})[sid]||'';
+      const whenStr=new Date(when).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'});
+      return`<div style="padding:8px 12px;background:var(--okp);border-left:3px solid var(--ok);border-radius:6px;margin-top:6px;">
+        <div style="font-size:12px;font-weight:600;color:var(--dark);display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <span><span style="color:var(--ok);">✓</span> ${s.name}<span style="font-weight:400;color:var(--muted);margin-left:6px;font-size:11px;">${whenStr}</span></span>
+          <button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 7px;border-color:var(--muted);color:var(--muted);" onclick="undoRecordingComplete('${r.id}','${sid}')">Undo</button>
+        </div>
+        ${tw?`<div style="font-size:12px;color:var(--mid);margin-top:5px;white-space:pre-wrap;">💡 ${tw}</div>`:''}
+      </div>`;
+    }).filter(Boolean).join('');
+    // Not yet completed list
+    const notYetStaff=allStaff.filter(s=>!(r.completions||{})[s.id]);
+    const notYetLbl=notYetStaff.length?`<div style="font-size:11px;color:var(--warn);margin-top:10px;"><strong>Still needs to complete:</strong> ${notYetStaff.map(s=>s.name).join(', ')}</div>`:'';
+    // Add completion form (always shown — anyone can mark their own)
+    const addForm=notYetStaff.length?`<div style="margin-top:12px;padding:12px;background:var(--sand);border:1.5px solid var(--border);border-radius:8px;">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Mark yourself complete</div>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px;">
+        <div class="fg" style="margin:0;min-width:140px;"><label class="fl">Your name</label>
+          <select id="rec-staff-${r.id}" class="fi"><option value="" disabled selected>Select yourself</option>${notYetStaff.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select>
+        </div>
+      </div>
+      <div class="fg" style="margin:0;"><label class="fl">Your biggest takeaway<span class="req">*</span></label>
+        <textarea class="fi" id="rec-takeaway-${r.id}" rows="2" placeholder="What's one thing you're going to put into practice from this recording?"></textarea>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+        <button class="btn btn-p btn-sm" onclick="markRecordingComplete('${r.id}')">Mark complete ✓</button>
+      </div>
+    </div>`:'<div style="margin-top:12px;padding:10px;background:var(--okp);border:1.5px solid var(--ok);border-radius:8px;font-size:12px;color:var(--ok);font-weight:600;text-align:center;">🎉 All team members have completed this recording!</div>';
+    return`<div class="mccard" id="rec-card-${r.id}" style="padding:16px 18px;margin-bottom:14px;border:1.5px solid var(--tc);background:white;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;">
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:15px;color:var(--dark);">${r.title}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px;">Week of ${fmtWeekOf(r.weekOf)} · ${completedCount}/${totalStaff} completed</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <a href="${r.videoUrl}" target="_blank" class="btn btn-p btn-sm" style="text-decoration:none;display:inline-block;">▶ Watch recording ↗</a>
+          <button class="btn btn-g btn-sm" onclick="editRecording('${r.id}')">Edit</button>
+          <button class="btn btn-sm btn-do" onclick="removeRecording('${r.id}')">Delete</button>
+        </div>
+      </div>
+      ${passcodeHtml?`<div style="margin-bottom:8px;font-size:12px;color:var(--mid);">Passcode required: ${passcodeHtml}</div>`:''}
+      ${completionsList?`<div style="margin-top:10px;">${completionsList}</div>`:''}
+      ${notYetLbl}
+      ${addForm}
     </div>`;
   }).join('');
 }
