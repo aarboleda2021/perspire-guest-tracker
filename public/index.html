@@ -292,9 +292,11 @@
     .hdr-title{display:none;}
     .cbdg,.mcbdg{gap:3px;}.badge{font-size:9px;padding:2px 6px;}
   }
+  .split-col-right{border-left:1.5px solid var(--border);padding-left:24px;}
   @media(max-width:860px){
     #daily-events>div{grid-template-columns:1fr !important;}
     #daily-notes>div:nth-of-type(2){grid-template-columns:1fr !important;}
+    .split-col-right{border-left:none;padding-left:0;border-top:1.5px solid var(--border);padding-top:20px;margin-top:8px;}
   }
 </style>
 </head>
@@ -610,7 +612,7 @@
         <div id="notes-list"></div>
       </div>
       <!-- RIGHT: LEADERSHIP ANNOUNCEMENTS -->
-      <div>
+      <div class="split-col-right">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
           <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">📣 Leadership announcements</div>
           <button class="btn btn-sm btn-p" onclick="toggleAddAnnouncement()">+ Post</button>
@@ -703,7 +705,7 @@
         <div id="events-list"></div>
       </div>
       <!-- RIGHT: PROMO CODES -->
-      <div>
+      <div class="split-col-right">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
           <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Promo codes</div>
           <button class="btn btn-sm btn-p" onclick="toggleAddPromo()">+ Add code</button>
