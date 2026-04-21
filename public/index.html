@@ -873,7 +873,7 @@
       </div>
     </div>
     <div class="fg"><label class="fl">Freeze duration (if applicable)</label>
-      <select class="fi" id="ec-freeze-dur">
+      <select class="fi" id="ec-freeze-dur" onchange="document.getElementById('ec-freeze-other-wrap').style.display=this.value==='other'?'block':'none'">
         <option value="">N/A</option>
         <option value="30">30 days</option>
         <option value="60">60 days</option>
@@ -881,6 +881,7 @@
         <option value="other">Other</option>
       </select>
     </div>
+    <div class="fg" id="ec-freeze-other-wrap" style="display:none;"><label class="fl">If "other" — special circumstance</label><textarea class="fi" id="ec-freeze-other" placeholder="e.g. until member calls back"></textarea></div>
     <div class="fg"><label class="fl">Notes</label><textarea class="fi" id="ec-notes"></textarea></div>
     <div class="modal-actions">
       <button class="btn btn-g" onclick="closeModal('edit-change-modal')">Cancel</button>
@@ -1768,7 +1769,7 @@ function activeStaff(){return[...staffList].filter(s=>s.active).sort((a,b)=>a.na
 
 function billUrgency(bs){
   const du=daysUntil(bs);if(du===null)return'normal';
-  const bd=parseDate(bs);
+  const bd=parseDate(bs);if(!bd)return'normal';
   const db=new Date(bd);db.setDate(db.getDate()-1);
   if(du<=0)return'urgent';
   if(du===1&&(isClosed(bd)||isEarlyClose(db)))return'urgent';
@@ -2713,6 +2714,11 @@ async function updateVisitCount(id,val){
   const v=parseInt(val);if(isNaN(v)||v<0)return;
   const c=guests.find(x=>x.id===id);if(!c)return;
   if(c.totalVisits===v)return;
+  // Guard against accidental decreases that would lose milestone progress
+  if(v<(c.totalVisits||0)&&!confirm(`You're lowering ${c.name}'s visit count from ${c.totalVisits||0} to ${v}. Any milestones they've passed may change status. Continue?`)){
+    renderGuests();// refresh to restore the old value in the input
+    return;
+  }
   c.totalVisits=v;c.visitsUpdatedAt=new Date().toISOString();
   if(useLocalStorage){lsSave();}
   else{await api('guests?id='+id,{method:'PUT',body:{totalVisits:v,visitsUpdatedAt:c.visitsUpdatedAt}});}
@@ -3106,6 +3112,8 @@ function openEditChangeFull(id){
   document.getElementById('ec-cur-tier').value=c.currentTier||'IRelax 4x';
   document.getElementById('ec-new-tier').value=c.newTier||'';
   document.getElementById('ec-freeze-dur').value=c.freezeDuration||'';
+  document.getElementById('ec-freeze-other').value=c.freezeOtherNote||'';
+  document.getElementById('ec-freeze-other-wrap').style.display=c.freezeDuration==='other'?'block':'none';
   document.getElementById('ec-notes').value=c.notes||'';
   document.getElementById('edit-change-modal').classList.add('open');
 }
@@ -3119,9 +3127,10 @@ async function saveEditChange(){
   c.currentTier=document.getElementById('ec-cur-tier').value;
   const nt=document.getElementById('ec-new-tier').value;c.newTier=nt||null;
   const fd=document.getElementById('ec-freeze-dur').value;c.freezeDuration=fd||null;
+  c.freezeOtherNote=fd==='other'?document.getElementById('ec-freeze-other').value.trim()||null:null;
   c.notes=document.getElementById('ec-notes').value.trim();
   if(useLocalStorage){lsSave();}
-  else{await api('changes?id='+editChangeId,{method:'PUT',body:{guestName:c.guestName,dateRequested:c.dateRequested,billDate:c.billDate,currentTier:c.currentTier,newTier:c.newTier,freezeDuration:c.freezeDuration,notes:c.notes}});await loadChanges();}
+  else{await api('changes?id='+editChangeId,{method:'PUT',body:{guestName:c.guestName,dateRequested:c.dateRequested,billDate:c.billDate,currentTier:c.currentTier,newTier:c.newTier,freezeDuration:c.freezeDuration,freezeOtherNote:c.freezeOtherNote,notes:c.notes}});await loadChanges();}
   closeModal('edit-change-modal');refreshChanges();
 }
 
@@ -3780,12 +3789,13 @@ async function addPromo(){
   const purpose=document.getElementById('promo-purpose').value.trim();
   const startDate=document.getElementById('promo-start').value;
   const endDate=document.getElementById('promo-end').value;
+  const notes=document.getElementById('promo-notes').value.trim();
   if(!code){alert('Please enter a promo code.');return;}
   if(!purpose){alert('Please describe what this code is for.');return;}
   if(!startDate||!endDate){alert('Please enter valid from and valid until dates.');return;}
   if(endDate<startDate){alert('The "valid until" date can\'t be before the "valid from" date. Please fix the dates.');return;}
   const id=Date.now().toString();
-  const rec={id,title:code,eventType:'promo-code',startDate,endDate,timeRange:'',description:purpose,volunteerNeeded:false,assignedStaff:null,createdAt:new Date().toISOString()};
+  const rec={id,title:code,eventType:'promo-code',startDate,endDate,timeRange:notes,description:purpose,volunteerNeeded:false,assignedStaff:null,createdAt:new Date().toISOString()};
   if(useLocalStorage){events.push(rec);lsSave();}
   else{await api('events',{method:'POST',body:rec});await loadEvents();}
   toggleAddPromo();renderPromoCodes();
