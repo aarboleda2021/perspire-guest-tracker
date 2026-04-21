@@ -3450,6 +3450,48 @@ async function removeAnnouncement(id){
   renderAnnouncements();
 }
 
+function editAnnouncement(id){
+  const a=announcements.find(x=>x.id===id);if(!a)return;
+  const el=document.getElementById('announce-card-'+id);
+  const postedOpts=LEADERSHIP.map(l=>`<option value="${l.id}" ${l.id===a.postedBy?'selected':''}>${l.name}</option>`).join('');
+  const hasAcks=Object.keys(a.acknowledgments||{}).length>0;
+  el.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px;padding:14px 16px;">
+    <div class="aft">Edit announcement</div>
+    <div class="fg" style="margin:0;"><label class="fl">Title</label><input type="text" class="fi" id="ea-title-${id}" value="${(a.title||'').replace(/"/g,'&quot;')}"></div>
+    <div class="fg" style="margin:0;"><label class="fl">Message</label><textarea class="fi" id="ea-content-${id}" rows="3">${a.content||''}</textarea></div>
+    <div class="frow">
+      <div class="fg" style="margin:0;"><label class="fl">Link URL</label><input type="text" class="fi" id="ea-link-url-${id}" value="${(a.linkUrl||'').replace(/"/g,'&quot;')}" placeholder="https://..."></div>
+      <div class="fg" style="margin:0;"><label class="fl">Link label</label><input type="text" class="fi" id="ea-link-label-${id}" value="${(a.linkLabel||'').replace(/"/g,'&quot;')}"></div>
+    </div>
+    <div class="fg" style="margin:0;"><label class="fl">Posted by</label><select class="fi" id="ea-posted-${id}">${postedOpts}</select></div>
+    ${hasAcks?`<div class="fci" style="margin-top:4px;">
+      <input type="checkbox" class="fchk" id="ea-reset-${id}">
+      <div><div class="fchk-lbl">Reset acknowledgments</div><div class="fchk-desc">Check if the content substantially changed — staff will need to re-acknowledge. Leave unchecked for typo fixes.</div></div>
+    </div>`:''}
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;"><button class="btn btn-sm btn-g" onclick="renderAnnouncements()">Cancel</button><button class="btn btn-sm btn-p" onclick="saveAnnouncementEdit('${id}')">Save changes</button></div>
+  </div>`;
+}
+
+async function saveAnnouncementEdit(id){
+  const title=document.getElementById('ea-title-'+id).value.trim();
+  const content=document.getElementById('ea-content-'+id).value.trim();
+  const linkUrl=document.getElementById('ea-link-url-'+id).value.trim();
+  const linkLabel=document.getElementById('ea-link-label-'+id).value.trim();
+  const postedBy=document.getElementById('ea-posted-'+id).value;
+  const resetEl=document.getElementById('ea-reset-'+id);
+  const resetAcks=resetEl?resetEl.checked:false;
+  if(!title){alert('Please enter a title.');return;}
+  if(!content){alert('Please enter a message.');return;}
+  if(!postedBy){alert('Please select who is posting this.');return;}
+  if(linkUrl&&!linkUrl.match(/^https?:\/\//)){alert('Link URL must start with http:// or https://');return;}
+  const a=announcements.find(x=>x.id===id);if(!a)return;
+  a.title=title;a.content=content;a.linkUrl=linkUrl||null;a.linkLabel=linkLabel||(linkUrl?'View link':null);a.postedBy=postedBy;
+  if(resetAcks)a.acknowledgments={};
+  if(useLocalStorage){lsSave();}
+  else{await api('announcements?id='+id,{method:'PUT',body:{title:a.title,content:a.content,linkUrl:a.linkUrl,linkLabel:a.linkLabel,postedBy:a.postedBy,acknowledgments:a.acknowledgments}});}
+  renderAnnouncements();
+}
+
 function renderAnnouncements(){
   const fil=document.getElementById('announce-filter')?.value||'unacknowledged';
   const el=document.getElementById('announce-list');
@@ -3478,13 +3520,16 @@ function renderAnnouncements(){
       <select id="ack-by-${a.id}" class="fi" style="font-size:12px;padding:5px 8px;width:auto;"><option value="" disabled selected>Your name</option>${notYet.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select>
       <button class="btn btn-p btn-sm" onclick="acknowledgeAnnouncement('${a.id}')">I've read this ✓</button>
     </div>`:'';
-    return`<div class="mccard" style="padding:14px 16px;margin-bottom:10px;border:1.5px solid var(--tc);background:white;">
+    return`<div class="mccard" id="announce-card-${a.id}" style="padding:14px 16px;margin-bottom:10px;border:1.5px solid var(--tc);background:white;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px;">
         <div style="flex:1;">
           <div style="font-weight:600;font-size:14px;color:var(--dark);">${a.title}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:2px;">📣 Posted by <strong>${leaderName(a.postedBy)}</strong> · ${createdStr} · ${ackedCount}/${totalStaff} acknowledged</div>
         </div>
-        <button class="btn btn-sm btn-do" onclick="removeAnnouncement('${a.id}')" style="flex-shrink:0;">Delete</button>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button class="btn btn-sm btn-g" onclick="editAnnouncement('${a.id}')">Edit</button>
+          <button class="btn btn-sm btn-do" onclick="removeAnnouncement('${a.id}')">Delete</button>
+        </div>
       </div>
       <div style="font-size:13px;white-space:pre-wrap;margin-top:8px;">${a.content}</div>
       ${linkBtn}
