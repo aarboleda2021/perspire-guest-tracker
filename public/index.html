@@ -294,6 +294,7 @@
   }
   @media(max-width:860px){
     #daily-events>div{grid-template-columns:1fr !important;}
+    #daily-notes>div:nth-of-type(2){grid-template-columns:1fr !important;}
   }
 </style>
 </head>
@@ -562,45 +563,83 @@
   </div>
 
   <div id="daily-notes">
-    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Leave notes for the next shift — important updates, reminders, or anything the team needs to know.</div>
-    <div class="toolbar" style="margin-bottom:14px;">
-      <span class="tlbl">Filter</span>
-      <select id="notes-filter" onchange="renderShiftNotes()">
-        <option value="active">Active</option>
-        <option value="urgent">Urgent only</option>
-        <option value="resolved">Resolved</option>
-        <option value="all">All</option>
-      </select>
-      <span class="tlbl" style="margin-left:6px;">Sort</span>
-      <select id="notes-sort" onchange="renderShiftNotes()">
-        <option value="newest">Newest first</option>
-        <option value="oldest">Oldest first</option>
-      </select>
-      <button class="btn btn-p" onclick="toggleAddNote()">+ Add note</button>
-    </div>
-    <div class="aform" id="add-note-form">
-      <div class="aft">Add shift note</div>
-      <div class="fg"><label class="fl">Note<span class="req">*</span></label><textarea class="fi" id="note-content" placeholder="e.g. Sarah Smith called to be waitlisted for 4/16 4pm..."></textarea></div>
-      <div class="frow">
-        <div class="fg"><label class="fl">Submitted by<span class="req">*</span></label><select class="fi" id="note-author"></select></div>
-        <div class="fg"><label class="fl">Priority</label>
-          <select class="fi" id="note-priority">
-            <option value="fyi">FYI</option>
-            <option value="urgent">⚠ Urgent</option>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Leave notes for the next shift and view important announcements from leadership.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+      <!-- LEFT: SHIFT NOTES -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Shift notes</div>
+          <button class="btn btn-sm btn-p" onclick="toggleAddNote()">+ Add note</button>
+        </div>
+        <div class="toolbar" style="margin-bottom:14px;flex-wrap:wrap;">
+          <span class="tlbl">Filter</span>
+          <select id="notes-filter" onchange="renderShiftNotes()" style="min-width:90px;">
+            <option value="active">Active</option>
+            <option value="urgent">Urgent only</option>
+            <option value="resolved">Resolved</option>
+            <option value="all">All</option>
+          </select>
+          <span class="tlbl" style="margin-left:6px;">Sort</span>
+          <select id="notes-sort" onchange="renderShiftNotes()" style="min-width:100px;">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
           </select>
         </div>
+        <div class="aform" id="add-note-form">
+          <div class="aft">Add shift note</div>
+          <div class="fg"><label class="fl">Note<span class="req">*</span></label><textarea class="fi" id="note-content" placeholder="e.g. Sarah Smith called to be waitlisted for 4/16 4pm..."></textarea></div>
+          <div class="frow">
+            <div class="fg"><label class="fl">Submitted by<span class="req">*</span></label><select class="fi" id="note-author"></select></div>
+            <div class="fg"><label class="fl">Priority</label>
+              <select class="fi" id="note-priority">
+                <option value="fyi">FYI</option>
+                <option value="urgent">⚠ Urgent</option>
+              </select>
+            </div>
+          </div>
+          <div class="frow">
+            <div class="fg"><label class="fl">Assign to (optional)</label><select class="fi" id="note-assigned-to"><option value="">— No one specific —</option></select></div>
+            <div class="fg"><label class="fl">Keep visible until (optional)</label><input type="date" class="fi" id="note-keep-until"></div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:13px;">Notes auto-archive 48 hours after creation unless a "Keep visible until" date is set.</div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button class="btn btn-g" onclick="toggleAddNote()">Cancel</button>
+            <button class="btn btn-p" onclick="addShiftNote()">Add note</button>
+          </div>
+        </div>
+        <div id="notes-list"></div>
       </div>
-      <div class="frow">
-        <div class="fg"><label class="fl">Assign to (optional)</label><select class="fi" id="note-assigned-to"><option value="">— No one specific —</option></select></div>
-        <div class="fg"><label class="fl">Keep visible until (optional)</label><input type="date" class="fi" id="note-keep-until"></div>
-      </div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:13px;">Notes auto-archive 48 hours after creation unless a "Keep visible until" date is set.</div>
-      <div style="display:flex;gap:10px;justify-content:flex-end;">
-        <button class="btn btn-g" onclick="toggleAddNote()">Cancel</button>
-        <button class="btn btn-p" onclick="addShiftNote()">Add note</button>
+      <!-- RIGHT: LEADERSHIP ANNOUNCEMENTS -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">📣 Leadership announcements</div>
+          <button class="btn btn-sm btn-p" onclick="toggleAddAnnouncement()">+ Post</button>
+        </div>
+        <div class="toolbar" style="margin-bottom:14px;">
+          <span class="tlbl">Show</span>
+          <select id="announce-filter" onchange="renderAnnouncements()" style="min-width:130px;">
+            <option value="unacknowledged">Needing acknowledgment</option>
+            <option value="all">All</option>
+          </select>
+        </div>
+        <div class="aform" id="add-announcement-form">
+          <div class="aft">Post a new announcement</div>
+          <div class="fg"><label class="fl">Title<span class="req">*</span></label><input type="text" class="fi" id="announce-title" placeholder="e.g. New cleaning protocol starting Monday"></div>
+          <div class="fg"><label class="fl">Message<span class="req">*</span></label><textarea class="fi" id="announce-content" placeholder="Share the details here..."></textarea></div>
+          <div class="frow">
+            <div class="fg"><label class="fl">Link URL (optional)</label><input type="text" class="fi" id="announce-link-url" placeholder="https://docs.google.com/..."></div>
+            <div class="fg"><label class="fl">Link label (optional)</label><input type="text" class="fi" id="announce-link-label" placeholder="View how-to guide"></div>
+          </div>
+          <div class="fg"><label class="fl">Posted by<span class="req">*</span></label><select class="fi" id="announce-posted-by"></select></div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:13px;">Staff will see this announcement and will need to click "I've read this" to acknowledge.</div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button class="btn btn-g" onclick="toggleAddAnnouncement()">Cancel</button>
+            <button class="btn btn-p" onclick="addAnnouncement()">Post announcement</button>
+          </div>
+        </div>
+        <div id="announce-list"></div>
       </div>
     </div>
-    <div id="notes-list"></div>
   </div>
 
   <div id="daily-events" style="display:none;">
@@ -1573,7 +1612,7 @@ function showChangeScript(key,ch,btn){
 
 // ── STATE ─────────────────────────────────────────────────────────────────
 
-let guests=[],changes=[],staffList=[],nurtures=[],shiftNotes=[],events=[];
+let guests=[],changes=[],staffList=[],nurtures=[],shiftNotes=[],events=[],announcements=[];
 
 const DEFAULT_STAFF=[
   {id:'crystal', name:'Crystal', active:true, membershipGoal:10, packageGoal:5},
@@ -1586,7 +1625,7 @@ const DEFAULT_STAFF=[
 ];
 
 // Storage keys for local fallback mode
-const LS_GUESTS='psp-v7-guests',LS_CHANGES='psp-v7-changes',LS_STAFF='psp-v7-staff',LS_NURTURES='psp-v7-nurtures',LS_NOTES='psp-v7-notes',LS_EVENTS='psp-v7-events';
+const LS_GUESTS='psp-v7-guests',LS_CHANGES='psp-v7-changes',LS_STAFF='psp-v7-staff',LS_NURTURES='psp-v7-nurtures',LS_NOTES='psp-v7-notes',LS_EVENTS='psp-v7-events',LS_ANNOUNCE='psp-v7-announce';
 let useLocalStorage=false;
 
 // ── API HELPERS ───────────────────────────────────────────────────────────
@@ -1616,6 +1655,7 @@ function lsSave(){
     localStorage.setItem(LS_NURTURES,JSON.stringify(nurtures));
     localStorage.setItem(LS_NOTES,JSON.stringify(shiftNotes));
     localStorage.setItem(LS_EVENTS,JSON.stringify(events));
+    localStorage.setItem(LS_ANNOUNCE,JSON.stringify(announcements));
   }catch(e){}
 }
 
@@ -1643,9 +1683,13 @@ async function loadEvents(){
   if(useLocalStorage){events=lsGet(LS_EVENTS,[]);return;}
   events=await api('events');
 }
+async function loadAnnouncements(){
+  if(useLocalStorage){announcements=lsGet(LS_ANNOUNCE,[]);return;}
+  announcements=await api('announcements');
+}
 async function loadAll(){
   try{
-    await Promise.all([loadGuests(),loadChanges(),loadStaff(),loadNurtures(),loadShiftNotes(),loadEvents()]);
+    await Promise.all([loadGuests(),loadChanges(),loadStaff(),loadNurtures(),loadShiftNotes(),loadEvents(),loadAnnouncements()]);
   }catch(e){
     console.warn('API unavailable, using local storage fallback.',e.message);
     useLocalStorage=true;
@@ -1655,6 +1699,7 @@ async function loadAll(){
     nurtures=lsGet(LS_NURTURES,[]);
     shiftNotes=lsGet(LS_NOTES,[]);
     events=lsGet(LS_EVENTS,[]);
+    announcements=lsGet(LS_ANNOUNCE,[]);
   }
 }
 
@@ -2143,6 +2188,13 @@ function renderMgrDashboard(){
   const unsignedAgreements=activeGuests.filter(c=>c.type==='member'&&!c.agreementSigned).length;
   const unsentWelcomeEmails=activeGuests.filter(c=>!c.welcomeEmailSent).length;
 
+  // Pending announcements (those not yet acknowledged by everyone)
+  const activeStaffIds=activeStaff().map(s=>s.id);
+  const pendingAnnouncements=announcements.filter(a=>{
+    const acks=a.acknowledgments||{};
+    return activeStaffIds.some(sid=>!acks[sid]);
+  }).length;
+
   // Build alert cards — always show all categories, with 0 if nothing
   const alertDef=[
     {count:urgentChanges.length,label:'Urgent bill dates',sub:'Process before close of business',urgentColor:'var(--urg)',urgentBg:'var(--urgp)',tab:'changes'},
@@ -2154,6 +2206,7 @@ function renderMgrDashboard(){
     {count:dueNowNurtures.length,label:'Nurtures due this week',sub:'Touchpoint window open',urgentColor:'var(--warn)',urgentBg:'var(--warnp)',tab:'nurture'},
     {count:upcomingReacts.length,label:'Reactivations coming up',sub:'Send welcome-back outreach',urgentColor:'var(--ok)',urgentBg:'var(--okp)',tab:'nurture'},
     {count:urgentNotes.length,label:'Urgent shift notes',sub:'Unresolved and flagged',urgentColor:'var(--urg)',urgentBg:'var(--urgp)',tab:null,goto:'daily-notes'},
+    {count:pendingAnnouncements,label:'Announcements pending ack',sub:'Leadership announcements awaiting staff review',urgentColor:'var(--info)',urgentBg:'var(--infop)',tab:null,goto:'daily-notes'},
   ];
   const alerts=alertDef.map(a=>({
     ...a,
@@ -3160,7 +3213,7 @@ async function exportAllData(){
     const backup={
       exportDate:new Date().toISOString(),
       version:'perspire-ptc-backup-v1',
-      guests,changes,staff:staffList,nurtures,shiftNotes,events,
+      guests,changes,staff:staffList,nurtures,shiftNotes,events,announcements,
       dailyLogs:[],dailyTasks:[]
     };
     // Fetch recent daily data (last 90 days)
@@ -3207,7 +3260,7 @@ function setDailyTab(tab){
   const map={notes:'daily-notes',events:'daily-events',today:'daily-today',perf:'daily-perf'};
   Object.entries(map).forEach(([k,id])=>document.getElementById(id).style.display=k===tab?'block':'none');
   ['notes','events','today','perf'].forEach(s=>document.getElementById('tab-'+s).classList.toggle('active',s===tab));
-  if(tab==='notes')renderShiftNotes();
+  if(tab==='notes'){renderShiftNotes();renderAnnouncements();}
   else if(tab==='events')renderEvents();
   else if(tab==='today')renderToday();
   else if(tab==='perf')initPerformance();
@@ -3334,6 +3387,110 @@ function renderShiftNotes(){
           <button class="btn btn-sm btn-do" onclick="removeNote('${n.id}')">Delete</button>
         </div>
       </div>
+    </div>`;
+  }).join('');
+}
+
+// ── LEADERSHIP ANNOUNCEMENTS ─────────────────────────────────────────────
+const LEADERSHIP=[{id:'amanda',name:'Amanda'},{id:'mohogany',name:'Mohogany'}];
+function leaderName(id){const l=LEADERSHIP.find(x=>x.id===id);if(l)return l.name;return sName(id)||'Unknown';}
+
+function toggleAddAnnouncement(){
+  const f=document.getElementById('add-announcement-form');f.classList.toggle('open');
+  if(f.classList.contains('open')){
+    document.getElementById('announce-title').value='';
+    document.getElementById('announce-content').value='';
+    document.getElementById('announce-link-url').value='';
+    document.getElementById('announce-link-label').value='';
+    document.getElementById('announce-posted-by').innerHTML=`<option value="">— Select —</option>`+LEADERSHIP.map(l=>`<option value="${l.id}">${l.name}</option>`).join('');
+  }
+}
+
+async function addAnnouncement(){
+  const title=document.getElementById('announce-title').value.trim();
+  const content=document.getElementById('announce-content').value.trim();
+  const linkUrl=document.getElementById('announce-link-url').value.trim();
+  const linkLabel=document.getElementById('announce-link-label').value.trim();
+  const postedBy=document.getElementById('announce-posted-by').value;
+  if(!title){alert('Please enter a title.');return;}
+  if(!content){alert('Please enter a message.');return;}
+  if(!postedBy){alert('Please select who is posting this.');return;}
+  if(linkUrl&&!linkUrl.match(/^https?:\/\//)){alert('Link URL must start with http:// or https://');return;}
+  const id=Date.now().toString();
+  const rec={id,title,content,linkUrl:linkUrl||null,linkLabel:linkLabel||(linkUrl?'View link':null),postedBy,acknowledgments:{},createdAt:new Date().toISOString()};
+  if(useLocalStorage){announcements.unshift(rec);lsSave();}
+  else{await api('announcements',{method:'POST',body:rec});await loadAnnouncements();}
+  toggleAddAnnouncement();renderAnnouncements();
+}
+
+async function acknowledgeAnnouncement(id){
+  const sel=document.getElementById('ack-by-'+id);
+  const by=sel?sel.value:'';
+  if(!by){alert('Please select your name first.');return;}
+  const a=announcements.find(x=>x.id===id);if(!a)return;
+  if(!a.acknowledgments)a.acknowledgments={};
+  a.acknowledgments[by]=new Date().toISOString();
+  if(useLocalStorage){lsSave();}
+  else{await api('announcements?id='+id,{method:'PUT',body:{acknowledgments:a.acknowledgments}});}
+  renderAnnouncements();
+}
+
+async function unacknowledgeAnnouncement(id,staffId){
+  const a=announcements.find(x=>x.id===id);if(!a||!a.acknowledgments)return;
+  delete a.acknowledgments[staffId];
+  if(useLocalStorage){lsSave();}
+  else{await api('announcements?id='+id,{method:'PUT',body:{acknowledgments:a.acknowledgments}});}
+  renderAnnouncements();
+}
+
+async function removeAnnouncement(id){
+  if(!confirm('Delete this announcement? This cannot be undone.'))return;
+  if(useLocalStorage){announcements=announcements.filter(x=>x.id!==id);lsSave();}
+  else{await api('announcements?id='+id,{method:'DELETE'});await loadAnnouncements();}
+  renderAnnouncements();
+}
+
+function renderAnnouncements(){
+  const fil=document.getElementById('announce-filter')?.value||'unacknowledged';
+  const el=document.getElementById('announce-list');
+  if(!announcements.length){el.innerHTML=`<div style="color:var(--muted);font-size:13px;padding:10px 0;">No announcements yet. Leadership can post important updates here.</div>`;return;}
+  const activeStaffList=activeStaff();
+  const totalStaff=activeStaffList.length;
+  let list=[...announcements];
+  if(fil==='unacknowledged'){
+    list=list.filter(a=>{
+      const acks=a.acknowledgments||{};
+      return activeStaffList.some(s=>!acks[s.id]);
+    });
+  }
+  list.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  if(!list.length){el.innerHTML=`<div class="empty" style="padding:20px;"><div class="empty-icon">✓</div><p>All announcements acknowledged by the team.</p></div>`;return;}
+  el.innerHTML=list.map(a=>{
+    const acks=a.acknowledgments||{};
+    const ackedIds=Object.keys(acks);
+    const ackedCount=activeStaffList.filter(s=>acks[s.id]).length;
+    const notYet=activeStaffList.filter(s=>!acks[s.id]);
+    const createdStr=new Date(a.createdAt).toLocaleString('en-US',{month:'numeric',day:'numeric',year:'2-digit',hour:'numeric',minute:'2-digit'});
+    const linkBtn=a.linkUrl?`<a href="${a.linkUrl}" target="_blank" class="btn btn-g btn-sm" style="text-decoration:none;display:inline-block;margin-top:8px;border-color:var(--info);color:var(--info);">🔗 ${a.linkLabel||'View link'} ↗</a>`:'';
+    const ackList=ackedIds.length?`<div style="font-size:11px;color:var(--ok);margin-top:8px;"><strong>✓ Acknowledged by:</strong> ${ackedIds.map(id=>{const s=activeStaffList.find(x=>x.id===id);const t=new Date(acks[id]).toLocaleDateString('en-US',{month:'numeric',day:'numeric'});return s?`${s.name} (${t})`:'';}).filter(Boolean).join(', ')}</div>`:'';
+    const notYetList=notYet.length?`<div style="font-size:11px;color:var(--warn);margin-top:4px;"><strong>Still needs to acknowledge:</strong> ${notYet.map(s=>s.name).join(', ')}</div>`:'';
+    const ackForm=notYet.length?`<div style="margin-top:10px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+      <select id="ack-by-${a.id}" class="fi" style="font-size:12px;padding:5px 8px;width:auto;"><option value="" disabled selected>Your name</option>${notYet.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select>
+      <button class="btn btn-p btn-sm" onclick="acknowledgeAnnouncement('${a.id}')">I've read this ✓</button>
+    </div>`:'';
+    return`<div class="mccard" style="padding:14px 16px;margin-bottom:10px;border:1.5px solid var(--tc);background:white;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px;">
+        <div style="flex:1;">
+          <div style="font-weight:600;font-size:14px;color:var(--dark);">${a.title}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">📣 Posted by <strong>${leaderName(a.postedBy)}</strong> · ${createdStr} · ${ackedCount}/${totalStaff} acknowledged</div>
+        </div>
+        <button class="btn btn-sm btn-do" onclick="removeAnnouncement('${a.id}')" style="flex-shrink:0;">Delete</button>
+      </div>
+      <div style="font-size:13px;white-space:pre-wrap;margin-top:8px;">${a.content}</div>
+      ${linkBtn}
+      ${ackList}
+      ${notYetList}
+      ${ackForm}
     </div>`;
   }).join('');
 }
