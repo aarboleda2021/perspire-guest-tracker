@@ -552,6 +552,12 @@
       <button class="btn btn-p" onclick="exportAllData()">📦 Download full backup</button>
       <span id="backup-status" style="font-size:12px;color:var(--muted);margin-left:10px;"></span>
     </div>
+    <div style="margin-top:18px;padding:18px;background:var(--sand);border:1.5px solid var(--border);border-radius:12px;">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Daily summary email preview</div>
+      <p style="font-size:13px;color:var(--mid);line-height:1.5;margin-bottom:12px;">The nightly summary is sent automatically at 11:55 PM ET. Click below to send a test copy to yourself right now — useful for previewing the format or troubleshooting.</p>
+      <button class="btn btn-p" onclick="sendSummaryPreview()">📧 Send preview email now</button>
+      <span id="preview-status" style="font-size:12px;color:var(--muted);margin-left:10px;"></span>
+    </div>
   </div>
 </div>
 
@@ -3684,6 +3690,53 @@ async function exportAllData(){
     status.textContent='Error: '+e.message;
     status.style.color='var(--err)';
   }
+}
+
+async function sendSummaryPreview(){
+  const status=document.getElementById('preview-status');
+  const savedKey='psp-v7-cron-secret';
+  let secret=localStorage.getItem(savedKey)||'';
+  if(!secret){
+    secret=prompt('One-time setup: paste your CRON_SECRET from Vercel → Settings → Environment Variables.\n\n(We\'ll save it in your browser so you only have to enter it once.)');
+    if(!secret)return;
+    secret=secret.trim();
+    localStorage.setItem(savedKey,secret);
+  }
+  status.textContent='Sending...';status.style.color='var(--muted)';
+  try{
+    const r=await fetch('/api/cron/daily-summary',{
+      method:'GET',
+      headers:{'Authorization':'Bearer '+secret}
+    });
+    const data=await r.json();
+    if(r.status===401){
+      localStorage.removeItem(savedKey);
+      status.textContent='✗ Unauthorized — stored secret was wrong, try again';
+      status.style.color='var(--err)';
+      return;
+    }
+    if(data.status==='sent'){
+      status.textContent=`✓ Email sent to ${data.recipient} — check your inbox!`;
+      status.style.color='var(--ok)';
+    } else if(data.message){
+      status.textContent=`⚠ ${data.message}`;
+      status.style.color='var(--warn)';
+    } else if(data.error){
+      status.textContent=`✗ ${data.error}${data.where?' (in '+data.where+' query)':''}`;
+      status.style.color='var(--err)';
+    } else {
+      status.textContent=JSON.stringify(data);
+      status.style.color='var(--mid)';
+    }
+  }catch(e){
+    status.textContent='Network error: '+e.message;
+    status.style.color='var(--err)';
+  }
+}
+
+function resetSummaryPreviewSecret(){
+  localStorage.removeItem('psp-v7-cron-secret');
+  alert('CRON_SECRET cleared from browser. You\'ll be prompted for it next time you send a preview.');
 }
 
 // ── DAILY HUB ─────────────────────────────────────────────────────────────
