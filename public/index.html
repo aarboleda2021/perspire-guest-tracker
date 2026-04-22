@@ -949,6 +949,36 @@
   </div>
 </div>
 
+<!-- MEMBER REPORT UPLOAD MODAL -->
+<div class="modal-ov" id="member-upload-modal">
+  <div class="modal" style="max-width:680px;">
+    <div class="modal-title">Upload member roster from Mindbody</div>
+    <div class="modal-sub">Upload your Mindbody member/client report (.xls, .xlsx, or .csv). We'll compare it against the New Guest tracker and show any members that aren't here yet so you can add them.</div>
+    <label class="upload-zone">
+      <input type="file" id="member-upload-file" accept=".xls,.xlsx,.csv" onchange="handleMembersUpload(event)">
+      <div style="font-size:14px;color:var(--mid);">📤 Click to choose file or drop here</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;">Excel or CSV file</div>
+    </label>
+    <div class="upload-result" id="member-upload-result"></div>
+    <div class="modal-actions">
+      <button class="btn btn-g" onclick="closeModal('member-upload-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- QUICK-ADD MISSING MEMBERS MODAL -->
+<div class="modal-ov" id="member-quickadd-modal">
+  <div class="modal" style="max-width:760px;">
+    <div class="modal-title">Add missing members</div>
+    <div class="modal-sub" id="member-quickadd-sub">These members are in your Mindbody report but not in the New Guest tracker. Fill in the details to add them.</div>
+    <div id="member-quickadd-rows" style="max-height:480px;overflow-y:auto;margin-bottom:16px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-g" onclick="closeModal('member-quickadd-modal')">Cancel</button>
+      <button class="btn btn-p" onclick="applyMemberQuickAdd()">Add selected members</button>
+    </div>
+  </div>
+</div>
+
 <!-- STUDIO TASK COMPLETE MODAL (simple, for most tasks) -->
 <div class="modal-ov" id="task-complete-modal">
   <div class="modal">
@@ -2198,6 +2228,11 @@ function renderMgrDashboard(){
   const lastUpload=members.map(c=>c.visitsUpdatedAt).filter(Boolean).map(d=>new Date(d)).sort((a,b)=>b-a)[0];
   const daysSinceUpload=lastUpload?Math.floor((new Date()-lastUpload)/86400000):null;
 
+  // Last member roster upload — stored as a system event
+  const memberUploadLogs=events.filter(e=>e.eventType==='other'&&e.title==='__member-report-log').sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const lastMemberUpload=memberUploadLogs[0]?new Date(memberUploadLogs[0].createdAt):null;
+  const daysSinceMemberUpload=lastMemberUpload?Math.floor((new Date()-lastMemberUpload)/86400000):null;
+
   // Compute all urgent/pending counts
   const urgentChanges=changes.filter(c=>c.status!=='closed'&&billUrgency(c.billDate)==='urgent');
   const followUpChanges=changes.filter(c=>needsFollowupNow(c));
@@ -2278,10 +2313,27 @@ function renderMgrDashboard(){
   } else {
     uploadCard={bg:'var(--okp)',border:'1.5px solid #9ECDB5',color:'var(--ok)',title:'✓ Attendance report up to date',msg:`Last uploaded ${daysSinceUpload===0?'today':daysSinceUpload===1?'yesterday':`${daysSinceUpload} days ago`}. Next upload due in ${3-daysSinceUpload} day${3-daysSinceUpload!==1?'s':''}.`};
   }
-  html+=`<div style="background:${uploadCard.bg};border:${uploadCard.border};border-radius:12px;padding:14px 16px;margin-bottom:18px;">
+  html+=`<div style="background:${uploadCard.bg};border:${uploadCard.border};border-radius:12px;padding:14px 16px;margin-bottom:14px;">
     <div style="font-weight:600;color:${uploadCard.color};font-size:13px;margin-bottom:4px;">${uploadCard.title}</div>
     <div style="font-size:12px;color:var(--mid);line-height:1.5;margin-bottom:10px;">${uploadCard.msg}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-g btn-sm" onclick="openModal('upload-instructions-modal')">📖 How to pull this report</button><button class="btn btn-p btn-sm" onclick="openUploadVisits()">📤 Upload now</button></div>
+  </div>`;
+
+  // Member roster upload card — same urgency tiers (3 day cadence)
+  let memberCard;
+  if(lastMemberUpload===null){
+    memberCard={bg:'var(--warnp)',border:'2px solid #E8C07A',color:'var(--warn)',title:'👥 Upload your member roster from Mindbody',msg:'No member roster has been uploaded yet. Uploading lets us catch any new members who joined but aren\'t in the New Guest tracker yet.'};
+  } else if(daysSinceMemberUpload>=5){
+    memberCard={bg:'var(--errp)',border:'2px solid var(--err)',color:'var(--err)',title:'⚠ Overdue: upload the member roster',msg:`Last upload was <strong>${daysSinceMemberUpload} days ago</strong>. New members may be missing from the tracker — please pull the latest report and upload.`};
+  } else if(daysSinceMemberUpload>=3){
+    memberCard={bg:'var(--warnp)',border:'1.5px solid #E8C07A',color:'var(--warn)',title:'👥 Time to upload the member roster',msg:`Last upload was ${daysSinceMemberUpload} days ago. Pull the latest report every 3 days to catch new members early.`};
+  } else {
+    memberCard={bg:'var(--okp)',border:'1.5px solid #9ECDB5',color:'var(--ok)',title:'✓ Member roster up to date',msg:`Last uploaded ${daysSinceMemberUpload===0?'today':daysSinceMemberUpload===1?'yesterday':`${daysSinceMemberUpload} days ago`}. Next upload due in ${3-daysSinceMemberUpload} day${3-daysSinceMemberUpload!==1?'s':''}.`};
+  }
+  html+=`<div style="background:${memberCard.bg};border:${memberCard.border};border-radius:12px;padding:14px 16px;margin-bottom:18px;">
+    <div style="font-weight:600;color:${memberCard.color};font-size:13px;margin-bottom:4px;">${memberCard.title}</div>
+    <div style="font-size:12px;color:var(--mid);line-height:1.5;margin-bottom:10px;">${memberCard.msg}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-p btn-sm" onclick="openUploadMembers()">📤 Upload member roster</button></div>
   </div>`;
 
   html+=`<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 10px;">Needs attention</div>`;
@@ -2804,6 +2856,196 @@ function linkUnmatched(unmatchedIdx,guestId){
   const target=unmatched[unmatchedIdx];if(!target)return;
   const realIdx=_pendingUploadMatches.indexOf(target);
   if(realIdx>=0)_pendingUploadMatches[realIdx].guestId=guestId||null;
+}
+
+// ── MEMBER ROSTER UPLOAD ─────────────────────────────────────────────────
+let _pendingMemberMatches=[];
+
+function openUploadMembers(){
+  document.getElementById('member-upload-result').innerHTML='';
+  document.getElementById('member-upload-file').value='';
+  _pendingMemberMatches=[];
+  document.getElementById('member-upload-modal').classList.add('open');
+}
+
+function handleMembersUpload(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      processMemberRows(rows);
+    } catch(err){
+      document.getElementById('member-upload-result').innerHTML=`<div style="color:var(--err);padding:10px;">Error parsing file: ${err.message}</div>`;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function processMemberRows(rows){
+  if(!rows.length){document.getElementById('member-upload-result').innerHTML=`<div style="color:var(--err);">No data in file.</div>`;return;}
+  const cols=Object.keys(rows[0]);
+  // Try to find a name column — prefer "Client Name" or "Name", fall back to first/last combo
+  const nameCol=cols.find(k=>/^client\s*name$/i.test(k))||cols.find(k=>/^name$/i.test(k))||cols.find(k=>/^client$/i.test(k))||cols.find(k=>/full.?name/i.test(k));
+  const firstCol=cols.find(k=>/^first.?name$/i.test(k))||cols.find(k=>/^first$/i.test(k));
+  const lastCol=cols.find(k=>/^last.?name$/i.test(k))||cols.find(k=>/^last$/i.test(k));
+  const tierCol=cols.find(k=>/membership|pricing.?option|service|plan/i.test(k));
+  const startCol=cols.find(k=>/start.?date|join.?date|signup/i.test(k));
+  if(!nameCol&&!(firstCol&&lastCol)){
+    document.getElementById('member-upload-result').innerHTML=`<div style="color:var(--err);padding:10px;">Could not find a name column. Looking for "Client Name", "Name", or "First Name" + "Last Name". Found columns: <strong>${cols.join(', ')}</strong></div>`;
+    return;
+  }
+  // Build list of names from the file
+  const reportNames=[];
+  rows.forEach(r=>{
+    let name='';
+    if(nameCol)name=String(r[nameCol]||'').trim();
+    else name=`${String(r[firstCol]||'').trim()} ${String(r[lastCol]||'').trim()}`.trim();
+    if(!name)return;
+    const tier=tierCol?String(r[tierCol]||'').trim():'';
+    const start=startCol?String(r[startCol]||'').trim():'';
+    reportNames.push({name,tier,start});
+  });
+  // Compare against ACTIVE guests (members + packages, since the report could include both)
+  const activeGuests=guests.filter(g=>!g.deactivated);
+  const matched=[];
+  const unmatched=[];
+  reportNames.forEach(rn=>{
+    const m=activeGuests.find(g=>g.name.toLowerCase().trim()===rn.name.toLowerCase());
+    if(m){matched.push({...rn,guestId:m.id});}
+    else{unmatched.push(rn);}
+  });
+  _pendingMemberMatches=unmatched;
+  let html=`<div style="margin-top:14px;font-weight:600;">Matched: ${matched.length} · Not yet in tracker: ${unmatched.length}</div>`;
+  html+=`<div style="font-size:12px;color:var(--mid);margin-top:6px;">${reportNames.length} total members in your report.</div>`;
+  if(unmatched.length){
+    html+=`<div style="margin-top:14px;padding:12px;background:var(--warnp);border:1.5px solid #E8C07A;border-radius:8px;font-size:13px;color:var(--warn);">
+      <strong>⚠ ${unmatched.length} member${unmatched.length!==1?'s':''} not in the tracker yet:</strong>
+      <ul style="margin:6px 0 8px 18px;padding:0;">${unmatched.slice(0,10).map(u=>`<li>${u.name}${u.tier?` <span style="color:var(--muted);">— ${u.tier}</span>`:''}</li>`).join('')}</ul>
+      ${unmatched.length>10?`<div style="font-size:11px;color:var(--mid);">…and ${unmatched.length-10} more</div>`:''}
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:12px;"><button class="btn btn-p btn-sm" onclick="openMemberQuickAdd()">Add these members →</button></div>`;
+  } else {
+    html+=`<div style="margin-top:14px;padding:12px;background:var(--okp);border:1.5px solid #9ECDB5;border-radius:8px;font-size:13px;color:var(--ok);"><strong>✓ All members in your roster are already in the tracker!</strong></div>`;
+    // Still record the upload as completed
+    setTimeout(()=>{logMemberReportUpload();},100);
+  }
+  document.getElementById('member-upload-result').innerHTML=html;
+}
+
+function openMemberQuickAdd(){
+  closeModal('member-upload-modal');
+  const sub=document.getElementById('member-quickadd-sub');
+  sub.textContent=`These ${_pendingMemberMatches.length} member${_pendingMemberMatches.length!==1?'s':''} are in your Mindbody report but not in the New Guest tracker. Fill in the details and check "Add" for each one you want to include.`;
+  const memberTierOpts=MEMBER_TIERS.map(t=>`<option value="${t}">${t}</option>`).join('');
+  const packageTierOpts=PACKAGE_TIERS.map(t=>`<option value="${t}">${t}</option>`).join('');
+  const staffOpts=activeStaff().map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  const today=toInputDate(new Date());
+  const rowsHtml=_pendingMemberMatches.map((u,i)=>{
+    // Try to guess type from tier text
+    const tierLower=(u.tier||'').toLowerCase();
+    const guessedType=/pack/i.test(tierLower)?'package':'member';
+    const guessedTierMatch=guessedType==='member'
+      ?MEMBER_TIERS.find(t=>tierLower.includes(t.toLowerCase().replace(' ','')))||MEMBER_TIERS.find(t=>tierLower.includes(t.toLowerCase().split(' ')[0]))
+      :PACKAGE_TIERS.find(t=>tierLower.includes(t.toLowerCase().replace(' ','')));
+    // Try to parse start date
+    let startDateValue=today;
+    if(u.start){const d=parseDate(u.start);if(d)startDateValue=toInputDate(d);}
+    return`<div class="mccard" id="qa-row-${i}" style="padding:12px;margin-bottom:8px;">
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <input type="checkbox" id="qa-add-${i}" checked style="margin-top:4px;width:18px;height:18px;flex-shrink:0;">
+        <div style="flex:1;">
+          <div style="font-weight:600;font-size:14px;margin-bottom:6px;">${u.name}${u.tier?` <span style="font-size:11px;color:var(--muted);font-weight:400;">(report says: ${u.tier})</span>`:''}</div>
+          <div class="frow" style="grid-template-columns:1fr 1fr;gap:8px;">
+            <div class="fg" style="margin:0;"><label class="fl">Type</label>
+              <select class="fi" id="qa-type-${i}" onchange="updateQuickAddTier(${i})">
+                <option value="member" ${guessedType==='member'?'selected':''}>Member</option>
+                <option value="package" ${guessedType==='package'?'selected':''}>Package holder</option>
+              </select>
+            </div>
+            <div class="fg" style="margin:0;"><label class="fl">Tier / Package</label>
+              <select class="fi" id="qa-tier-${i}">${guessedType==='member'?memberTierOpts:packageTierOpts}</select>
+            </div>
+          </div>
+          <div class="frow" style="grid-template-columns:1fr 1fr;gap:8px;">
+            <div class="fg" style="margin:0;"><label class="fl">Contract start date</label>
+              <input type="date" class="fi" id="qa-date-${i}" value="${startDateValue}">
+            </div>
+            <div class="fg" style="margin:0;"><label class="fl">Assigned staff</label>
+              <select class="fi" id="qa-staff-${i}">${staffOpts}</select>
+            </div>
+          </div>
+          <div style="display:flex;gap:14px;margin-top:8px;font-size:12px;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="qa-welcome-${i}"> Welcome email sent</label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;" id="qa-agreement-wrap-${i}"><input type="checkbox" id="qa-agreement-${i}"> Agreement signed</label>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('member-quickadd-rows').innerHTML=rowsHtml;
+  // Set tier defaults for guessed matches
+  _pendingMemberMatches.forEach((u,i)=>{
+    const tierLower=(u.tier||'').toLowerCase();
+    const guessedType=/pack/i.test(tierLower)?'package':'member';
+    const list=guessedType==='member'?MEMBER_TIERS:PACKAGE_TIERS;
+    const match=list.find(t=>tierLower.includes(t.toLowerCase().split(' ')[0]));
+    if(match){const sel=document.getElementById('qa-tier-'+i);if(sel)sel.value=match;}
+    // Hide agreement wrap if package
+    if(guessedType==='package'){const ag=document.getElementById('qa-agreement-wrap-'+i);if(ag)ag.style.display='none';}
+  });
+  document.getElementById('member-quickadd-modal').classList.add('open');
+}
+
+function updateQuickAddTier(i){
+  const type=document.getElementById('qa-type-'+i).value;
+  const tierSel=document.getElementById('qa-tier-'+i);
+  const list=type==='member'?MEMBER_TIERS:PACKAGE_TIERS;
+  tierSel.innerHTML=list.map(t=>`<option value="${t}">${t}</option>`).join('');
+  const ag=document.getElementById('qa-agreement-wrap-'+i);
+  if(ag)ag.style.display=type==='member'?'flex':'none';
+}
+
+async function applyMemberQuickAdd(){
+  const toAdd=[];
+  _pendingMemberMatches.forEach((u,i)=>{
+    if(!document.getElementById('qa-add-'+i)?.checked)return;
+    const type=document.getElementById('qa-type-'+i).value;
+    const tier=document.getElementById('qa-tier-'+i).value;
+    const dv=document.getElementById('qa-date-'+i).value;
+    const staff=document.getElementById('qa-staff-'+i).value;
+    const welcomeEmailSent=document.getElementById('qa-welcome-'+i).checked;
+    const agreementSigned=type==='member'?document.getElementById('qa-agreement-'+i).checked:false;
+    if(!tier||!dv||!staff)return;
+    toAdd.push({name:u.name,type,tier,contractStartDate:dv,assignedStaff:staff,welcomeEmailSent,agreementSigned});
+  });
+  if(!toAdd.length){alert('No members selected to add. Either uncheck the modal to skip, or fill in the required fields.');return;}
+  for(const m of toAdd){
+    const id=Date.now().toString()+Math.random().toString(36).slice(2,6);
+    if(useLocalStorage){
+      guests.push({id,name:m.name,type:m.type,tier:m.tier,contractStartDate:parseDate(m.contractStartDate).toISOString(),assignedStaff:m.assignedStaff,visitStatus:'healthy',welcomeEmailSent:m.welcomeEmailSent,agreementSigned:m.agreementSigned,logs:{},createdAt:new Date().toISOString()});
+    } else {
+      await api('guests',{method:'POST',body:{id,...m,visitStatus:'healthy'}});
+    }
+  }
+  if(useLocalStorage)lsSave();
+  else await loadGuests();
+  await logMemberReportUpload();
+  closeModal('member-quickadd-modal');
+  setTimeout(()=>alert(`✅ Added ${toAdd.length} new member${toAdd.length!==1?'s':''} to the tracker!`),100);
+  if(currentView==='manager')setMgrTab(currentMgrTab);
+  renderGuests();
+}
+
+async function logMemberReportUpload(){
+  // Save a system event row marking when this upload happened
+  const id='memlog-'+Date.now();
+  const rec={id,title:'__member-report-log',eventType:'other',startDate:toInputDate(new Date()),endDate:null,timeRange:'',description:'Member roster upload',volunteerNeeded:false,assignedStaff:null,createdAt:new Date().toISOString()};
+  if(useLocalStorage){events.push(rec);lsSave();}
+  else{try{await api('events',{method:'POST',body:rec});await loadEvents();}catch(e){console.warn('Could not log member upload',e.message);}}
 }
 
 async function applyUploadedVisits(){
@@ -3962,7 +4204,7 @@ function renderEvents(){
   const fil=document.getElementById('events-filter').value;
   const typeFil=document.getElementById('events-type-filter').value;
   const todayD=today();
-  let list=events.filter(e=>e.eventType!=='promo-code');
+  let list=events.filter(e=>e.eventType!=='promo-code'&&!(e.title||'').startsWith('__'));
   if(fil==='upcoming')list=list.filter(e=>{const ed=parseDate(e.endDate||e.startDate);return ed&&ed>=todayD;});
   else if(fil==='past')list=list.filter(e=>{const ed=parseDate(e.endDate||e.startDate);return ed&&ed<todayD;});
   if(typeFil!=='all')list=list.filter(e=>e.eventType===typeFil);
