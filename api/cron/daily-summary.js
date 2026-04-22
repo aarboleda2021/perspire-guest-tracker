@@ -31,7 +31,12 @@ function toDateStr(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padSta
 function escapeHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 module.exports = async function handler(req, res) {
-  if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+  // Accept auth via standard Authorization header (used by Vercel cron)
+  // OR via ?key=CRON_SECRET query param (convenient for manual preview)
+  const secret = process.env.CRON_SECRET;
+  const headerOk = req.headers.authorization === `Bearer ${secret}`;
+  const queryOk = secret && req.query && req.query.key === secret;
+  if (!headerOk && !queryOk) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
