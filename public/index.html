@@ -966,15 +966,14 @@
   </div>
 </div>
 
-<!-- QUICK-ADD MISSING MEMBERS MODAL -->
+<!-- PENDING MEMBERS REVIEW MODAL -->
 <div class="modal-ov" id="member-quickadd-modal">
   <div class="modal" style="max-width:760px;">
-    <div class="modal-title">Add missing members</div>
-    <div class="modal-sub" id="member-quickadd-sub">These members are in your Mindbody report but not in the New Guest tracker. Fill in the details to add them.</div>
-    <div id="member-quickadd-rows" style="max-height:480px;overflow-y:auto;margin-bottom:16px;"></div>
+    <div class="modal-title">Members pending review</div>
+    <div class="modal-sub" id="member-quickadd-sub"></div>
+    <div id="member-quickadd-rows" style="max-height:520px;overflow-y:auto;margin-bottom:16px;"></div>
     <div class="modal-actions">
-      <button class="btn btn-g" onclick="closeModal('member-quickadd-modal')">Cancel</button>
-      <button class="btn btn-p" onclick="applyMemberQuickAdd()">Add selected members</button>
+      <button class="btn btn-g" onclick="closeModal('member-quickadd-modal')">Close</button>
     </div>
   </div>
 </div>
@@ -2300,6 +2299,9 @@ function renderMgrDashboard(){
     return activeStaffIds.some(sid=>!comps[sid]);
   }).length;
 
+  // Pending members from Mindbody report (not yet added or dismissed)
+  const pendingMembersCount=getPendingMembers().length;
+
   // Build alert cards — always show all categories, with 0 if nothing
   const alertDef=[
     {count:urgentChanges.length,label:'Urgent bill dates',sub:'Process before close of business',urgentColor:'var(--urg)',urgentBg:'var(--urgp)',tab:'changes'},
@@ -2313,6 +2315,7 @@ function renderMgrDashboard(){
     {count:urgentNotes.length,label:'Urgent shift notes',sub:'Unresolved and flagged',urgentColor:'var(--urg)',urgentBg:'var(--urgp)',tab:null,goto:'daily-notes'},
     {count:pendingAnnouncements,label:'Announcements pending ack',sub:'Leadership announcements awaiting staff review',urgentColor:'var(--info)',urgentBg:'var(--infop)',tab:null,goto:'daily-notes'},
     {count:incompleteRecordings,label:'Training recordings pending',sub:'Recordings not yet completed by all staff',urgentColor:'var(--info)',urgentBg:'var(--infop)',tab:null,goto:'daily-learning'},
+    {count:pendingMembersCount,label:'Members pending review',sub:'Flagged from Mindbody upload — add or dismiss',urgentColor:'var(--warn)',urgentBg:'var(--warnp)',tab:null,action:'openPendingMembers()'},
   ];
   const alerts=alertDef.map(a=>({
     ...a,
@@ -2368,7 +2371,7 @@ function renderMgrDashboard(){
   html+=`<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 10px;">Needs attention</div>`;
   html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-bottom:22px;">`;
   html+=alerts.map(a=>{
-    const onclick=a.tab?`onclick="setMgrTab('${a.tab}')"`:(a.goto?`onclick="setView('daily');setDailyTab('${a.goto.replace('daily-','')}')"`:'');
+    const onclick=a.tab?`onclick="setMgrTab('${a.tab}')"`:(a.goto?`onclick="setView('daily');setDailyTab('${a.goto.replace('daily-','')}')"`:(a.action?`onclick="${a.action}"`:''));
     return`<div style="background:${a.bg};border:1.5px solid ${a.color};border-radius:12px;padding:14px 16px;cursor:pointer;transition:transform .1s;" ${onclick} onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
       <div style="display:flex;align-items:center;gap:12px;">
         <div style="font-family:'DM Serif Display',serif;font-size:32px;color:${a.color};line-height:1;">${a.count}</div>
@@ -2401,7 +2404,9 @@ function renderMgrOverview(){
     <div class="sc"><div class="scl">Overdue touchpoints</div><div class="scv ${ov>0?'d':''}">${ov}</div></div>
     <div class="sc"><div class="scl">Due this week</div><div class="scv ${dn>0?'w':''}">${dn}</div></div>
     <div class="sc"><div class="scl">At-risk members</div><div class="scv ${ar>0?'d':''}">${ar}</div></div>`;
-  document.getElementById('mgr-stats').innerHTML+=`<div style="grid-column:1/-1;text-align:right;display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-p btn-sm" onclick="openUploadVisits()">📤 Upload visits report</button><button class="btn btn-g btn-sm" onclick="exportGuests()">Export CSV</button></div>`;
+  const pendingCount=getPendingMembers().length;
+  const pendingBtn=pendingCount?`<button class="btn btn-sm" style="background:var(--warnp);border:1.5px solid #E8C07A;color:var(--warn);" onclick="openPendingMembers()">⚠ ${pendingCount} member${pendingCount!==1?'s':''} pending review</button>`:'';
+  document.getElementById('mgr-stats').innerHTML+=`<div style="grid-column:1/-1;text-align:right;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">${pendingBtn}<button class="btn btn-p btn-sm" onclick="openUploadVisits()">📤 Upload visits report</button><button class="btn btn-p btn-sm" onclick="openUploadMembers()">📤 Upload member roster</button><button class="btn btn-g btn-sm" onclick="exportGuests()">Export CSV</button></div>`;
   if(!activeGuests.length){document.getElementById('mgr-list').innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No active clients.</p></div>`;return;}
   document.getElementById('mgr-list').innerHTML=staffList.map(s=>{
     const sc=activeGuests.filter(c=>c.assignedStaff===s.id);if(!sc.length)return'';
@@ -2941,31 +2946,51 @@ function processMemberRows(rows){
   // Compare against ACTIVE guests (members + packages, since the report could include both)
   const activeGuests=guests.filter(g=>!g.deactivated);
   const cutoff=parseDate(MEMBER_TRACKING_START_DATE);
+  const dismissedNames=getDismissedMemberNames();
   const matched=[];
-  const unmatchedAll=[];
+  const newlyFlagged=[]; // net-new unmatched this upload
+  const alreadyPending=[]; // in report AND already pending from prior upload
+  const dismissedInReport=[]; // report name matches a previously dismissed name
   const historical=[];
   reportNames.forEach(rn=>{
-    const m=activeGuests.find(g=>g.name.toLowerCase().trim()===rn.name.toLowerCase());
+    const lower=rn.name.toLowerCase().trim();
+    const m=activeGuests.find(g=>g.name.toLowerCase().trim()===lower);
     if(m){matched.push({...rn,guestId:m.id});return;}
-    // Check start date against cutoff — if before cutoff, treat as historical and ignore
+    if(dismissedNames.includes(lower)){dismissedInReport.push(rn);return;}
     const startD=rn.start?parseDate(rn.start):null;
     if(startD&&cutoff&&startD<cutoff){historical.push(rn);return;}
-    unmatchedAll.push(rn);
+    // Check if already in pending list
+    const existing=getPendingMembers().find(p=>(p.description||'').toLowerCase().trim()===lower);
+    if(existing){alreadyPending.push(rn);return;}
+    newlyFlagged.push(rn);
   });
-  _pendingMemberMatches=unmatchedAll;
+
+  // Persist newly flagged to pending
+  (async ()=>{
+    for(const rn of newlyFlagged){await addPendingMember(rn.name,rn.tier,rn.start);}
+    if(!useLocalStorage)await loadEvents();
+    logMemberReportUpload();
+  })();
+
   const cutoffPretty=cutoff?cutoff.toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'numeric'}):MEMBER_TRACKING_START_DATE;
-  let html=`<div style="margin-top:14px;font-weight:600;">Already in tracker: ${matched.length} · New to add: ${unmatchedAll.length}${historical.length?` · Historical (ignored): ${historical.length}`:''}</div>`;
+  const totalPendingAfter=getPendingMembers().length+newlyFlagged.length;
+  let html=`<div style="margin-top:14px;font-weight:600;">Already in tracker: ${matched.length} · Newly flagged: ${newlyFlagged.length} · Already pending: ${alreadyPending.length}${dismissedInReport.length?` · Previously dismissed: ${dismissedInReport.length}`:''}${historical.length?` · Historical (ignored): ${historical.length}`:''}</div>`;
   html+=`<div style="font-size:12px;color:var(--mid);margin-top:6px;">${reportNames.length} total members in your report. Only members who joined on or after <strong>${cutoffPretty}</strong> are being tracked.</div>`;
-  if(unmatchedAll.length){
+  if(newlyFlagged.length||alreadyPending.length){
+    const total=newlyFlagged.length+alreadyPending.length;
     html+=`<div style="margin-top:14px;padding:12px;background:var(--warnp);border:1.5px solid #E8C07A;border-radius:8px;font-size:13px;color:var(--warn);">
-      <strong>⚠ ${unmatchedAll.length} new member${unmatchedAll.length!==1?'s':''} to add:</strong>
-      <ul style="margin:6px 0 8px 18px;padding:0;">${unmatchedAll.slice(0,10).map(u=>`<li>${u.name}${u.tier?` <span style="color:var(--muted);">— ${u.tier}</span>`:''}${u.start?` <span style="color:var(--muted);">· joined ${u.start}</span>`:''}</li>`).join('')}</ul>
-      ${unmatchedAll.length>10?`<div style="font-size:11px;color:var(--mid);">…and ${unmatchedAll.length-10} more</div>`:''}
+      <strong>⚠ ${total} member${total!==1?'s':''} pending review:</strong>
+      <ul style="margin:6px 0 8px 18px;padding:0;">${newlyFlagged.slice(0,10).map(u=>`<li>${u.name}${u.tier?` <span style="color:var(--muted);">— ${u.tier}</span>`:''}${u.start?` <span style="color:var(--muted);">· joined ${u.start}</span>`:''} <span style="color:var(--tc);font-weight:600;">(new)</span></li>`).join('')}</ul>
+      ${total>10?`<div style="font-size:11px;color:var(--mid);">…and ${total-10} more</div>`:''}
     </div>
-    <div style="display:flex;justify-content:flex-end;margin-top:12px;"><button class="btn btn-p btn-sm" onclick="openMemberQuickAdd()">Add these members →</button></div>`;
+    <div style="display:flex;justify-content:flex-end;margin-top:12px;"><button class="btn btn-p btn-sm" onclick="closeModal('member-upload-modal');openPendingMembers();">Review & resolve all ${total} →</button></div>`;
   } else {
     html+=`<div style="margin-top:14px;padding:12px;background:var(--okp);border:1.5px solid #9ECDB5;border-radius:8px;font-size:13px;color:var(--ok);"><strong>✓ No new members to add — the tracker is caught up!</strong></div>`;
-    setTimeout(()=>{logMemberReportUpload();},100);
+  }
+  if(dismissedInReport.length){
+    html+=`<div style="margin-top:10px;padding:10px 12px;background:white;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--muted);">
+      <strong>${dismissedInReport.length} previously dismissed member${dismissedInReport.length!==1?'s':''}</strong> appeared in your report again but were skipped (you marked them as typos/duplicates/etc. earlier).
+    </div>`;
   }
   if(historical.length){
     html+=`<div style="margin-top:10px;padding:10px 12px;background:var(--sand);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--muted);">
@@ -2975,108 +3000,146 @@ function processMemberRows(rows){
   document.getElementById('member-upload-result').innerHTML=html;
 }
 
-function openMemberQuickAdd(){
+// Open the persistent pending-members review modal
+function openPendingMembers(){
   closeModal('member-upload-modal');
+  const pending=getPendingMembers();
   const sub=document.getElementById('member-quickadd-sub');
-  sub.textContent=`These ${_pendingMemberMatches.length} member${_pendingMemberMatches.length!==1?'s':''} are in your Mindbody report but not in the New Guest tracker. Fill in the details and check "Add" for each one you want to include.`;
+  if(!pending.length){
+    sub.textContent='No members are currently pending review.';
+    document.getElementById('member-quickadd-rows').innerHTML=`<div class="empty" style="padding:24px;"><div class="empty-icon">✓</div><p>You're all caught up! New members flagged from future uploads will appear here.</p></div>`;
+    document.getElementById('member-quickadd-modal').classList.add('open');
+    return;
+  }
+  sub.textContent=`${pending.length} member${pending.length!==1?'s':''} from your Mindbody uploads aren't in the New Guest tracker yet. Add each one (with their details) or dismiss with a reason if they shouldn't be tracked.`;
   const memberTierOpts=MEMBER_TIERS.map(t=>`<option value="${t}">${t}</option>`).join('');
   const packageTierOpts=PACKAGE_TIERS.map(t=>`<option value="${t}">${t}</option>`).join('');
   const staffOpts=activeStaff().map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
   const today=toInputDate(new Date());
-  const rowsHtml=_pendingMemberMatches.map((u,i)=>{
-    // Try to guess type from tier text
-    const tierLower=(u.tier||'').toLowerCase();
+  const rowsHtml=pending.map((p,idx)=>{
+    const pid=p.id;
+    const name=p.description||'';
+    const reportTier=p.timeRange||'';
+    const reportJoin=p.startDate||'';
+    const tierLower=reportTier.toLowerCase();
     const guessedType=/pack/i.test(tierLower)?'package':'member';
-    const guessedTierMatch=guessedType==='member'
-      ?MEMBER_TIERS.find(t=>tierLower.includes(t.toLowerCase().replace(' ','')))||MEMBER_TIERS.find(t=>tierLower.includes(t.toLowerCase().split(' ')[0]))
-      :PACKAGE_TIERS.find(t=>tierLower.includes(t.toLowerCase().replace(' ','')));
-    // Try to parse start date
     let startDateValue=today;
-    if(u.start){const d=parseDate(u.start);if(d)startDateValue=toInputDate(d);}
-    return`<div class="mccard" id="qa-row-${i}" style="padding:12px;margin-bottom:8px;">
-      <div style="display:flex;align-items:flex-start;gap:10px;">
-        <input type="checkbox" id="qa-add-${i}" checked style="margin-top:4px;width:18px;height:18px;flex-shrink:0;">
-        <div style="flex:1;">
-          <div style="font-weight:600;font-size:14px;margin-bottom:6px;">${u.name}${u.tier?` <span style="font-size:11px;color:var(--muted);font-weight:400;">(report says: ${u.tier})</span>`:''}</div>
-          <div class="frow" style="grid-template-columns:1fr 1fr;gap:8px;">
-            <div class="fg" style="margin:0;"><label class="fl">Type</label>
-              <select class="fi" id="qa-type-${i}" onchange="updateQuickAddTier(${i})">
-                <option value="member" ${guessedType==='member'?'selected':''}>Member</option>
-                <option value="package" ${guessedType==='package'?'selected':''}>Package holder</option>
-              </select>
-            </div>
-            <div class="fg" style="margin:0;"><label class="fl">Tier / Package</label>
-              <select class="fi" id="qa-tier-${i}">${guessedType==='member'?memberTierOpts:packageTierOpts}</select>
-            </div>
+    if(reportJoin){const d=parseDate(reportJoin);if(d)startDateValue=toInputDate(d);}
+    const flaggedDate=p.createdAt?new Date(p.createdAt).toLocaleDateString('en-US',{month:'numeric',day:'numeric'}):'';
+    return`<div class="mccard" id="pm-row-${pid}" style="padding:12px;margin-bottom:8px;">
+      <div style="flex:1;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;">
+          <div style="flex:1;">
+            <div style="font-weight:600;font-size:14px;">${name}${reportTier?` <span style="font-size:11px;color:var(--muted);font-weight:400;">— report says: ${reportTier}</span>`:''}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">${reportJoin?`Joined ${reportJoin} · `:''}Flagged ${flaggedDate}</div>
           </div>
-          <div class="frow" style="grid-template-columns:1fr 1fr;gap:8px;">
-            <div class="fg" style="margin:0;"><label class="fl">Contract start date</label>
-              <input type="date" class="fi" id="qa-date-${i}" value="${startDateValue}">
-            </div>
-            <div class="fg" style="margin:0;"><label class="fl">Assigned staff</label>
-              <select class="fi" id="qa-staff-${i}">${staffOpts}</select>
-            </div>
+          <button class="btn btn-g btn-sm" style="flex-shrink:0;border-color:var(--muted);color:var(--muted);" onclick="promptDismissPending('${pid}')">✗ Dismiss</button>
+        </div>
+        <div class="frow" style="grid-template-columns:1fr 1fr;gap:8px;">
+          <div class="fg" style="margin:0;"><label class="fl">Type</label>
+            <select class="fi" id="pm-type-${pid}" onchange="updatePendingRowTier('${pid}')">
+              <option value="member" ${guessedType==='member'?'selected':''}>Member</option>
+              <option value="package" ${guessedType==='package'?'selected':''}>Package holder</option>
+            </select>
           </div>
-          <div style="display:flex;gap:14px;margin-top:8px;font-size:12px;">
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="qa-welcome-${i}"> Welcome email sent</label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;" id="qa-agreement-wrap-${i}"><input type="checkbox" id="qa-agreement-${i}"> Agreement signed</label>
+          <div class="fg" style="margin:0;"><label class="fl">Tier / Package</label>
+            <select class="fi" id="pm-tier-${pid}">${guessedType==='member'?memberTierOpts:packageTierOpts}</select>
           </div>
         </div>
+        <div class="frow" style="grid-template-columns:1fr 1fr;gap:8px;">
+          <div class="fg" style="margin:0;"><label class="fl">Contract start date</label>
+            <input type="date" class="fi" id="pm-date-${pid}" value="${startDateValue}">
+          </div>
+          <div class="fg" style="margin:0;"><label class="fl">Assigned staff</label>
+            <select class="fi" id="pm-staff-${pid}">${staffOpts}</select>
+          </div>
+        </div>
+        <div style="display:flex;gap:14px;margin-top:8px;font-size:12px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="pm-welcome-${pid}"> Welcome email sent</label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;" id="pm-agreement-wrap-${pid}"><input type="checkbox" id="pm-agreement-${pid}"> Agreement signed</label>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:10px;"><button class="btn btn-p btn-sm" onclick="addPendingToTracker('${pid}')">✓ Add to tracker</button></div>
       </div>
     </div>`;
   }).join('');
   document.getElementById('member-quickadd-rows').innerHTML=rowsHtml;
-  // Set tier defaults for guessed matches
-  _pendingMemberMatches.forEach((u,i)=>{
-    const tierLower=(u.tier||'').toLowerCase();
+  // Set tier defaults
+  pending.forEach(p=>{
+    const tierLower=(p.timeRange||'').toLowerCase();
     const guessedType=/pack/i.test(tierLower)?'package':'member';
     const list=guessedType==='member'?MEMBER_TIERS:PACKAGE_TIERS;
     const match=list.find(t=>tierLower.includes(t.toLowerCase().split(' ')[0]));
-    if(match){const sel=document.getElementById('qa-tier-'+i);if(sel)sel.value=match;}
-    // Hide agreement wrap if package
-    if(guessedType==='package'){const ag=document.getElementById('qa-agreement-wrap-'+i);if(ag)ag.style.display='none';}
+    if(match){const sel=document.getElementById('pm-tier-'+p.id);if(sel)sel.value=match;}
+    if(guessedType==='package'){const ag=document.getElementById('pm-agreement-wrap-'+p.id);if(ag)ag.style.display='none';}
   });
   document.getElementById('member-quickadd-modal').classList.add('open');
 }
 
-function updateQuickAddTier(i){
-  const type=document.getElementById('qa-type-'+i).value;
-  const tierSel=document.getElementById('qa-tier-'+i);
+function updatePendingRowTier(pid){
+  const type=document.getElementById('pm-type-'+pid).value;
+  const tierSel=document.getElementById('pm-tier-'+pid);
   const list=type==='member'?MEMBER_TIERS:PACKAGE_TIERS;
   tierSel.innerHTML=list.map(t=>`<option value="${t}">${t}</option>`).join('');
-  const ag=document.getElementById('qa-agreement-wrap-'+i);
+  const ag=document.getElementById('pm-agreement-wrap-'+pid);
   if(ag)ag.style.display=type==='member'?'flex':'none';
 }
 
-async function applyMemberQuickAdd(){
-  const toAdd=[];
-  _pendingMemberMatches.forEach((u,i)=>{
-    if(!document.getElementById('qa-add-'+i)?.checked)return;
-    const type=document.getElementById('qa-type-'+i).value;
-    const tier=document.getElementById('qa-tier-'+i).value;
-    const dv=document.getElementById('qa-date-'+i).value;
-    const staff=document.getElementById('qa-staff-'+i).value;
-    const welcomeEmailSent=document.getElementById('qa-welcome-'+i).checked;
-    const agreementSigned=type==='member'?document.getElementById('qa-agreement-'+i).checked:false;
-    if(!tier||!dv||!staff)return;
-    toAdd.push({name:u.name,type,tier,contractStartDate:dv,assignedStaff:staff,welcomeEmailSent,agreementSigned});
-  });
-  if(!toAdd.length){alert('No members selected to add. Either uncheck the modal to skip, or fill in the required fields.');return;}
-  for(const m of toAdd){
-    const id=Date.now().toString()+Math.random().toString(36).slice(2,6);
-    if(useLocalStorage){
-      guests.push({id,name:m.name,type:m.type,tier:m.tier,contractStartDate:parseDate(m.contractStartDate).toISOString(),assignedStaff:m.assignedStaff,visitStatus:'healthy',welcomeEmailSent:m.welcomeEmailSent,agreementSigned:m.agreementSigned,logs:{},createdAt:new Date().toISOString()});
-    } else {
-      await api('guests',{method:'POST',body:{id,...m,visitStatus:'healthy'}});
-    }
+async function addPendingToTracker(pid){
+  const p=events.find(e=>e.id===pid);if(!p)return;
+  const type=document.getElementById('pm-type-'+pid).value;
+  const tier=document.getElementById('pm-tier-'+pid).value;
+  const dv=document.getElementById('pm-date-'+pid).value;
+  const staff=document.getElementById('pm-staff-'+pid).value;
+  const welcomeEmailSent=document.getElementById('pm-welcome-'+pid).checked;
+  const agreementSigned=type==='member'?document.getElementById('pm-agreement-'+pid).checked:false;
+  if(!tier){alert('Please select a tier.');return;}
+  if(!dv){alert('Please enter a contract start date.');return;}
+  if(!staff){alert('Please assign a staff member.');return;}
+  const name=p.description;
+  const id=Date.now().toString()+Math.random().toString(36).slice(2,6);
+  if(useLocalStorage){
+    guests.push({id,name,type,tier,contractStartDate:parseDate(dv).toISOString(),assignedStaff:staff,visitStatus:'healthy',welcomeEmailSent,agreementSigned,logs:{},createdAt:new Date().toISOString()});
+    lsSave();
+  } else {
+    await api('guests',{method:'POST',body:{id,name,type,tier,contractStartDate:dv,assignedStaff:staff,visitStatus:'healthy',welcomeEmailSent}});
+    // agreementSigned needs a separate PUT because POST doesn't accept it
+    if(agreementSigned){await api('guests?id='+id,{method:'PUT',body:{agreementSigned:true}});}
+    await loadGuests();
   }
-  if(useLocalStorage)lsSave();
-  else await loadGuests();
-  await logMemberReportUpload();
-  closeModal('member-quickadd-modal');
-  setTimeout(()=>alert(`✅ Added ${toAdd.length} new member${toAdd.length!==1?'s':''} to the tracker!`),100);
-  if(currentView==='manager')setMgrTab(currentMgrTab);
+  await removePendingMember(pid);
+  if(!useLocalStorage)await loadEvents();
+  // Re-open the pending list (refreshed) or close if empty
+  if(getPendingMembers().length){openPendingMembers();}
+  else{closeModal('member-quickadd-modal');setTimeout(()=>alert(`✅ Added ${name} to the tracker!`),100);}
   renderGuests();
+  if(currentView==='manager')setMgrTab(currentMgrTab);
+}
+
+function promptDismissPending(pid){
+  const p=events.find(e=>e.id===pid);if(!p)return;
+  const name=p.description;
+  const reasons=[
+    'Typo / misspelled name (already in tracker)',
+    'Nickname / different name used (already in tracker)',
+    'Duplicate entry in report',
+    'Not a real new member (e.g. front desk test)',
+    'Other'
+  ];
+  const choice=prompt(`Dismiss "${name}"?\n\nEnter the number for the reason:\n${reasons.map((r,i)=>`${i+1}. ${r}`).join('\n')}\n\n(or leave blank to cancel)`);
+  if(!choice)return;
+  const idx=parseInt(choice)-1;
+  if(isNaN(idx)||idx<0||idx>=reasons.length){alert('Invalid choice — not dismissed.');return;}
+  let reason=reasons[idx];
+  if(idx===reasons.length-1){
+    const detail=prompt('Enter the reason:');
+    if(!detail)return;
+    reason='Other: '+detail;
+  }
+  (async ()=>{
+    await dismissPendingMember(pid,reason);
+    openPendingMembers();// refresh
+    if(currentView==='manager')setMgrTab(currentMgrTab);
+  })();
 }
 
 async function logMemberReportUpload(){
@@ -3085,6 +3148,51 @@ async function logMemberReportUpload(){
   const rec={id,title:'__member-report-log',eventType:'other',startDate:toInputDate(new Date()),endDate:null,timeRange:'',description:'Member roster upload',volunteerNeeded:false,assignedStaff:null,createdAt:new Date().toISOString()};
   if(useLocalStorage){events.push(rec);lsSave();}
   else{try{await api('events',{method:'POST',body:rec});await loadEvents();}catch(e){console.warn('Could not log member upload',e.message);}}
+}
+
+// ── PENDING MEMBER REVIEW (persists across uploads) ──────────────────────
+// Pending: flagged from report but not yet added or dismissed
+// Dismissed: explicitly dismissed by Mohogany (typo, nickname, etc.) — won't re-flag
+
+function getPendingMembers(){return events.filter(e=>e.title==='__pending-member');}
+function getDismissedMemberNames(){
+  return events.filter(e=>e.title==='__dismissed-member').map(e=>(e.description||'').toLowerCase().trim());
+}
+
+async function addPendingMember(name,tier,joinDate){
+  const lower=name.toLowerCase().trim();
+  // Don't re-flag if already pending or already dismissed or already an active guest
+  if(getPendingMembers().some(p=>(p.description||'').toLowerCase().trim()===lower))return;
+  if(getDismissedMemberNames().includes(lower))return;
+  if(guests.some(g=>!g.deactivated&&g.name.toLowerCase().trim()===lower))return;
+  const id='pend-'+Date.now()+Math.random().toString(36).slice(2,6);
+  const rec={id,title:'__pending-member',eventType:'other',description:name,timeRange:tier||'',startDate:joinDate||toInputDate(new Date()),endDate:null,volunteerNeeded:false,assignedStaff:null,createdAt:new Date().toISOString()};
+  if(useLocalStorage){events.push(rec);lsSave();}
+  else{try{await api('events',{method:'POST',body:rec});}catch(e){console.warn('Could not save pending member',e.message);}}
+}
+
+async function removePendingMember(id){
+  if(useLocalStorage){events=events.filter(e=>e.id!==id);lsSave();}
+  else{try{await api('events?id='+id,{method:'DELETE'});}catch(e){console.warn(e.message);}}
+}
+
+async function dismissPendingMember(id,reason){
+  const p=events.find(e=>e.id===id);if(!p)return;
+  // Replace pending entry with a dismissed entry (keeps the name so future uploads skip it)
+  const name=p.description||'';
+  await removePendingMember(id);
+  const did='dism-'+Date.now()+Math.random().toString(36).slice(2,6);
+  const rec={id:did,title:'__dismissed-member',eventType:'other',description:name,timeRange:reason||'',startDate:toInputDate(new Date()),endDate:null,volunteerNeeded:false,assignedStaff:null,createdAt:new Date().toISOString()};
+  if(useLocalStorage){events.push(rec);lsSave();}
+  else{try{await api('events',{method:'POST',body:rec});await loadEvents();}catch(e){console.warn(e.message);}}
+}
+
+function cleanupPendingMembers(){
+  // Auto-remove pending entries whose names match an active guest (in case
+  // Mohogany added them manually through another flow)
+  const pending=getPendingMembers();
+  const activeNames=guests.filter(g=>!g.deactivated).map(g=>g.name.toLowerCase().trim());
+  return Promise.all(pending.filter(p=>activeNames.includes((p.description||'').toLowerCase().trim())).map(p=>removePendingMember(p.id)));
 }
 
 async function applyUploadedVisits(){
