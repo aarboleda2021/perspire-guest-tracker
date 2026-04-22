@@ -51,14 +51,17 @@ module.exports = async function handler(req, res) {
   // Fetch all data in parallel
   const [tasksRes, logsRes, staffRes, notesRes] = await Promise.all([
     supabase.from('daily_task_completions').select('*').eq('date', todayStr),
-    supabase.from('daily_logs').select('*').eq('date', todayStr),
+    supabase.from('daily_logs').select('*').eq('log_date', todayStr),
     supabase.from('staff').select('*').eq('active', true).order('name'),
     supabase.from('shift_notes').select('*').gte('created_at', `${todayStr}T00:00:00`).lte('created_at', `${todayStr}T23:59:59`)
   ]);
 
   if (tasksRes.error || logsRes.error || staffRes.error || notesRes.error) {
     const err = tasksRes.error || logsRes.error || staffRes.error || notesRes.error;
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({
+      error: err.message,
+      where: tasksRes.error ? 'tasks' : logsRes.error ? 'logs' : staffRes.error ? 'staff' : 'notes'
+    });
   }
 
   const tasks = tasksRes.data || [];
