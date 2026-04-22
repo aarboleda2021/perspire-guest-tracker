@@ -1066,7 +1066,8 @@
       <div style="margin-bottom:12px;"><strong>5.</strong> Press <strong>Generate</strong></div>
       <div style="margin-bottom:12px;"><strong>6.</strong> Click <strong>Export to Excel (XLS)</strong> and save the file to your computer</div>
       <div style="margin-bottom:12px;"><strong>7.</strong> Come back here and click "Upload member roster below" to import it</div>
-      <div style="font-size:12px;color:var(--mid);background:white;border-left:3px solid var(--info);padding:8px 12px;border-radius:4px;"><strong>💡 What we compare:</strong> Each name in this report is checked against the New Guest tracker. Any members who aren't in the tracker yet will be listed so you can quickly add them.</div>
+      <div style="font-size:12px;color:var(--mid);background:white;border-left:3px solid var(--info);padding:8px 12px;border-radius:4px;margin-bottom:8px;"><strong>💡 What we compare:</strong> Each name in this report is checked against the New Guest tracker. Any members who aren't in the tracker yet will be listed so you can quickly add them.</div>
+      <div style="font-size:12px;color:var(--mid);background:white;border-left:3px solid var(--warn);padding:8px 12px;border-radius:4px;"><strong>⏱ Date cutoff:</strong> Only members who joined on or after <strong>4/22/2026</strong> (the day the tracker launched) are flagged as missing. Earlier members are silently ignored as historical.</div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-g" onclick="closeModal('member-instructions-modal')">Close</button>
@@ -1127,6 +1128,12 @@
 // ── CONSTANTS ─────────────────────────────────────────────────────────────
 
 const MEMBER_TIERS=['IRelax 4x','IRecover 8x','IRitual Unlimited'];
+
+// Cutoff date for the member roster upload — only members who joined on or
+// after this date get flagged as "missing from tracker." Members with start
+// dates before this are considered historical and silently ignored (staff
+// weren't trained on the tracker before this date). Change this if needed.
+const MEMBER_TRACKING_START_DATE='2026-04-22';
 
 // Session milestones — only apply to new MEMBERS (not packages or nurtures)
 const MILESTONES=[
@@ -2933,27 +2940,37 @@ function processMemberRows(rows){
   });
   // Compare against ACTIVE guests (members + packages, since the report could include both)
   const activeGuests=guests.filter(g=>!g.deactivated);
+  const cutoff=parseDate(MEMBER_TRACKING_START_DATE);
   const matched=[];
-  const unmatched=[];
+  const unmatchedAll=[];
+  const historical=[];
   reportNames.forEach(rn=>{
     const m=activeGuests.find(g=>g.name.toLowerCase().trim()===rn.name.toLowerCase());
-    if(m){matched.push({...rn,guestId:m.id});}
-    else{unmatched.push(rn);}
+    if(m){matched.push({...rn,guestId:m.id});return;}
+    // Check start date against cutoff — if before cutoff, treat as historical and ignore
+    const startD=rn.start?parseDate(rn.start):null;
+    if(startD&&cutoff&&startD<cutoff){historical.push(rn);return;}
+    unmatchedAll.push(rn);
   });
-  _pendingMemberMatches=unmatched;
-  let html=`<div style="margin-top:14px;font-weight:600;">Matched: ${matched.length} · Not yet in tracker: ${unmatched.length}</div>`;
-  html+=`<div style="font-size:12px;color:var(--mid);margin-top:6px;">${reportNames.length} total members in your report.</div>`;
-  if(unmatched.length){
+  _pendingMemberMatches=unmatchedAll;
+  const cutoffPretty=cutoff?cutoff.toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'numeric'}):MEMBER_TRACKING_START_DATE;
+  let html=`<div style="margin-top:14px;font-weight:600;">Already in tracker: ${matched.length} · New to add: ${unmatchedAll.length}${historical.length?` · Historical (ignored): ${historical.length}`:''}</div>`;
+  html+=`<div style="font-size:12px;color:var(--mid);margin-top:6px;">${reportNames.length} total members in your report. Only members who joined on or after <strong>${cutoffPretty}</strong> are being tracked.</div>`;
+  if(unmatchedAll.length){
     html+=`<div style="margin-top:14px;padding:12px;background:var(--warnp);border:1.5px solid #E8C07A;border-radius:8px;font-size:13px;color:var(--warn);">
-      <strong>⚠ ${unmatched.length} member${unmatched.length!==1?'s':''} not in the tracker yet:</strong>
-      <ul style="margin:6px 0 8px 18px;padding:0;">${unmatched.slice(0,10).map(u=>`<li>${u.name}${u.tier?` <span style="color:var(--muted);">— ${u.tier}</span>`:''}</li>`).join('')}</ul>
-      ${unmatched.length>10?`<div style="font-size:11px;color:var(--mid);">…and ${unmatched.length-10} more</div>`:''}
+      <strong>⚠ ${unmatchedAll.length} new member${unmatchedAll.length!==1?'s':''} to add:</strong>
+      <ul style="margin:6px 0 8px 18px;padding:0;">${unmatchedAll.slice(0,10).map(u=>`<li>${u.name}${u.tier?` <span style="color:var(--muted);">— ${u.tier}</span>`:''}${u.start?` <span style="color:var(--muted);">· joined ${u.start}</span>`:''}</li>`).join('')}</ul>
+      ${unmatchedAll.length>10?`<div style="font-size:11px;color:var(--mid);">…and ${unmatchedAll.length-10} more</div>`:''}
     </div>
     <div style="display:flex;justify-content:flex-end;margin-top:12px;"><button class="btn btn-p btn-sm" onclick="openMemberQuickAdd()">Add these members →</button></div>`;
   } else {
-    html+=`<div style="margin-top:14px;padding:12px;background:var(--okp);border:1.5px solid #9ECDB5;border-radius:8px;font-size:13px;color:var(--ok);"><strong>✓ All members in your roster are already in the tracker!</strong></div>`;
-    // Still record the upload as completed
+    html+=`<div style="margin-top:14px;padding:12px;background:var(--okp);border:1.5px solid #9ECDB5;border-radius:8px;font-size:13px;color:var(--ok);"><strong>✓ No new members to add — the tracker is caught up!</strong></div>`;
     setTimeout(()=>{logMemberReportUpload();},100);
+  }
+  if(historical.length){
+    html+=`<div style="margin-top:10px;padding:10px 12px;background:var(--sand);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--muted);">
+      <strong>${historical.length} historical member${historical.length!==1?'s':''}</strong> in your report joined before ${cutoffPretty} and are not being tracked (staff weren't trained on the tracker before that date).
+    </div>`;
   }
   document.getElementById('member-upload-result').innerHTML=html;
 }
