@@ -4667,8 +4667,8 @@ function getDayOfWeek(){
 function setViewDate(d){_viewDate=d||null;renderToday();}
 
 const STUDIO_TASKS=[
-  {key:'call-green-stars',label:'Call tomorrow\'s Green ⭐ first-time visitors',days:[0,1,2,3,4,5,6],scripts:'green-star'},
-  {key:'listen360',label:'Log all Listen360 scores & call respective guests',days:[0,1,2,3,4,5,6],link:'https://docs.google.com/document/d/1tI5RBT6SHZBgFUiANK5zs83yZGxNDdRgbO99cFRRNMc/edit?tab=t.d188mtcl4pen'},
+  {key:'listen360',label:'Log all Listen360 scores & call respective guests',suggestedFor:'opening',days:[0,1,2,3,4,5,6],link:'https://docs.google.com/document/d/1tI5RBT6SHZBgFUiANK5zs83yZGxNDdRgbO99cFRRNMc/edit?tab=t.d188mtcl4pen'},
+  {key:'call-green-stars',label:'Call tomorrow\'s Green ⭐ first-time visitors',suggestedFor:'closing',days:[0,1,2,3,4,5,6],scripts:'green-star'},
   {key:'daily-cleaning',label:'Daily cleaning tasks complete',days:[0,1,2,3,4,5,6],scripts:'cleaning'},
   {key:'halo-clean',label:'Clean halotherapy machines',days:[2],link:'https://docs.google.com/document/d/1VddlJh1Urc8RpQln0Fu0hp7Hc-98ygN1ItEhoRsRPrQ/edit?pli=1&tab=t.0#heading=h.bt97gz4kb186'},
   {key:'cintas',label:'Cintas supplies check',days:[5],special:'cintas'},
@@ -4788,7 +4788,7 @@ async function renderToday(){
     return`<div class="stask ${done?'done':''}" onclick="${clickHandler}" ${t.holiday?'style="border:1.5px dashed var(--warn);background:var(--warnp);"':''}>
       <div class="stask-chk">${done?'<svg width="12" height="12" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div>
       <div class="stask-body">
-        <div class="stask-lbl">${t.label}${t.link?`<a class="stask-link" href="${t.link}" target="_blank" onclick="event.stopPropagation()">How-to guide ↗</a>`:''}</div>
+        <div class="stask-lbl">${t.label}${t.link?`<a class="stask-link" href="${t.link}" target="_blank" onclick="event.stopPropagation()">How-to guide ↗</a>`:''}${t.suggestedFor?`<div style="font-size:11px;color:var(--muted);font-weight:400;margin-top:2px;font-style:italic;">💡 Suggested for ${t.suggestedFor} shift (not a hard rule — just a guide)</div>`:''}</div>
         ${done?`<div class="stask-meta">✓ Completed by ${by} at ${when}${t.special==='cintas'?' · click to view/edit levels':''}</div>${cintasSummary}`:scriptBtn}
       </div>
       ${done?`<button class="btn btn-g btn-sm" onclick="event.stopPropagation();undoTask('${t.key}')" style="font-size:11px;">Undo</button>`:''}
@@ -5097,6 +5097,46 @@ async function renderPerformance(){
   }
 }
 
+// Helper: compute new-guest engagement stats for one staff member
+// `month` is YYYY-MM. Only logs in that month count toward "touchpointsThisMonth".
+function computeEngagementForStaff(staffId,month){
+  const myGuests=guests.filter(g=>g.assignedStaff===staffId);
+  const activeMyGuests=myGuests.filter(g=>!g.deactivated);
+  // Touchpoints overdue right now across active guests
+  let overdueTps=0;
+  activeMyGuests.forEach(g=>{
+    const tps=getTPs(g.type);
+    tps.forEach((_,i)=>{if(tpStatus(g,i)==='overdue')overdueTps++;});
+  });
+  // Touchpoints logged this month (any log across any assigned guest)
+  let loggedThisMonth=0;
+  myGuests.forEach(g=>{
+    if(!g.logs)return;
+    Object.values(g.logs).forEach(log=>{
+      if(!log||!log.date)return;
+      if(log.date.slice(0,7)===month)loggedThisMonth++;
+    });
+  });
+  // At-risk members
+  const atRisk=activeMyGuests.filter(g=>g.visitStatus==='at-risk').length;
+  // Graduations this month (deactivated for graduation with date in month)
+  const graduated=myGuests.filter(g=>g.deactivated&&g.deactivatedReason==='graduated').length;
+  // Retention: of all guests ever assigned, how many are still active or graduated (vs membership-change/requested-no-contact)
+  const lost=myGuests.filter(g=>g.deactivated&&(g.deactivatedReason==='membership-change'||g.deactivatedReason==='requested-no-contact')).length;
+  const totalEver=myGuests.length;
+  const retentionPct=totalEver>0?Math.round(((totalEver-lost)/totalEver)*100):null;
+  return{
+    activeCount:activeMyGuests.length,
+    totalEver,
+    overdueTps,
+    loggedThisMonth,
+    atRisk,
+    graduated,
+    lost,
+    retentionPct
+  };
+}
+
 function renderTeamComparison(logs,month,monthLbl,el){
   const teamStaff=activeStaff().filter(s=>s.id!=='mohogany');
   const teamTotals={o:0,fv:0,m:0,p:0,c:0,pb:0};
@@ -5146,6 +5186,57 @@ function renderTeamComparison(logs,month,monthLbl,el){
         <td class="dlg-staff">Team total</td><td>${teamTotals.o}</td><td>${teamTotals.fv}</td><td>${teamTotals.m}/${teamM}</td><td>${teamTotals.p}/${teamP}</td><td>${teamTotals.c}</td><td>${teamTotals.pb}</td><td>${teamMConv}%</td><td>${teamPConv}%</td><td>${teamAllConv}%</td>
       </tr></tbody>
     </table></div>
+
+    ${(()=>{
+      const engRows=teamStaff.map(s=>{
+        const e=computeEngagementForStaff(s.id,month);
+        const retentionStr=e.retentionPct==null?'—':`${e.retentionPct}%`;
+        const retentionColor=e.retentionPct==null?'var(--muted)':e.retentionPct>=90?'var(--ok)':e.retentionPct>=75?'var(--warn)':'var(--err)';
+        const overdueColor=e.overdueTps===0?'var(--ok)':e.overdueTps<=2?'var(--warn)':'var(--err)';
+        const atRiskColor=e.atRisk===0?'var(--ok)':'var(--warn)';
+        return`<tr>
+          <td class="dlg-staff">${s.name}</td>
+          <td style="text-align:center;">${e.activeCount}</td>
+          <td style="text-align:center;">${e.loggedThisMonth}</td>
+          <td style="text-align:center;color:${overdueColor};font-weight:${e.overdueTps>0?'600':'400'};">${e.overdueTps}</td>
+          <td style="text-align:center;color:${atRiskColor};font-weight:${e.atRisk>0?'600':'400'};">${e.atRisk}</td>
+          <td style="text-align:center;">${e.graduated}</td>
+          <td style="text-align:center;color:${retentionColor};font-weight:600;">${retentionStr}</td>
+        </tr>`;
+      }).join('');
+      const teamEng=teamStaff.reduce((acc,s)=>{
+        const e=computeEngagementForStaff(s.id,month);
+        acc.active+=e.activeCount;acc.totalEver+=e.totalEver;acc.overdue+=e.overdueTps;acc.logged+=e.loggedThisMonth;acc.atRisk+=e.atRisk;acc.grad+=e.graduated;acc.lost+=e.lost;
+        return acc;
+      },{active:0,totalEver:0,overdue:0,logged:0,atRisk:0,grad:0,lost:0});
+      const teamRetention=teamEng.totalEver>0?Math.round(((teamEng.totalEver-teamEng.lost)/teamEng.totalEver)*100):null;
+      return`
+      <div class="sec-hdr" style="margin-top:24px;"><div class="sec-title">New guest engagement</div></div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Retention % = active + graduated guests ÷ all guests ever assigned. Losses counted: membership cancellations and no-contact requests.</div>
+      <div class="dlg-wrap"><table class="dlg">
+        <thead><tr>
+          <th class="dlg-staff">Staff</th>
+          <th style="text-align:center;">Active Guests</th>
+          <th style="text-align:center;">Touchpoints Logged (this month)</th>
+          <th style="text-align:center;">Overdue Touchpoints</th>
+          <th style="text-align:center;">At-risk Members</th>
+          <th style="text-align:center;">Graduated</th>
+          <th style="text-align:center;">Retention %</th>
+        </tr></thead>
+        <tbody>
+          ${engRows}
+          <tr style="border-top:2px solid var(--border);font-weight:700;background:var(--sand);">
+            <td class="dlg-staff">Team total</td>
+            <td style="text-align:center;">${teamEng.active}</td>
+            <td style="text-align:center;">${teamEng.logged}</td>
+            <td style="text-align:center;">${teamEng.overdue}</td>
+            <td style="text-align:center;">${teamEng.atRisk}</td>
+            <td style="text-align:center;">${teamEng.grad}</td>
+            <td style="text-align:center;">${teamRetention==null?'—':teamRetention+'%'}</td>
+          </tr>
+        </tbody>
+      </table></div>`;
+    })()}
   `;
 }
 
@@ -5288,6 +5379,26 @@ function renderIndividualPerformance(logs,month,monthLbl,staffId,el){
       <div class="pstat"><div class="pstat-lbl">First Visits Booked</div><div class="pstat-val">${mtd.firstVisitsBooked}</div><div class="pstat-sub">${rankBadge(rFV.rank,rFV.total)}</div></div>
       <div class="pstat"><div class="pstat-lbl">Pre-booked Guests</div><div class="pstat-val">${mtd.preBooked}</div><div class="pstat-sub">${rankBadge(rPre.rank,rPre.total)}</div></div>
     </div>
+
+    ${(()=>{
+      const e=computeEngagementForStaff(staffId,month);
+      const retentionStr=e.retentionPct==null?'—':e.retentionPct+'%';
+      const retentionColor=e.retentionPct==null?'var(--muted)':e.retentionPct>=90?'var(--ok)':e.retentionPct>=75?'var(--warn)':'var(--err)';
+      const overdueColor=e.overdueTps===0?'var(--ok)':e.overdueTps<=2?'var(--warn)':'var(--err)';
+      const atRiskColor=e.atRisk===0?'var(--ok)':'var(--warn)';
+      return`
+      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 8px;">New guest engagement</div>
+      <div class="pgrid3" style="margin-bottom:8px;">
+        <div class="pstat"><div class="pstat-lbl">Active Guests</div><div class="pstat-val">${e.activeCount}</div><div class="pstat-sub">Assigned to you right now</div></div>
+        <div class="pstat"><div class="pstat-lbl">Touchpoints Logged</div><div class="pstat-val">${e.loggedThisMonth}</div><div class="pstat-sub">This month</div></div>
+        <div class="pstat"><div class="pstat-lbl">Overdue Touchpoints</div><div class="pstat-val" style="color:${overdueColor};">${e.overdueTps}</div><div class="pstat-sub">Across active guests</div></div>
+      </div>
+      <div class="pgrid3" style="margin-bottom:18px;">
+        <div class="pstat"><div class="pstat-lbl">At-risk Members</div><div class="pstat-val" style="color:${atRiskColor};">${e.atRisk}</div><div class="pstat-sub">Flagged as at-risk</div></div>
+        <div class="pstat"><div class="pstat-lbl">Graduated</div><div class="pstat-val">${e.graduated}</div><div class="pstat-sub">Completed 90 days</div></div>
+        <div class="pstat"><div class="pstat-lbl">Retention %</div><div class="pstat-val" style="color:${retentionColor};">${retentionStr}</div><div class="pstat-sub">Still active ÷ all-time assigned</div></div>
+      </div>`;
+    })()}
   `;
 }
 
