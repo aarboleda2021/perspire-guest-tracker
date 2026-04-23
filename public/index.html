@@ -3955,7 +3955,7 @@ async function removeNote(id){
 function editNote(id){
   const n=shiftNotes.find(x=>x.id===id);if(!n)return;
   const el=document.getElementById('note-card-'+id);
-  const prioOpts=['normal','urgent'].map(p=>`<option value="${p}" ${n.priority===p?'selected':''}>${p==='urgent'?'⚠ Urgent':'Normal'}</option>`).join('');
+  const prioOpts=['fyi','urgent'].map(p=>`<option value="${p}" ${n.priority===p?'selected':''}>${p==='urgent'?'⚠ Urgent':'FYI'}</option>`).join('');
   const assignOpts=`<option value="">— No one specific —</option>`+activeStaff().map(s=>`<option value="${s.id}" ${s.id===n.assignedTo?'selected':''}>${s.name}</option>`).join('');
   el.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px;padding:14px 16px;">
     <div class="fg" style="margin:0;"><label class="fl">Note</label><textarea class="fi" id="en-content-${id}" rows="3">${n.content||''}</textarea></div>
