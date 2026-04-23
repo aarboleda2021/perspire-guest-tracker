@@ -4788,7 +4788,7 @@ async function renderToday(){
     return`<div class="stask ${done?'done':''}" onclick="${clickHandler}" ${t.holiday?'style="border:1.5px dashed var(--warn);background:var(--warnp);"':''}>
       <div class="stask-chk">${done?'<svg width="12" height="12" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div>
       <div class="stask-body">
-        <div class="stask-lbl">${t.label}${t.link?`<a class="stask-link" href="${t.link}" target="_blank" onclick="event.stopPropagation()">How-to guide ↗</a>`:''}${t.suggestedFor?`<div style="font-size:11px;color:var(--muted);font-weight:400;margin-top:2px;font-style:italic;">💡 Suggested for ${t.suggestedFor} shift (not a hard rule — just a guide)</div>`:''}</div>
+        <div class="stask-lbl">${t.label}${t.link?`<a class="stask-link" href="${t.link}" target="_blank" onclick="event.stopPropagation()">How-to guide ↗</a>`:''}${t.suggestedFor?`<div style="font-size:11px;color:var(--muted);font-weight:400;margin-top:2px;font-style:italic;">💡 Suggested for ${t.suggestedFor} shift</div>`:''}</div>
         ${done?`<div class="stask-meta">✓ Completed by ${by} at ${when}${t.special==='cintas'?' · click to view/edit levels':''}</div>${cintasSummary}`:scriptBtn}
       </div>
       ${done?`<button class="btn btn-g btn-sm" onclick="event.stopPropagation();undoTask('${t.key}')" style="font-size:11px;">Undo</button>`:''}
