@@ -701,17 +701,18 @@
             <div class="fg"><label class="fl">Time range (optional)</label><input type="text" class="fi" id="event-time" placeholder="e.g. 4-7pm, All day"></div>
           </div>
           <div class="frow">
-            <div class="fg"><label class="fl"># of assignments needed</label>
-              <select class="fi" id="event-slots" onchange="document.getElementById('event-assigned-2-wrap').style.display=this.value==='2'?'block':'none'">
-                <option value="1">1 staff</option>
+            <div class="fg"><label class="fl"># of staff needed</label>
+              <select class="fi" id="event-slots" onchange="updateEventSlotVisibility()">
+                <option value="0">No staff needed</option>
+                <option value="1" selected>1 staff</option>
                 <option value="2">2 staff</option>
               </select>
             </div>
-            <div class="fg"><label class="fl">Assigned staff (optional)</label><select class="fi" id="event-assigned"></select></div>
+            <div class="fg" id="event-assigned-wrap"><label class="fl">Assigned staff (optional)</label><select class="fi" id="event-assigned"></select></div>
           </div>
           <div class="fg" id="event-assigned-2-wrap" style="display:none;"><label class="fl">Second assigned staff (optional)</label><select class="fi" id="event-assigned-2"></select></div>
           <div class="fg"><label class="fl">Description</label><textarea class="fi" id="event-desc" placeholder="Any additional details..."></textarea></div>
-          <div style="font-size:11px;color:var(--muted);margin-bottom:13px;">Unfilled assignment slots will show "Volunteer needed" on the event card.</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:13px;">Unfilled staff slots will show "Volunteer needed" on the event card. Choose "No staff needed" for events that don't require anyone (like a passive promo window or an announced studio closure).</div>
           <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:13px;">
             <button class="btn btn-g" onclick="toggleAddEvent()">Cancel</button>
             <button class="btn btn-p" onclick="addEvent()">Add event</button>
@@ -4473,6 +4474,12 @@ function renderPromoCodes(){
   el.innerHTML=list.map(p=>renderCard(p)).join('');
 }
 
+function updateEventSlotVisibility(){
+  const slots=document.getElementById('event-slots').value;
+  document.getElementById('event-assigned-wrap').style.display=slots==='0'?'none':'block';
+  document.getElementById('event-assigned-2-wrap').style.display=slots==='2'?'block':'none';
+}
+
 function toggleAddEvent(){
   const f=document.getElementById('add-event-form');f.classList.toggle('open');
   if(f.classList.contains('open')){
@@ -4483,7 +4490,7 @@ function toggleAddEvent(){
     document.getElementById('event-time').value='';
     document.getElementById('event-desc').value='';
     document.getElementById('event-slots').value='1';
-    document.getElementById('event-assigned-2-wrap').style.display='none';
+    updateEventSlotVisibility();
     const staffOpts=`<option value="">Unassigned</option>${activeStaff().map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}`;
     document.getElementById('event-assigned').innerHTML=staffOpts;
     document.getElementById('event-assigned-2').innerHTML=staffOpts;
@@ -4497,15 +4504,15 @@ async function addEvent(){
   const endDate=document.getElementById('event-end-date').value||null;
   const timeRange=document.getElementById('event-time').value.trim();
   const description=document.getElementById('event-desc').value.trim();
-  const slots=parseInt(document.getElementById('event-slots').value)||1;
-  const assignedStaff=document.getElementById('event-assigned').value||null;
+  const slots=parseInt(document.getElementById('event-slots').value);
+  const assignedStaff=slots>=1?(document.getElementById('event-assigned').value||null):null;
   const assignedStaff2=slots===2?(document.getElementById('event-assigned-2').value||null):null;
   if(!title){alert('Please enter a title.');return;}
   if(!startDate){alert('Please enter a start date.');return;}
   if(endDate&&endDate<startDate){alert('The end date can\'t be before the start date. Please fix the dates.');return;}
   if(slots===2&&assignedStaff&&assignedStaff2&&assignedStaff===assignedStaff2){alert('The two assigned staff cannot be the same person.');return;}
-  // Derived: "volunteer needed" = any slot has no one assigned
-  const volunteerNeeded=!assignedStaff||(slots===2&&!assignedStaff2);
+  // Derived: "volunteer needed" only applies when slots > 0 and not everyone is filled
+  const volunteerNeeded=slots>=1&&(!assignedStaff||(slots===2&&!assignedStaff2));
   const id=Date.now().toString();
   const rec={id,title,eventType,startDate,endDate,timeRange,description,volunteerNeeded,assignedStaff,assignedStaff2,volunteersCount:slots,createdAt:new Date().toISOString()};
   if(useLocalStorage){events.push(rec);lsSave();}
@@ -4517,8 +4524,8 @@ async function updateEventAssignment(id,staffId,slot){
   const e=events.find(x=>x.id===id);if(!e)return;
   if(slot===2){e.assignedStaff2=staffId||null;}
   else{e.assignedStaff=staffId||null;}
-  const slots=e.volunteersCount||1;
-  e.volunteerNeeded=!e.assignedStaff||(slots===2&&!e.assignedStaff2);
+  const slots=e.volunteersCount??1;
+  e.volunteerNeeded=slots>=1&&(!e.assignedStaff||(slots===2&&!e.assignedStaff2));
   if(useLocalStorage){lsSave();}
   else{await api('events?id='+id,{method:'PUT',body:{assignedStaff:e.assignedStaff,assignedStaff2:e.assignedStaff2,volunteerNeeded:e.volunteerNeeded}});}
   renderEvents();
@@ -4535,7 +4542,7 @@ function editEvent(id){
   const typeOpts=['in-studio','external','promo','closure','early-close','other'].map(t=>`<option value="${t}" ${e.eventType===t?'selected':''}>${{'in-studio':'In-studio tabling','external':'External tabling','promo':'Sales promotion','closure':'Studio closure','early-close':'Early closure','other':'Other'}[t]}</option>`).join('');
   const staffOpts1=`<option value="">Unassigned</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===e.assignedStaff?'selected':''}>${s.name}</option>`).join('')}`;
   const staffOpts2=`<option value="">Unassigned</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===e.assignedStaff2?'selected':''}>${s.name}</option>`).join('')}`;
-  const slots=e.volunteersCount||1;
+  const slots=e.volunteersCount??1;
   const el=document.getElementById('event-card-'+id);
   el.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px;">
     <div class="fg" style="margin:0;"><label class="fl">Title</label><input type="text" class="fi" id="ee-title-${id}" value="${(e.title||'').replace(/"/g,'&quot;')}"></div>
@@ -4543,33 +4550,41 @@ function editEvent(id){
     <div class="fg" style="margin:0;"><label class="fl">Start date</label><input type="date" class="fi" id="ee-start-${id}" value="${e.startDate}"></div></div>
     <div class="frow"><div class="fg" style="margin:0;"><label class="fl">End date</label><input type="date" class="fi" id="ee-end-${id}" value="${e.endDate||''}"></div>
     <div class="fg" style="margin:0;"><label class="fl">Time range</label><input type="text" class="fi" id="ee-time-${id}" value="${(e.timeRange||'').replace(/"/g,'&quot;')}"></div></div>
-    <div class="frow"><div class="fg" style="margin:0;"><label class="fl"># of assignments needed</label>
-      <select class="fi" id="ee-slots-${id}" onchange="document.getElementById('ee-staff-2-wrap-${id}').style.display=this.value==='2'?'block':'none'">
+    <div class="frow"><div class="fg" style="margin:0;"><label class="fl"># of staff needed</label>
+      <select class="fi" id="ee-slots-${id}" onchange="updateEditSlotVisibility('${id}')">
+        <option value="0" ${slots===0?'selected':''}>No staff needed</option>
         <option value="1" ${slots===1?'selected':''}>1 staff</option>
         <option value="2" ${slots===2?'selected':''}>2 staff</option>
       </select>
     </div>
-    <div class="fg" style="margin:0;"><label class="fl">Assigned staff</label><select class="fi" id="ee-staff-${id}">${staffOpts1}</select></div></div>
+    <div class="fg" id="ee-staff-wrap-${id}" style="margin:0;display:${slots===0?'none':'block'};"><label class="fl">Assigned staff</label><select class="fi" id="ee-staff-${id}">${staffOpts1}</select></div></div>
     <div class="fg" id="ee-staff-2-wrap-${id}" style="margin:0;display:${slots===2?'block':'none'};"><label class="fl">Second assigned staff</label><select class="fi" id="ee-staff-2-${id}">${staffOpts2}</select></div>
     <div class="fg" style="margin:0;"><label class="fl">Description</label><textarea class="fi" id="ee-desc-${id}">${e.description||''}</textarea></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-sm btn-g" onclick="renderEvents()">Cancel</button><button class="btn btn-sm btn-p" onclick="saveEventEdit('${id}')">Save</button></div>
   </div>`;
 }
+
+function updateEditSlotVisibility(id){
+  const slots=document.getElementById('ee-slots-'+id).value;
+  document.getElementById('ee-staff-wrap-'+id).style.display=slots==='0'?'none':'block';
+  document.getElementById('ee-staff-2-wrap-'+id).style.display=slots==='2'?'block':'none';
+}
+
 async function saveEventEdit(id){
   const title=document.getElementById('ee-title-'+id).value.trim();
   const eventType=document.getElementById('ee-type-'+id).value;
   const startDate=document.getElementById('ee-start-'+id).value;
   const endDate=document.getElementById('ee-end-'+id).value||null;
   const timeRange=document.getElementById('ee-time-'+id).value.trim();
-  const assignedStaff=document.getElementById('ee-staff-'+id).value||null;
-  const slots=parseInt(document.getElementById('ee-slots-'+id).value)||1;
+  const slots=parseInt(document.getElementById('ee-slots-'+id).value);
+  const assignedStaff=slots>=1?(document.getElementById('ee-staff-'+id).value||null):null;
   const assignedStaff2=slots===2?(document.getElementById('ee-staff-2-'+id).value||null):null;
   const description=document.getElementById('ee-desc-'+id).value.trim();
   if(!title){alert('Please enter a title.');return;}
   if(!startDate){alert('Please enter a start date.');return;}
   if(endDate&&endDate<startDate){alert('The end date can\'t be before the start date.');return;}
   if(slots===2&&assignedStaff&&assignedStaff2&&assignedStaff===assignedStaff2){alert('The two assigned staff cannot be the same person.');return;}
-  const volunteerNeeded=!assignedStaff||(slots===2&&!assignedStaff2);
+  const volunteerNeeded=slots>=1&&(!assignedStaff||(slots===2&&!assignedStaff2));
   const e=events.find(x=>x.id===id);if(!e)return;
   Object.assign(e,{title,eventType,startDate,endDate,timeRange,assignedStaff,assignedStaff2,volunteersCount:slots,volunteerNeeded,description});
   if(useLocalStorage){lsSave();}
@@ -4594,27 +4609,34 @@ function renderEvents(){
   el.innerHTML=list.map(e=>{
     const dateStr=e.endDate&&e.endDate!==e.startDate?`${fmtDate(e.startDate)} – ${fmtDate(e.endDate)}`:fmtDate(e.startDate);
     const timeStr=e.timeRange?` · ${e.timeRange}`:'';
-    const slots=e.volunteersCount||1;
+    const slots=e.volunteersCount??1;
     const volunteerLabel='<span style="color:var(--warn);font-weight:600;">⚠ Volunteer needed</span>';
-    const assignedLabels=[];
-    const slot1=e.assignedStaff?sName(e.assignedStaff):volunteerLabel;
-    assignedLabels.push(`<strong>Slot 1:</strong> ${slot1}`);
-    if(slots===2){
-      const slot2=e.assignedStaff2?sName(e.assignedStaff2):volunteerLabel;
-      assignedLabels.push(`<strong>Slot 2:</strong> ${slot2}`);
+    let assignedBlock='';
+    if(slots===0){
+      assignedBlock=`<div style="font-size:12px;color:var(--muted);margin-top:8px;font-style:italic;">No staff assignment needed</div>`;
+    } else {
+      const assignedLabels=[];
+      const slot1=e.assignedStaff?sName(e.assignedStaff):volunteerLabel;
+      assignedLabels.push(slots===2?`<strong>Slot 1:</strong> ${slot1}`:`<strong>Assigned:</strong> ${slot1}`);
+      if(slots===2){
+        const slot2=e.assignedStaff2?sName(e.assignedStaff2):volunteerLabel;
+        assignedLabels.push(`<strong>Slot 2:</strong> ${slot2}`);
+      }
+      assignedBlock=`<div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.7;">${assignedLabels.join('<br>')}</div>`;
     }
     const assignOpts1=`<option value="">Unassigned</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===e.assignedStaff?'selected':''}>${s.name}</option>`).join('')}`;
     const assignOpts2=`<option value="">Unassigned</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===e.assignedStaff2?'selected':''}>${s.name}</option>`).join('')}`;
+    const slotsBadge=slots===0?'<span class="badge bia" style="font-size:10px;">No staff needed</span>':slots===2?'<span class="badge bia" style="font-size:10px;">Needs 2 staff</span>':'';
     return`<div class="mccard" id="event-card-${e.id}" style="padding:14px 16px;margin-bottom:9px;">
       <div style="display:flex;gap:10px;align-items:flex-start;">
         <div style="flex:1;">
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;"><span class="badge ${typeBadges[e.eventType]||'bia'}">${typeLabels[e.eventType]||e.eventType}</span><strong style="font-size:14px;">${e.title}</strong>${slots===2?'<span class="badge bia" style="font-size:10px;">Needs 2 staff</span>':''}</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;"><span class="badge ${typeBadges[e.eventType]||'bia'}">${typeLabels[e.eventType]||e.eventType}</span><strong style="font-size:14px;">${e.title}</strong>${slotsBadge}</div>
           <div style="font-size:12px;color:var(--mid);">${dateStr}${timeStr}</div>
           ${e.description?`<div style="font-size:13px;margin-top:6px;white-space:pre-wrap;">${e.description}</div>`:''}
-          <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.7;">${assignedLabels.join('<br>')}</div>
+          ${assignedBlock}
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;min-width:120px;">
-          <select class="fi" style="font-size:12px;padding:5px 8px;" onchange="updateEventAssignment('${e.id}',this.value,1)" title="Slot 1">${assignOpts1}</select>
+          ${slots>=1?`<select class="fi" style="font-size:12px;padding:5px 8px;" onchange="updateEventAssignment('${e.id}',this.value,1)" title="${slots===2?'Slot 1':'Assigned'}">${assignOpts1}</select>`:''}
           ${slots===2?`<select class="fi" style="font-size:12px;padding:5px 8px;" onchange="updateEventAssignment('${e.id}',this.value,2)" title="Slot 2">${assignOpts2}</select>`:''}
           <button class="btn btn-sm btn-g" onclick="editEvent('${e.id}')">Edit</button>
           <button class="btn btn-sm btn-do" onclick="removeEvent('${e.id}')">Delete</button>
