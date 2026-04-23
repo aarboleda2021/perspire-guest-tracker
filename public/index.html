@@ -3884,6 +3884,7 @@ function setDailyTab(tab){
   else if(tab==='today')renderToday();
   else if(tab==='learning')renderRecordings();
   else if(tab==='perf')initPerformance();
+  if(typeof saveViewState==='function')saveViewState();
 }
 
 // Shift Notes
@@ -5402,7 +5403,21 @@ function renderIndividualPerformance(logs,month,monthLbl,staffId,el){
   `;
 }
 
-// View switching
+// View switching — remembers last view/tab across page refreshes
+const LS_VIEW_STATE='psp-v7-view-state';
+function saveViewState(){
+  try{
+    localStorage.setItem(LS_VIEW_STATE,JSON.stringify({view:currentView,dailyTab:currentDailyTab,mgrTab:currentMgrTab}));
+  }catch(e){}
+}
+function loadViewState(){
+  try{
+    const raw=localStorage.getItem(LS_VIEW_STATE);
+    if(!raw)return null;
+    return JSON.parse(raw);
+  }catch(e){return null;}
+}
+
 let currentView='daily',currentMgrTab='dashboard';
 function setView(v){
   currentView=v;
@@ -5411,6 +5426,7 @@ function setView(v){
   else if(v==='changes')renderChanges();
   else if(v==='daily'){setDailyTab(currentDailyTab);}
   else renderGuests();
+  saveViewState();
 }
 function setMgrTab(tab){
   if(tab==='history')tab='dashboard'; // legacy — history tab removed
@@ -5424,6 +5440,7 @@ function setMgrTab(tab){
   else if(tab==='nurture')renderMgrNurture();
   else if(tab==='graduated')renderMgrGraduated();
   else renderRoster();
+  saveViewState();
 }
 
 // Escape key closes modals
@@ -5435,7 +5452,17 @@ document.addEventListener('keydown',e=>{
   }
 });
 
-loadAll().then(()=>{fillAll();renderGuests();onTypeChange();initFrmScript();setDailyTab('notes');});
+loadAll().then(()=>{
+  fillAll();renderGuests();onTypeChange();initFrmScript();
+  const saved=loadViewState();
+  if(saved&&saved.dailyTab)currentDailyTab=saved.dailyTab;
+  if(saved&&saved.mgrTab)currentMgrTab=saved.mgrTab;
+  if(saved&&saved.view&&['daily','guests','changes','manager'].includes(saved.view)){
+    setView(saved.view);
+  } else {
+    setDailyTab('notes');
+  }
+});
 </script>
 </body>
 </html>
