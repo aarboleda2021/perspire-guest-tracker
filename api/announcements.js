@@ -22,7 +22,9 @@ module.exports = async function handler(req, res) {
       linkLabel: a.link_label || null,
       postedBy: a.posted_by,
       createdAt: a.created_at,
-      acknowledgments: a.acknowledgments || {}
+      acknowledgments: a.acknowledgments || {},
+      resolvedAt: a.resolved_at || null,
+      resolvedBy: a.resolved_by || null
     }));
 
     return res.status(200).json(result);
@@ -53,6 +55,8 @@ module.exports = async function handler(req, res) {
     if (b.linkLabel !== undefined) updates.link_label = b.linkLabel;
     if (b.postedBy !== undefined) updates.posted_by = b.postedBy;
     if (b.acknowledgments !== undefined) updates.acknowledgments = b.acknowledgments;
+    if (b.resolvedAt !== undefined) updates.resolved_at = b.resolvedAt;
+    if (b.resolvedBy !== undefined) updates.resolved_by = b.resolvedBy;
 
     const { error } = await supabase.from('announcements').update(updates).eq('id', id);
     if (error) return res.status(500).json({ error: error.message });

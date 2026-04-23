@@ -24,6 +24,8 @@ module.exports = async function handler(req, res) {
       description: e.description,
       volunteerNeeded: e.volunteer_needed,
       assignedStaff: e.assigned_staff,
+      assignedStaff2: e.assigned_staff_2 || null,
+      volunteersCount: e.volunteers_count || 1,
       createdBy: e.created_by,
       createdAt: e.created_at
     }));
@@ -43,6 +45,8 @@ module.exports = async function handler(req, res) {
       description: b.description || '',
       volunteer_needed: b.volunteerNeeded || false,
       assigned_staff: b.assignedStaff || null,
+      assigned_staff_2: b.assignedStaff2 || null,
+      volunteers_count: b.volunteersCount || 1,
       created_by: b.createdBy || null
     });
     if (error) return res.status(500).json({ error: error.message });
@@ -61,6 +65,8 @@ module.exports = async function handler(req, res) {
     if (b.description !== undefined) updates.description = b.description;
     if (b.volunteerNeeded !== undefined) updates.volunteer_needed = b.volunteerNeeded;
     if (b.assignedStaff !== undefined) updates.assigned_staff = b.assignedStaff;
+    if (b.assignedStaff2 !== undefined) updates.assigned_staff_2 = b.assignedStaff2;
+    if (b.volunteersCount !== undefined) updates.volunteers_count = b.volunteersCount;
 
     const { error } = await supabase.from('events').update(updates).eq('id', id);
     if (error) return res.status(500).json({ error: error.message });

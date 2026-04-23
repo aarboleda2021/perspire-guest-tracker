@@ -309,6 +309,7 @@
     <button class="vbtn" onclick="setView('guests')" id="btn-guests">New Guests</button>
     <button class="vbtn" onclick="setView('changes')" id="btn-changes">Membership Changes</button>
     <button class="vbtn" onclick="setView('manager')" id="btn-manager">Manager View</button>
+    <button class="vbtn" onclick="openModal('help-modal')" id="btn-help" title="Quick reference guide" style="padding-left:14px;padding-right:14px;">?</button>
   </div>
 </div>
 
@@ -343,6 +344,7 @@
       <div class="fg"><label class="fl">Contract start date<span class="req">*</span></label><input type="date" class="fi" id="ng-date"></div>
     </div>
     <div class="fg"><label class="fl">Assigned staff<span class="req">*</span></label><select class="fi" id="ng-staff"></select></div>
+    <div class="fg"><label class="fl">Notes (optional)</label><textarea class="fi" id="ng-notes" placeholder="Any helpful context — medical concerns, goals, referral source, preferred contact time, etc."></textarea></div>
     <div class="fci">
       <input type="checkbox" class="fchk" id="ng-welcome-email">
       <div><div class="fchk-lbl">Welcome email sent</div><div class="fchk-desc">Check this if the welcome email has been sent to the client from Gmail.</div></div>
@@ -698,12 +700,18 @@
             <div class="fg"><label class="fl">End date (optional, for multi-day)</label><input type="date" class="fi" id="event-end-date"></div>
             <div class="fg"><label class="fl">Time range (optional)</label><input type="text" class="fi" id="event-time" placeholder="e.g. 4-7pm, All day"></div>
           </div>
-          <div class="fg"><label class="fl">Assigned staff (optional)</label><select class="fi" id="event-assigned"></select></div>
-          <div class="fg"><label class="fl">Description</label><textarea class="fi" id="event-desc" placeholder="Any additional details..."></textarea></div>
-          <div class="fci">
-            <input type="checkbox" class="fchk" id="event-volunteer">
-            <div><div class="fchk-lbl">Volunteer needed</div><div class="fchk-desc">Check if staff volunteers are needed. Can be updated once someone is assigned.</div></div>
+          <div class="frow">
+            <div class="fg"><label class="fl"># of assignments needed</label>
+              <select class="fi" id="event-slots" onchange="document.getElementById('event-assigned-2-wrap').style.display=this.value==='2'?'block':'none'">
+                <option value="1">1 staff</option>
+                <option value="2">2 staff</option>
+              </select>
+            </div>
+            <div class="fg"><label class="fl">Assigned staff (optional)</label><select class="fi" id="event-assigned"></select></div>
           </div>
+          <div class="fg" id="event-assigned-2-wrap" style="display:none;"><label class="fl">Second assigned staff (optional)</label><select class="fi" id="event-assigned-2"></select></div>
+          <div class="fg"><label class="fl">Description</label><textarea class="fi" id="event-desc" placeholder="Any additional details..."></textarea></div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:13px;">Unfilled assignment slots will show "Volunteer needed" on the event card.</div>
           <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:13px;">
             <button class="btn btn-g" onclick="toggleAddEvent()">Cancel</button>
             <button class="btn btn-p" onclick="addEvent()">Add event</button>
@@ -842,6 +850,7 @@
         <div><div class="fchk-lbl">Membership agreement signed</div></div>
       </div>
     </div>
+    <div class="fg"><label class="fl">Notes</label><textarea class="fi" id="eg-notes" placeholder="Any helpful context — medical concerns, goals, referral source, preferred contact time, etc."></textarea></div>
     <div class="modal-actions">
       <button class="btn btn-g" onclick="closeModal('edit-guest-modal')">Cancel</button>
       <button class="btn btn-p" onclick="saveEditGuest()">Save changes</button>
@@ -1077,6 +1086,118 @@
     <div class="modal-actions">
       <button class="btn btn-g" onclick="closeModal('member-instructions-modal')">Close</button>
       <button class="btn btn-p" onclick="closeModal('member-instructions-modal');openUploadMembers();">📤 Upload member roster below</button>
+    </div>
+  </div>
+</div>
+
+<!-- HELP / QUICK REFERENCE MODAL -->
+<div class="modal-ov" id="help-modal">
+  <div class="modal" style="max-width:780px;">
+    <div class="modal-title">📖 Quick Reference Guide</div>
+    <div class="modal-sub">A quick summary of what everything in this dashboard does. Click any section to expand.</div>
+    <div style="max-height:560px;overflow-y:auto;margin:8px 0 14px;">
+      <details open style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;background:var(--sand);"><summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--tc);">🏠 Overview — the four main areas</summary>
+        <div style="font-size:13px;line-height:1.7;margin-top:10px;color:var(--mid);">
+          <p><strong>Daily Hub</strong> — your day-to-day shift tools: shift notes, announcements, today's tasks, events & promos, learning library, monthly performance.</p>
+          <p><strong>New Guests</strong> — track new members and package holders through their first 90 days with guided touchpoints and visit milestones.</p>
+          <p><strong>Membership Changes</strong> — log and process changes: terminations, suspensions, downgrades, upgrades. Includes retention scripts.</p>
+          <p><strong>Manager View</strong> — Mohogany's home base: dashboard, new guests overview, all changes, nurtures, graduated queue, staff management.</p>
+        </div>
+      </details>
+      <details style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;"><summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--tc);">📝 Shift Notes</summary>
+        <div style="font-size:13px;line-height:1.7;margin-top:10px;color:var(--mid);">
+          <p>Leave notes for the next shift. Normal notes auto-archive after 48 hours. Urgent notes stay until resolved.</p>
+          <p><strong>Add note</strong> with optional "Assign to" (for specific staff) and "Keep visible until" date.</p>
+          <p><strong>Resolve</strong> by picking your name from the dropdown + clicking "Resolve ✓" — this logs who handled it.</p>
+          <p>Edit to fix typos. Delete to remove permanently.</p>
+        </div>
+      </details>
+      <details style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;"><summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--tc);">📣 Leadership Announcements</summary>
+        <div style="font-size:13px;line-height:1.7;margin-top:10px;color:var(--mid);">
+          <p>Only Amanda and Mohogany can post announcements. Optional link (e.g. Google Doc) shows as a clean button.</p>
+          <p><strong>Staff acknowledge</strong> by picking their name + clicking "I've read this ✓." You'll see who has and who hasn't.</p>
+          <p><strong>Mark resolved</strong> — close an announcement early if it's no longer needed (e.g. situation resolved itself). Resolved ones drop off the alert count but keep history.</p>
+          <p><strong>Edit</strong> supports an optional "reset acknowledgments" checkbox for substantive changes.</p>
+        </div>
+      </details>
+      <details style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;"><summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--tc);">📋 Today's Tasks & Daily Log</summary>
+        <div style="font-size:13px;line-height:1.7;margin-top:10px;color:var(--mid);">
+          <p><strong>Studio tasks</strong> — day-of-week aware. Click to mark complete (captures who + when). Holiday-related tasks (door sign, sauna reserve hours) auto-appear on the right days.</p>
+          <p><strong>Daily log grid</strong> — anyone can fill in any row. Columns for opportunities, first visits booked, memberships, packages, calls, pre-bookings. Contact logs + Axle follow-ups as checkboxes. Team totals at the bottom.</p>
+          <p><strong>Date picker</strong> — view or edit past dates if something was missed.</p>
+        </div>
+      </details>
+      <details style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;"><summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--tc);">🎉 Events & Promos</summary>
+        <div style="font-size:13px;line-height:1.7;margin-top:10px;color:var(--mid);">
+          <p><strong>Events</strong> (left) — tabling events, closures, early closes, etc. Choose 1 or 2 staff assignments per event; unfilled slots show "volunteer needed."</p>
+          <p><strong>Promo codes</strong> (right) — reference list of active codes with description, dates, and notes. Auto-tagged as Active/Upcoming/Expired.</p>
+          <p>Both support filters, edit, and delete.</p>
+        </div>
+      </details>
+      <details style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;"><summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--tc);">📹 Learning Library</summary>
+        <div style="font-size:13px;line-height:1.7;margin-top:10px;color:var(--mid);">
+          <p>Weekly Perspire corporate sales training recordings. Click <strong>Watch recording ↗</strong> to open the video (passcode shown separately for easy copy).</p>
+          <p><strong>Mark yourself complete</strong> by selecting your name + writing your biggest takeaway (required — encourages meaningful engagement).</p>
+          <p>Everyone sees everyone's takeaways. Team grid at the top shows who has completed what; hover a ✓ for takeaway preview.</p>
+        </div>
+      </details>
+      <details style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;"><summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--tc);">📈 Monthly Team Performance</summary>
+        <div style="font-size:13px;line-height:1.7;margin-top:10px;color:var(--mid);">
+          <p>Pulls from the daily log data. Select "Team" for aggregate view or a specific staff member for individual stats.</p>
+          <p><strong>Individual view</strong> shows strongest metric + growth area based on team ranking, plus goal progress bars.</p>
+        </div>
+      </details>
+      <details style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;"><summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--tc);">👥 New Guests</summary>
+        <div style="font-size:13px;line-height:1.7;margin-top:10px;color:var(--mid);">
+          <p><strong>Add a guest</strong> → track them through 7 touchpoints (members) or 4 (package holders) over 90 days.</p>
+          <p><strong>Log outreach</strong> on each touchpoint (call/text/email + optional notes). Edit logs if you made a typo.</p>
+          <p><strong>Milestone circles</strong> for members — celebrate at sessions 3, 5, 8, 10, 15, 20. Mohogany uploads the Mindbody attendance report every ~3 days to keep visit counts fresh.</p>
+          <p><strong>Onboarding checks</strong> — welcome email + membership agreement badges show on each card until marked done.</p>
+          <p><strong>Notes field</strong> on the add/edit form for any helpful context about the guest.</p>
+        </div>
+      </details>
+      <details style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;"><summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--tc);">🔄 Membership Changes</summary>
+        <div style="font-size:13px;line-height:1.7;margin-top:10px;color:var(--mid);">
+          <p>Log a change request (termination / suspension / downgrade / upgrade). Required checkboxes ensure Mindbody contact logs were made.</p>
+          <p>Built-in <strong>retention scripts</strong> for outreach. Follow-up flag if the member didn't answer the first try.</p>
+          <p>Mark processed when complete. Upgrades/downgrades auto-create a <strong>tier-change nurture</strong>. Suspensions auto-create a <strong>reactivation reminder</strong>.</p>
+        </div>
+      </details>
+      <details style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;"><summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--tc);">💼 Manager View tabs</summary>
+        <div style="font-size:13px;line-height:1.7;margin-top:10px;color:var(--mid);">
+          <p><strong>Dashboard</strong> — alert cards for everything needing attention. Click any card to jump to the relevant section.</p>
+          <p><strong>New Guests Overview</strong> — active guests grouped by staff. Upload buttons for both the Attendance Analysis (visits) and New Members reports.</p>
+          <p><strong>All Membership Changes</strong> — full log, past and present.</p>
+          <p><strong>Nurture & Reactivations</strong> — follow-ups for tier changes and returning members.</p>
+          <p><strong>Graduated</strong> — members who completed 90 days. Celebrate + mark graduated.</p>
+          <p><strong>Staff Management</strong> — team roster, monthly goals, data backup, daily summary email preview.</p>
+        </div>
+      </details>
+      <details style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;"><summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--tc);">📤 Uploading reports from Mindbody</summary>
+        <div style="font-size:13px;line-height:1.7;margin-top:10px;color:var(--mid);">
+          <p><strong>Visits (Attendance Analysis)</strong> — updates visit counts & milestone tracking for existing members. Upload every 3 days.</p>
+          <p><strong>Member roster (New Members)</strong> — flags any members in Mindbody who aren't in the New Guest tracker yet. Each flagged name persists in a "Pending Review" queue until you add them or dismiss them with a reason.</p>
+          <p>Click the <strong>📖 How to pull this report</strong> button next to each upload for exact Mindbody steps.</p>
+        </div>
+      </details>
+      <details style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;"><summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--tc);">📧 Automated emails</summary>
+        <div style="font-size:13px;line-height:1.7;margin-top:10px;color:var(--mid);">
+          <p><strong>7:00 PM ET daily</strong> — urgent bill date alerts sent to Amanda + Mohogany for any unprocessed member changes due the next business day.</p>
+          <p><strong>11:55 PM ET daily</strong> — end-of-day recap sent to Amanda: studio tasks status, per-staff daily log with goal comparisons, team totals, new shift notes.</p>
+          <p>To preview the nightly recap on demand, go to <strong>Manager View → Staff Management → Daily summary email preview</strong>.</p>
+        </div>
+      </details>
+      <details style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;"><summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--tc);">⌨️ Tips & tricks</summary>
+        <div style="font-size:13px;line-height:1.7;margin-top:10px;color:var(--mid);">
+          <p><strong>Escape</strong> closes any open modal.</p>
+          <p><strong>Click cards</strong> to expand/collapse. Dashboard alert cards also click to their destination.</p>
+          <p><strong>Back up data</strong> monthly from Manager View → Staff Management → Data backup.</p>
+          <p><strong>Hover</strong> any column header with a goal under it (like the daily log) for a tooltip with context.</p>
+        </div>
+      </details>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-p" onclick="closeModal('help-modal')">Got it</button>
     </div>
   </div>
 </div>
@@ -2036,6 +2157,7 @@ function renderGuestCard(c,actions,prefix=''){
       ${!c.deactivated?renderOnboardingChecks(c,actions):''}
       ${c.type==='member'&&!c.deactivated&&actions?renderMilestonesBlock(c):''}
       <div class="tpg">${tpHtml}</div>
+      ${c.notes?`<div style="background:var(--sand);border-left:3px solid var(--tc);border-radius:6px;padding:10px 14px;margin-top:12px;"><div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">📝 Notes</div><div style="font-size:13px;color:var(--mid);white-space:pre-wrap;">${c.notes}</div></div>`:''}
       ${c.deactivated?`<div style="background:var(--errp);border:1.5px solid #E8A8A3;border-radius:10px;padding:11px 14px;margin-top:12px;"><div style="font-size:11px;font-weight:600;color:var(--err);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Deactivated</div><p style="font-size:12px;color:#6B1A0A;line-height:1.5;"><strong>Reason:</strong> ${({'membership-change':'Membership change submitted','requested-no-contact':'Requested no further contact','graduated':'🎓 Graduated from 90-day program',duplicate:'Duplicate entry',other:'Other'})[c.deactivatedReason]||c.deactivatedReason||'Not specified'}${c.deactivatedNotes?` — ${c.deactivatedNotes}`:''}</p></div>`:`<div class="cadbox"><div class="cadbox-t">Cadence guidance — ${c.tier}</div><p><strong>Ideal:</strong> ${g.ideal} · <strong>At-risk:</strong> ${g.risk}<br><strong>Tip:</strong> ${g.tip}</p></div>`}
       ${actHtml}
     </div>
@@ -2294,7 +2416,7 @@ function renderMgrDashboard(){
 
   // Pending announcements (those not yet acknowledged by everyone)
   const activeStaffIds=activeStaff().map(s=>s.id);
-  const pendingAnnouncements=announcements.filter(a=>{
+  const pendingAnnouncements=announcements.filter(a=>!a.resolvedAt).filter(a=>{
     const acks=a.acknowledgments||{};
     return activeStaffIds.some(sid=>!acks[sid]);
   }).length;
@@ -2727,6 +2849,7 @@ async function addGuest(){
   const dv=document.getElementById('ng-date').value;
   const staff=document.getElementById('ng-staff').value;
   const welcomeEmailSent=document.getElementById('ng-welcome-email').checked;
+  const notes=document.getElementById('ng-notes').value.trim();
   if(!name){alert('Please enter a client name.');return;}
   if(!parseDate(dv)){alert('Please enter a valid contract start date.');return;}
   const dup=guests.find(c=>c.name.toLowerCase()===name.toLowerCase());
@@ -2735,13 +2858,13 @@ async function addGuest(){
   const d=parseDate(dv);
   const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   if(useLocalStorage){
-    guests.push({id,name,type,tier,contractStartDate:d.toISOString(),assignedStaff:staff,visitStatus:'healthy',welcomeEmailSent,agreementSigned:false,logs:{},createdAt:new Date().toISOString()});
+    guests.push({id,name,type,tier,contractStartDate:d.toISOString(),assignedStaff:staff,visitStatus:'healthy',welcomeEmailSent,agreementSigned:false,notes,logs:{},createdAt:new Date().toISOString()});
     lsSave();
   } else {
-    await api('guests',{method:'POST',body:{id,name,type,tier,contractStartDate:dateStr,assignedStaff:staff,visitStatus:'healthy',welcomeEmailSent}});
+    await api('guests',{method:'POST',body:{id,name,type,tier,contractStartDate:dateStr,assignedStaff:staff,visitStatus:'healthy',welcomeEmailSent,notes}});
     await loadGuests();
   }
-  document.getElementById('ng-name').value='';document.getElementById('ng-welcome-email').checked=false;toggleAddGuest();renderGuests();
+  document.getElementById('ng-name').value='';document.getElementById('ng-welcome-email').checked=false;document.getElementById('ng-notes').value='';toggleAddGuest();renderGuests();
 }
 async function removeGuest(id){
   if(!confirm('Remove this client?'))return;
@@ -3484,6 +3607,7 @@ function openEditGuest(id){
   document.getElementById('eg-welcome-email').checked=!!c.welcomeEmailSent;
   document.getElementById('eg-agreement').checked=!!c.agreementSigned;
   document.getElementById('eg-agreement-wrap').style.display=c.type==='member'?'flex':'none';
+  document.getElementById('eg-notes').value=c.notes||'';
   document.getElementById('edit-guest-modal').classList.add('open');
 }
 async function saveEditGuest(){
@@ -3497,8 +3621,9 @@ async function saveEditGuest(){
   c.assignedStaff=document.getElementById('eg-staff').value;
   c.welcomeEmailSent=document.getElementById('eg-welcome-email').checked;
   c.agreementSigned=document.getElementById('eg-agreement').checked;
+  c.notes=document.getElementById('eg-notes').value.trim();
   if(useLocalStorage){lsSave();}
-  else{await api('guests?id='+editGuestId,{method:'PUT',body:{name:c.name,type:c.type,tier:c.tier,contractStartDate:c.contractStartDate,assignedStaff:c.assignedStaff,welcomeEmailSent:c.welcomeEmailSent,agreementSigned:c.agreementSigned}});await loadGuests();}
+  else{await api('guests?id='+editGuestId,{method:'PUT',body:{name:c.name,type:c.type,tier:c.tier,contractStartDate:c.contractStartDate,assignedStaff:c.assignedStaff,welcomeEmailSent:c.welcomeEmailSent,agreementSigned:c.agreementSigned,notes:c.notes}});await loadGuests();}
   closeModal('edit-guest-modal');renderGuests();
 }
 
@@ -3936,6 +4061,31 @@ async function unacknowledgeAnnouncement(id,staffId){
   renderAnnouncements();
 }
 
+async function resolveAnnouncement(id){
+  const a=announcements.find(x=>x.id===id);if(!a)return;
+  const resolvers=LEADERSHIP.map((l,i)=>`${i+1}. ${l.name}`).join('\n');
+  const choice=prompt(`Mark "${a.title}" as resolved?\n\nThis will hide it from the "needing acknowledgment" filter and drop it off the dashboard alert count. A resolved badge will still show for history.\n\nWho is resolving it?\n${resolvers}\n\n(enter the number)`);
+  if(!choice)return;
+  const idx=parseInt(choice)-1;
+  if(isNaN(idx)||idx<0||idx>=LEADERSHIP.length){alert('Invalid choice — not resolved.');return;}
+  const by=LEADERSHIP[idx].id;
+  a.resolvedAt=new Date().toISOString();a.resolvedBy=by;
+  if(useLocalStorage){lsSave();}
+  else{await api('announcements?id='+id,{method:'PUT',body:{resolvedAt:a.resolvedAt,resolvedBy:a.resolvedBy}});}
+  renderAnnouncements();
+  if(currentView==='manager')setMgrTab(currentMgrTab);
+}
+
+async function unresolveAnnouncement(id){
+  const a=announcements.find(x=>x.id===id);if(!a)return;
+  if(!confirm('Reopen this announcement? It will appear in the active list again.'))return;
+  a.resolvedAt=null;a.resolvedBy=null;
+  if(useLocalStorage){lsSave();}
+  else{await api('announcements?id='+id,{method:'PUT',body:{resolvedAt:null,resolvedBy:null}});}
+  renderAnnouncements();
+  if(currentView==='manager')setMgrTab(currentMgrTab);
+}
+
 async function removeAnnouncement(id){
   if(!confirm('Delete this announcement? This cannot be undone.'))return;
   if(useLocalStorage){announcements=announcements.filter(x=>x.id!==id);lsSave();}
@@ -3994,38 +4144,44 @@ function renderAnnouncements(){
   let list=[...announcements];
   if(fil==='unacknowledged'){
     list=list.filter(a=>{
+      if(a.resolvedAt)return false;
       const acks=a.acknowledgments||{};
       return activeStaffList.some(s=>!acks[s.id]);
     });
   }
   list.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
-  if(!list.length){el.innerHTML=`<div class="empty" style="padding:20px;"><div class="empty-icon">✓</div><p>All announcements acknowledged by the team.</p></div>`;return;}
+  if(!list.length){el.innerHTML=`<div class="empty" style="padding:20px;"><div class="empty-icon">✓</div><p>All announcements acknowledged or resolved.</p></div>`;return;}
   el.innerHTML=list.map(a=>{
     const acks=a.acknowledgments||{};
     const ackedIds=Object.keys(acks);
     const ackedCount=activeStaffList.filter(s=>acks[s.id]).length;
     const notYet=activeStaffList.filter(s=>!acks[s.id]);
+    const resolved=!!a.resolvedAt;
     const createdStr=new Date(a.createdAt).toLocaleString('en-US',{month:'numeric',day:'numeric',year:'2-digit',hour:'numeric',minute:'2-digit'});
     const linkBtn=a.linkUrl?`<a href="${a.linkUrl}" target="_blank" class="btn btn-g btn-sm" style="text-decoration:none;display:inline-block;margin-top:8px;border-color:var(--info);color:var(--info);">🔗 ${a.linkLabel||'View link'} ↗</a>`:'';
     const ackList=ackedIds.length?`<div style="font-size:11px;color:var(--ok);margin-top:8px;"><strong>✓ Acknowledged by:</strong> ${ackedIds.map(id=>{const s=activeStaffList.find(x=>x.id===id);const t=new Date(acks[id]).toLocaleDateString('en-US',{month:'numeric',day:'numeric'});return s?`${s.name} (${t})`:'';}).filter(Boolean).join(', ')}</div>`:'';
-    const notYetList=notYet.length?`<div style="font-size:11px;color:var(--warn);margin-top:4px;"><strong>Still needs to acknowledge:</strong> ${notYet.map(s=>s.name).join(', ')}</div>`:'';
-    const ackForm=notYet.length?`<div style="margin-top:10px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+    const notYetList=!resolved&&notYet.length?`<div style="font-size:11px;color:var(--warn);margin-top:4px;"><strong>Still needs to acknowledge:</strong> ${notYet.map(s=>s.name).join(', ')}</div>`:'';
+    const ackForm=!resolved&&notYet.length?`<div style="margin-top:10px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
       <select id="ack-by-${a.id}" class="fi" style="font-size:12px;padding:5px 8px;width:auto;"><option value="" disabled selected>Your name</option>${notYet.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select>
       <button class="btn btn-p btn-sm" onclick="acknowledgeAnnouncement('${a.id}')">I've read this ✓</button>
     </div>`:'';
-    return`<div class="mccard" id="announce-card-${a.id}" style="padding:14px 16px;margin-bottom:10px;border:1.5px solid var(--tc);background:white;">
+    const resolvedBadge=resolved?`<div style="margin-top:8px;padding:8px 12px;background:var(--okp);border-left:3px solid var(--ok);border-radius:4px;font-size:12px;color:var(--ok);"><strong>✓ Resolved</strong> by ${leaderName(a.resolvedBy)} on ${new Date(a.resolvedAt).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'})}</div>`:'';
+    const resolveBtn=!resolved?`<button class="btn btn-sm btn-g" onclick="resolveAnnouncement('${a.id}')" style="border-color:var(--ok);color:var(--ok);">✓ Mark resolved</button>`:`<button class="btn btn-sm btn-g" onclick="unresolveAnnouncement('${a.id}')" style="border-color:var(--muted);color:var(--muted);">Reopen</button>`;
+    return`<div class="mccard" id="announce-card-${a.id}" style="padding:14px 16px;margin-bottom:10px;border:1.5px solid ${resolved?'var(--border)':'var(--tc)'};background:${resolved?'var(--sand)':'white'};${resolved?'opacity:.78;':''}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px;">
         <div style="flex:1;">
-          <div style="font-weight:600;font-size:14px;color:var(--dark);">${a.title}</div>
+          <div style="font-weight:600;font-size:14px;color:var(--dark);">${a.title}${resolved?' <span class="badge bhlt">Resolved</span>':''}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:2px;">📣 Posted by <strong>${leaderName(a.postedBy)}</strong> · ${createdStr} · ${ackedCount}/${totalStaff} acknowledged</div>
         </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;">
+        <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">
+          ${resolveBtn}
           <button class="btn btn-sm btn-g" onclick="editAnnouncement('${a.id}')">Edit</button>
           <button class="btn btn-sm btn-do" onclick="removeAnnouncement('${a.id}')">Delete</button>
         </div>
       </div>
       <div style="font-size:13px;white-space:pre-wrap;margin-top:8px;">${a.content}</div>
       ${linkBtn}
+      ${resolvedBadge}
       ${ackList}
       ${notYetList}
       ${ackForm}
@@ -4326,9 +4482,11 @@ function toggleAddEvent(){
     document.getElementById('event-end-date').value='';
     document.getElementById('event-time').value='';
     document.getElementById('event-desc').value='';
-    document.getElementById('event-volunteer').checked=false;
-    const sel=document.getElementById('event-assigned');
-    sel.innerHTML=`<option value="">Unassigned</option>${activeStaff().map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}`;
+    document.getElementById('event-slots').value='1';
+    document.getElementById('event-assigned-2-wrap').style.display='none';
+    const staffOpts=`<option value="">Unassigned</option>${activeStaff().map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}`;
+    document.getElementById('event-assigned').innerHTML=staffOpts;
+    document.getElementById('event-assigned-2').innerHTML=staffOpts;
   }
 }
 
@@ -4339,23 +4497,30 @@ async function addEvent(){
   const endDate=document.getElementById('event-end-date').value||null;
   const timeRange=document.getElementById('event-time').value.trim();
   const description=document.getElementById('event-desc').value.trim();
-  const volunteerNeeded=document.getElementById('event-volunteer').checked;
+  const slots=parseInt(document.getElementById('event-slots').value)||1;
   const assignedStaff=document.getElementById('event-assigned').value||null;
+  const assignedStaff2=slots===2?(document.getElementById('event-assigned-2').value||null):null;
   if(!title){alert('Please enter a title.');return;}
   if(!startDate){alert('Please enter a start date.');return;}
   if(endDate&&endDate<startDate){alert('The end date can\'t be before the start date. Please fix the dates.');return;}
+  if(slots===2&&assignedStaff&&assignedStaff2&&assignedStaff===assignedStaff2){alert('The two assigned staff cannot be the same person.');return;}
+  // Derived: "volunteer needed" = any slot has no one assigned
+  const volunteerNeeded=!assignedStaff||(slots===2&&!assignedStaff2);
   const id=Date.now().toString();
-  const rec={id,title,eventType,startDate,endDate,timeRange,description,volunteerNeeded,assignedStaff,createdAt:new Date().toISOString()};
+  const rec={id,title,eventType,startDate,endDate,timeRange,description,volunteerNeeded,assignedStaff,assignedStaff2,volunteersCount:slots,createdAt:new Date().toISOString()};
   if(useLocalStorage){events.push(rec);lsSave();}
   else{await api('events',{method:'POST',body:rec});await loadEvents();}
   toggleAddEvent();renderEvents();
 }
 
-async function updateEventAssignment(id,staffId){
+async function updateEventAssignment(id,staffId,slot){
   const e=events.find(x=>x.id===id);if(!e)return;
-  e.assignedStaff=staffId||null;
+  if(slot===2){e.assignedStaff2=staffId||null;}
+  else{e.assignedStaff=staffId||null;}
+  const slots=e.volunteersCount||1;
+  e.volunteerNeeded=!e.assignedStaff||(slots===2&&!e.assignedStaff2);
   if(useLocalStorage){lsSave();}
-  else{await api('events?id='+id,{method:'PUT',body:{assignedStaff:e.assignedStaff}});}
+  else{await api('events?id='+id,{method:'PUT',body:{assignedStaff:e.assignedStaff,assignedStaff2:e.assignedStaff2,volunteerNeeded:e.volunteerNeeded}});}
   renderEvents();
 }
 
@@ -4368,7 +4533,9 @@ async function removeEvent(id){
 function editEvent(id){
   const e=events.find(x=>x.id===id);if(!e)return;
   const typeOpts=['in-studio','external','promo','closure','early-close','other'].map(t=>`<option value="${t}" ${e.eventType===t?'selected':''}>${{'in-studio':'In-studio tabling','external':'External tabling','promo':'Sales promotion','closure':'Studio closure','early-close':'Early closure','other':'Other'}[t]}</option>`).join('');
-  const staffOpts=`<option value="">Unassigned</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===e.assignedStaff?'selected':''}>${s.name}</option>`).join('')}`;
+  const staffOpts1=`<option value="">Unassigned</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===e.assignedStaff?'selected':''}>${s.name}</option>`).join('')}`;
+  const staffOpts2=`<option value="">Unassigned</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===e.assignedStaff2?'selected':''}>${s.name}</option>`).join('')}`;
+  const slots=e.volunteersCount||1;
   const el=document.getElementById('event-card-'+id);
   el.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px;">
     <div class="fg" style="margin:0;"><label class="fl">Title</label><input type="text" class="fi" id="ee-title-${id}" value="${(e.title||'').replace(/"/g,'&quot;')}"></div>
@@ -4376,7 +4543,14 @@ function editEvent(id){
     <div class="fg" style="margin:0;"><label class="fl">Start date</label><input type="date" class="fi" id="ee-start-${id}" value="${e.startDate}"></div></div>
     <div class="frow"><div class="fg" style="margin:0;"><label class="fl">End date</label><input type="date" class="fi" id="ee-end-${id}" value="${e.endDate||''}"></div>
     <div class="fg" style="margin:0;"><label class="fl">Time range</label><input type="text" class="fi" id="ee-time-${id}" value="${(e.timeRange||'').replace(/"/g,'&quot;')}"></div></div>
-    <div class="fg" style="margin:0;"><label class="fl">Assigned staff</label><select class="fi" id="ee-staff-${id}">${staffOpts}</select></div>
+    <div class="frow"><div class="fg" style="margin:0;"><label class="fl"># of assignments needed</label>
+      <select class="fi" id="ee-slots-${id}" onchange="document.getElementById('ee-staff-2-wrap-${id}').style.display=this.value==='2'?'block':'none'">
+        <option value="1" ${slots===1?'selected':''}>1 staff</option>
+        <option value="2" ${slots===2?'selected':''}>2 staff</option>
+      </select>
+    </div>
+    <div class="fg" style="margin:0;"><label class="fl">Assigned staff</label><select class="fi" id="ee-staff-${id}">${staffOpts1}</select></div></div>
+    <div class="fg" id="ee-staff-2-wrap-${id}" style="margin:0;display:${slots===2?'block':'none'};"><label class="fl">Second assigned staff</label><select class="fi" id="ee-staff-2-${id}">${staffOpts2}</select></div>
     <div class="fg" style="margin:0;"><label class="fl">Description</label><textarea class="fi" id="ee-desc-${id}">${e.description||''}</textarea></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-sm btn-g" onclick="renderEvents()">Cancel</button><button class="btn btn-sm btn-p" onclick="saveEventEdit('${id}')">Save</button></div>
   </div>`;
@@ -4388,14 +4562,18 @@ async function saveEventEdit(id){
   const endDate=document.getElementById('ee-end-'+id).value||null;
   const timeRange=document.getElementById('ee-time-'+id).value.trim();
   const assignedStaff=document.getElementById('ee-staff-'+id).value||null;
+  const slots=parseInt(document.getElementById('ee-slots-'+id).value)||1;
+  const assignedStaff2=slots===2?(document.getElementById('ee-staff-2-'+id).value||null):null;
   const description=document.getElementById('ee-desc-'+id).value.trim();
   if(!title){alert('Please enter a title.');return;}
   if(!startDate){alert('Please enter a start date.');return;}
   if(endDate&&endDate<startDate){alert('The end date can\'t be before the start date.');return;}
+  if(slots===2&&assignedStaff&&assignedStaff2&&assignedStaff===assignedStaff2){alert('The two assigned staff cannot be the same person.');return;}
+  const volunteerNeeded=!assignedStaff||(slots===2&&!assignedStaff2);
   const e=events.find(x=>x.id===id);if(!e)return;
-  Object.assign(e,{title,eventType,startDate,endDate,timeRange,assignedStaff,description});
+  Object.assign(e,{title,eventType,startDate,endDate,timeRange,assignedStaff,assignedStaff2,volunteersCount:slots,volunteerNeeded,description});
   if(useLocalStorage){lsSave();}
-  else{await api('events?id='+id,{method:'PUT',body:{title,eventType,startDate,endDate,timeRange,assignedStaff,description}});}
+  else{await api('events?id='+id,{method:'PUT',body:{title,eventType,startDate,endDate,timeRange,assignedStaff,assignedStaff2,volunteersCount:slots,volunteerNeeded,description}});}
   renderEvents();
 }
 
@@ -4416,18 +4594,28 @@ function renderEvents(){
   el.innerHTML=list.map(e=>{
     const dateStr=e.endDate&&e.endDate!==e.startDate?`${fmtDate(e.startDate)} – ${fmtDate(e.endDate)}`:fmtDate(e.startDate);
     const timeStr=e.timeRange?` · ${e.timeRange}`:'';
-    const assignedLabel=e.assignedStaff?sName(e.assignedStaff):(e.volunteerNeeded?'<span style="color:var(--warn);font-weight:600;">Volunteer needed — let Amanda or Mohogany know</span>':'No assignment');
-    const assignOpts=`<option value="">Unassigned</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===e.assignedStaff?'selected':''}>${s.name}</option>`).join('')}`;
+    const slots=e.volunteersCount||1;
+    const volunteerLabel='<span style="color:var(--warn);font-weight:600;">⚠ Volunteer needed</span>';
+    const assignedLabels=[];
+    const slot1=e.assignedStaff?sName(e.assignedStaff):volunteerLabel;
+    assignedLabels.push(`<strong>Slot 1:</strong> ${slot1}`);
+    if(slots===2){
+      const slot2=e.assignedStaff2?sName(e.assignedStaff2):volunteerLabel;
+      assignedLabels.push(`<strong>Slot 2:</strong> ${slot2}`);
+    }
+    const assignOpts1=`<option value="">Unassigned</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===e.assignedStaff?'selected':''}>${s.name}</option>`).join('')}`;
+    const assignOpts2=`<option value="">Unassigned</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===e.assignedStaff2?'selected':''}>${s.name}</option>`).join('')}`;
     return`<div class="mccard" id="event-card-${e.id}" style="padding:14px 16px;margin-bottom:9px;">
       <div style="display:flex;gap:10px;align-items:flex-start;">
         <div style="flex:1;">
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;"><span class="badge ${typeBadges[e.eventType]||'bia'}">${typeLabels[e.eventType]||e.eventType}</span><strong style="font-size:14px;">${e.title}</strong></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;"><span class="badge ${typeBadges[e.eventType]||'bia'}">${typeLabels[e.eventType]||e.eventType}</span><strong style="font-size:14px;">${e.title}</strong>${slots===2?'<span class="badge bia" style="font-size:10px;">Needs 2 staff</span>':''}</div>
           <div style="font-size:12px;color:var(--mid);">${dateStr}${timeStr}</div>
           ${e.description?`<div style="font-size:13px;margin-top:6px;white-space:pre-wrap;">${e.description}</div>`:''}
-          <div style="font-size:12px;color:var(--muted);margin-top:8px;">Assigned: ${assignedLabel}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.7;">${assignedLabels.join('<br>')}</div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;min-width:100px;">
-          <select class="fi" style="font-size:12px;padding:5px 8px;" onchange="updateEventAssignment('${e.id}',this.value)">${assignOpts}</select>
+        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;min-width:120px;">
+          <select class="fi" style="font-size:12px;padding:5px 8px;" onchange="updateEventAssignment('${e.id}',this.value,1)" title="Slot 1">${assignOpts1}</select>
+          ${slots===2?`<select class="fi" style="font-size:12px;padding:5px 8px;" onchange="updateEventAssignment('${e.id}',this.value,2)" title="Slot 2">${assignOpts2}</select>`:''}
           <button class="btn btn-sm btn-g" onclick="editEvent('${e.id}')">Edit</button>
           <button class="btn btn-sm btn-do" onclick="removeEvent('${e.id}')">Delete</button>
         </div>
@@ -5107,7 +5295,7 @@ function setMgrTab(tab){
 // Escape key closes modals
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
-    ['log-modal','edit-guest-modal','edit-change-modal','rassign-modal','tp-script-modal','deactivate-modal','milestone-modal','upload-modal','graduation-modal','task-complete-modal','cintas-modal','contact-log-template-modal','upload-instructions-modal','member-upload-modal','member-quickadd-modal','member-instructions-modal'].forEach(id=>{
+    ['log-modal','edit-guest-modal','edit-change-modal','rassign-modal','tp-script-modal','deactivate-modal','milestone-modal','upload-modal','graduation-modal','task-complete-modal','cintas-modal','contact-log-template-modal','upload-instructions-modal','member-upload-modal','member-quickadd-modal','member-instructions-modal','help-modal'].forEach(id=>{
       const el=document.getElementById(id);if(el&&el.classList.contains('open'))closeModal(id);
     });
   }

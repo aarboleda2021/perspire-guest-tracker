@@ -45,6 +45,7 @@ module.exports = async function handler(req, res) {
       milestonesCompleted: g.milestones_completed || {},
       welcomeEmailSent: g.welcome_email_sent || false,
       agreementSigned: g.agreement_signed || false,
+      notes: g.notes || null,
       logs: logsByGuest[g.id] || {},
       createdAt: g.created_at
     }));
@@ -60,7 +61,8 @@ module.exports = async function handler(req, res) {
       assigned_staff: b.assignedStaff,
       visit_status: b.visitStatus || 'healthy',
       welcome_email_sent: b.welcomeEmailSent || false,
-      agreement_signed: b.agreementSigned || false
+      agreement_signed: b.agreementSigned || false,
+      notes: b.notes || null
     });
     if (error) return res.status(500).json({ error: error.message });
     return res.status(201).json({ ok: true });
@@ -84,6 +86,7 @@ module.exports = async function handler(req, res) {
     if (body.milestonesCompleted !== undefined) updates.milestones_completed = body.milestonesCompleted;
     if (body.welcomeEmailSent !== undefined) updates.welcome_email_sent = body.welcomeEmailSent;
     if (body.agreementSigned !== undefined) updates.agreement_signed = body.agreementSigned;
+    if (body.notes !== undefined) updates.notes = body.notes;
 
     const { error } = await supabase.from('guests').update(updates).eq('id', id);
     if (error) return res.status(500).json({ error: error.message });
