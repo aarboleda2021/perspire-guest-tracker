@@ -1092,10 +1092,11 @@
 </div>
 
 <!-- HELP / QUICK REFERENCE MODAL -->
-<div class="modal-ov" id="help-modal">
-  <div class="modal" style="max-width:780px;">
-    <div class="modal-title">📖 Quick Reference Guide</div>
-    <div class="modal-sub">A quick summary of what everything in this dashboard does. Click any section to expand.</div>
+<div class="modal-ov" id="help-modal" onclick="if(event.target===this)closeModal('help-modal')">
+  <div class="modal" style="max-width:780px;position:relative;">
+    <button onclick="closeModal('help-modal')" title="Close" style="position:absolute;top:12px;right:14px;background:transparent;border:none;font-size:24px;color:var(--muted);cursor:pointer;line-height:1;padding:4px 10px;border-radius:6px;z-index:1;" onmouseover="this.style.background='var(--sand)';this.style.color='var(--dark)'" onmouseout="this.style.background='transparent';this.style.color='var(--muted)'">✕</button>
+    <div class="modal-title" style="padding-right:40px;">📖 Quick Reference Guide</div>
+    <div class="modal-sub">A quick summary of what everything in this dashboard does. Click any section to expand. Press <strong>Esc</strong>, click the <strong>✕</strong>, or click outside this box to close.</div>
     <div style="max-height:560px;overflow-y:auto;margin:8px 0 14px;">
       <details open style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;background:var(--sand);"><summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--tc);">🏠 Overview — the four main areas</summary>
         <div style="font-size:13px;line-height:1.7;margin-top:10px;color:var(--mid);">
