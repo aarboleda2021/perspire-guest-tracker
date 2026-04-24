@@ -42,18 +42,27 @@ module.exports = async function handler(req, res) {
 
   const supabase = getSupabase();
 
-  // Get today in Eastern Time (this cron runs at ~11:55pm ET so "today" = the day ending)
+  // Get "today" in Eastern Time with 3am ET reset (matches frontend getTodayStr).
+  // This way the cron reports the correct studio day even if Vercel runs it with
+  // some scheduling jitter (e.g. 12:30am ET instead of 11:55pm ET).
   const nowET = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  if (nowET.getHours() < 3) nowET.setDate(nowET.getDate() - 1);
   const todayStr = toDateStr(nowET);
   const dayOfWeek = nowET.getDay();
-  const prettyDate = nowET.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric', timeZone:'America/New_York' });
+  const prettyDate = nowET.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
+
+  // Compute a generous UTC window around the ET day, then filter to exact ET date in JS.
+  // Avoids timezone bugs where UTC date boundaries miss ET evening hours (ET is UTC-4/-5).
+  const [y, m, d] = todayStr.split('-').map(Number);
+  const windowStart = new Date(Date.UTC(y, m - 1, d - 1, 0, 0, 0)).toISOString();
+  const windowEnd = new Date(Date.UTC(y, m - 1, d + 2, 0, 0, 0)).toISOString();
 
   // Fetch all data in parallel
   const [tasksRes, logsRes, staffRes, notesRes] = await Promise.all([
     supabase.from('daily_task_completions').select('*').eq('date', todayStr),
     supabase.from('daily_logs').select('*').eq('log_date', todayStr),
     supabase.from('staff').select('*').eq('active', true).order('name'),
-    supabase.from('shift_notes').select('*').gte('created_at', `${todayStr}T00:00:00`).lte('created_at', `${todayStr}T23:59:59`)
+    supabase.from('shift_notes').select('*').gte('created_at', windowStart).lte('created_at', windowEnd)
   ]);
 
   if (tasksRes.error || logsRes.error || staffRes.error || notesRes.error) {
@@ -68,7 +77,14 @@ module.exports = async function handler(req, res) {
   const logs = logsRes.data || [];
   const staff = (staffRes.data || []).filter(s => s.id !== 'mohogany');
   const allStaff = staffRes.data || [];
-  const notes = notesRes.data || [];
+  // Filter notes to only those whose created_at falls on the target ET date
+  const notes = (notesRes.data || []).filter(n => {
+    if (!n.created_at) return false;
+    const etDate = new Date(n.created_at).toLocaleDateString('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' });
+    // toLocaleDateString returns "MM/DD/YYYY" — convert to "YYYY-MM-DD"
+    const [mm, dd, yy] = etDate.split('/');
+    return `${yy}-${mm}-${dd}` === todayStr;
+  });
 
   // ── BUILD STUDIO TASKS SECTION ──
   const applicableTasks = STUDIO_TASKS.filter(t => t.days.includes(dayOfWeek));
