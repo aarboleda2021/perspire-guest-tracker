@@ -37,6 +37,10 @@ module.exports = async function handler(req, res) {
         task_data: b.taskData || null
       }, { onConflict: 'date,task_key' });
       if (error) return res.status(500).json({ error: error.message });
+      // Side-effect: email Cintas levels to Amanda when the Cintas task is logged
+      if (b.taskKey === 'cintas' && b.taskData) {
+        sendCintasEmail(b).catch(e => console.warn('Cintas email failed:', e.message));
+      }
       return res.status(201).json({ ok: true });
     }
     if (req.method === 'DELETE') {
@@ -102,3 +106,66 @@ module.exports = async function handler(req, res) {
 
   return res.status(400).json({ error: 'Invalid resource. Use ?resource=tasks or ?resource=logs' });
 };
+
+// ── Cintas levels email ───────────────────────────────────────────────
+const CINTAS_ITEMS = [
+  'Toilet Paper',
+  'Paper Towel',
+  'Hand Soap (Bathroom)',
+  'Hand Sanitizer (At Towel drop)',
+  'Chemical Levels (Disinfectant, Glass Cleaner, Floor Cleaner)',
+  'Mop Heads (2 front Drawers)'
+];
+const STATUS_LABEL = { good: '✓ Good', half: '⚠ Half way', low: '⚠ Need More' };
+const STATUS_COLOR = { good: '#3D7A4F', half: '#B8761A', low: '#C73E1D' };
+
+async function sendCintasEmail(b) {
+  const recipient = process.env.DAILY_SUMMARY_EMAIL || process.env.NOTIFY_EMAIL_1;
+  if (!process.env.RESEND_API_KEY || !recipient) return;
+  const data = b.taskData || {};
+  const completedBy = b.completedBy || 'Unknown';
+  const date = b.date || new Date().toISOString().slice(0, 10);
+  const dateStr = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+  const rowsHtml = CINTAS_ITEMS.map((item, i) => {
+    const d = data[i] || {};
+    const status = d.status || '';
+    const lbl = STATUS_LABEL[status] || '—';
+    const color = STATUS_COLOR[status] || '#888';
+    const notes = d.notes ? `<div style="font-size:12px;color:#5C5C5C;margin-top:4px;font-style:italic;">${String(d.notes).replace(/</g, '&lt;')}</div>` : '';
+    return `<tr>
+      <td style="padding:10px 12px;border-bottom:1px solid #E8E0D8;font-weight:600;">${item}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #E8E0D8;color:${color};font-weight:600;">${lbl}${notes}</td>
+    </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html><body style="font-family:Arial,Helvetica,sans-serif;background:#FAF7F2;margin:0;padding:20px;color:#2A2A2A;">
+    <div style="max-width:600px;margin:0 auto;background:white;border-radius:12px;padding:28px;border:1px solid #E8E0D8;">
+      <div style="font-size:22px;font-weight:700;color:#B85C38;margin-bottom:4px;">📦 Cintas supply levels</div>
+      <div style="font-size:13px;color:#5C5C5C;margin-bottom:18px;">${dateStr} · Logged by ${completedBy}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead><tr>
+          <th style="padding:10px 12px;background:#FAF7F2;border-bottom:2px solid #E8E0D8;text-align:left;font-size:11px;">Item</th>
+          <th style="padding:10px 12px;background:#FAF7F2;border-bottom:2px solid #E8E0D8;text-align:left;font-size:11px;">Status</th>
+        </tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div style="margin-top:18px;padding:12px;background:#FAF7F2;border-radius:8px;font-size:12px;color:#5C5C5C;line-height:1.5;">💡 Use this to cross-check your Cintas invoice and confirm we were only charged for items we needed.</div>
+      <div style="margin-top:18px;border-top:1px solid #E8E0D8;padding-top:12px;font-size:11px;color:#888;text-align:center;">
+        <a href="https://perspire-guest-tracker.vercel.app" style="color:#B85C38;text-decoration:none;">Open dashboard ↗</a><br>
+        Perspire PTC Dashboard · Cintas check
+      </div>
+    </div>
+  </body></html>`;
+
+  await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+      to: [recipient],
+      subject: `📦 Cintas levels logged · ${dateStr}`,
+      html
+    })
+  });
+}
