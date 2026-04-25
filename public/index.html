@@ -4745,7 +4745,7 @@ function getDayOfWeek(){
   const d=parseDate(getViewDate());
   return d?d.getDay():0;
 }
-function setViewDate(d){_viewDate=d||null;renderToday();}
+function setViewDate(d){_viewDate=d||null;_shownNonConvertedReminders.clear();renderToday();}
 
 const STUDIO_TASKS=[
   {key:'listen360',label:'Log all Listen360 scores & call respective guests',suggestedFor:'opening',days:[0,1,2,3,4,5,6],link:'https://docs.google.com/document/d/1tI5RBT6SHZBgFUiANK5zs83yZGxNDdRgbO99cFRRNMc/edit?tab=t.d188mtcl4pen'},
@@ -5065,6 +5065,39 @@ async function updateDailyLogCell(staffId,colKey,val){
     const staffName=sName(staffId)||'You';
     promptAddNewGuestReminder(staffName,kind,delta);
   }
+
+  // Non-converted guest reminder: if Opportunities > sales, remind to log
+  // contact logs + Axle follow-ups for the leftover guests.
+  // Only triggers when the cell that just changed could push the math into
+  // "non-converted guests exist" territory.
+  if(colKey==='opportunities'||colKey==='membershipSales'||colKey==='packageSales'){
+    const opps=parseInt(log.opportunities)||0;
+    const memb=parseInt(log.membershipSales)||0;
+    const pack=parseInt(log.packageSales)||0;
+    const nonConverted=opps-memb-pack;
+    if(opps>0&&nonConverted>0&&(!log.contactLogsDone||!log.axleFollowupsDone)){
+      const staffName=sName(staffId)||'You';
+      promptNonConvertedFollowup(staffName,nonConverted,!log.contactLogsDone,!log.axleFollowupsDone);
+    }
+  }
+}
+
+// Track which (staff,date,reminder) combos we've shown so we don't nag every keystroke
+const _shownNonConvertedReminders=new Set();
+function promptNonConvertedFollowup(staffName,nonConverted,needContactLogs,needAxle){
+  const d=getViewDate();
+  // Build a key that includes WHAT'S still missing — re-show if a previously
+  // checked item gets unchecked.
+  const missingKey=(needContactLogs?'C':'')+(needAxle?'A':'');
+  const key=`${staffName}|${d}|${missingKey}`;
+  if(_shownNonConvertedReminders.has(key))return;
+  _shownNonConvertedReminders.add(key);
+  const both=needContactLogs&&needAxle;
+  const items=[];
+  if(needContactLogs)items.push('Mindbody contact logs');
+  if(needAxle)items.push('Axle follow-ups');
+  const msg=`📋 Reminder for ${staffName}\n\nYou had ${nonConverted} guest${nonConverted!==1?'s':''} who didn't convert today. Don't forget to also fill out:\n\n${items.map(i=>'• '+i).join('\n')}\n\nUse the buttons in the last ${both?'two columns':'column'} of your row to log them.`;
+  alert(msg);
 }
 
 function promptAddNewGuestReminder(staffName,kind,delta){
