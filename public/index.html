@@ -3182,7 +3182,7 @@ function openPendingMembers(){
     document.getElementById('member-quickadd-modal').classList.add('open');
     return;
   }
-  sub.textContent=`${pending.length} member${pending.length!==1?'s':''} from your Mindbody uploads aren't in the New Guest tracker yet. Add each one (with their details) or dismiss with a reason if they shouldn't be tracked.`;
+  sub.innerHTML=`${pending.length} member${pending.length!==1?'s':''} from your Mindbody uploads aren't in the New Guest tracker yet. Add each one (with their details) or dismiss with a reason if they shouldn't be tracked.<br><br><button class="btn btn-g btn-sm" onclick="clearAllPendingMembers()" style="border-color:var(--err);color:var(--err);">🗑 Clear all ${pending.length} pending (use if these were flagged in error)</button>`;
   const memberTierOpts=MEMBER_TIERS.map(t=>`<option value="${t}">${t}</option>`).join('');
   const packageTierOpts=PACKAGE_TIERS.map(t=>`<option value="${t}">${t}</option>`).join('');
   const staffOpts=activeStaff().map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
@@ -3356,6 +3356,23 @@ async function dismissPendingMember(id,reason){
   const rec={id:did,title:'__dismissed-member',eventType:'other',description:name,timeRange:reason||'',startDate:toInputDate(new Date()),endDate:null,volunteerNeeded:false,assignedStaff:null,createdAt:new Date().toISOString()};
   if(useLocalStorage){events.push(rec);lsSave();}
   else{try{await api('events',{method:'POST',body:rec});await loadEvents();}catch(e){console.warn(e.message);}}
+}
+
+async function clearAllPendingMembers(){
+  const pending=getPendingMembers();
+  if(!pending.length){alert('No pending members to clear.');return;}
+  const msg=`This will dismiss ALL ${pending.length} pending members at once.\n\nUse this if they were flagged in error (e.g. they actually joined before 4/22 but the old version of the upload didn't filter them out).\n\nDismissed members won't be flagged again on future uploads. You can also undo this from Supabase if you change your mind.\n\nProceed?`;
+  if(!confirm(msg))return;
+  const ids=pending.map(p=>p.id);
+  let processed=0;
+  for(const pid of ids){
+    await dismissPendingMember(pid,'Bulk-cleared: flagged in error before strict date filter');
+    processed++;
+  }
+  if(!useLocalStorage)await loadEvents();
+  alert(`✓ Cleared ${processed} pending members. They won't be flagged again on future uploads.`);
+  closeModal('member-quickadd-modal');
+  if(currentView==='manager')setMgrTab(currentMgrTab);
 }
 
 function cleanupPendingMembers(){
