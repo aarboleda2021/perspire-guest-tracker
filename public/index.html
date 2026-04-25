@@ -2381,9 +2381,14 @@ function buildPostChecklist(c){
 
 // Dashboard — summary of items needing Mohogany's attention
 function renderMgrDashboard(){
-  // Last visits upload — find max visitsUpdatedAt across member guests
+  // Last visits upload — prefer the explicit attendance upload log (works
+  // even when zero rows matched). Fall back to max visitsUpdatedAt for
+  // historical compatibility with uploads that happened before logging existed.
   const members=guests.filter(c=>c.type==='member'&&!c.deactivated);
-  const lastUpload=members.map(c=>c.visitsUpdatedAt).filter(Boolean).map(d=>new Date(d)).sort((a,b)=>b-a)[0];
+  const attendanceLogs=events.filter(e=>e.eventType==='other'&&e.title==='__attendance-report-log').sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const fromLog=attendanceLogs[0]?new Date(attendanceLogs[0].createdAt):null;
+  const fromGuests=members.map(c=>c.visitsUpdatedAt).filter(Boolean).map(d=>new Date(d)).sort((a,b)=>b-a)[0]||null;
+  const lastUpload=fromLog&&fromGuests?(fromLog>fromGuests?fromLog:fromGuests):(fromLog||fromGuests||null);
   const daysSinceUpload=lastUpload?Math.floor((new Date()-lastUpload)/86400000):null;
 
   // Last member roster upload — stored as a system event
@@ -2473,7 +2478,8 @@ function renderMgrDashboard(){
   } else if(daysSinceUpload>=3){
     uploadCard={bg:'var(--warnp)',border:'1.5px solid #E8C07A',color:'var(--warn)',title:'📤 Time to upload the attendance analysis report',msg:`Last upload was ${daysSinceUpload} days ago. Pull the latest report every 3 days to keep milestones fresh.`};
   } else {
-    uploadCard={bg:'var(--okp)',border:'1.5px solid #9ECDB5',color:'var(--ok)',title:'✓ Attendance report up to date',msg:`Last uploaded ${daysSinceUpload===0?'today':daysSinceUpload===1?'yesterday':`${daysSinceUpload} days ago`}. Next upload due in ${3-daysSinceUpload} day${3-daysSinceUpload!==1?'s':''}.`};
+    const daysUntilNext=Math.max(0,3-daysSinceUpload);
+    uploadCard={bg:'var(--okp)',border:'1.5px solid #9ECDB5',color:'var(--ok)',title:'✓ Attendance report up to date',msg:`Last uploaded ${daysSinceUpload===0?'today':daysSinceUpload===1?'yesterday':`${daysSinceUpload} days ago`}. Next upload due ${daysUntilNext===0?'today':`in ${daysUntilNext} day${daysUntilNext!==1?'s':''}`}.`};
   }
   let memberCard;
   if(lastMemberUpload===null){
@@ -2483,7 +2489,8 @@ function renderMgrDashboard(){
   } else if(daysSinceMemberUpload>=3){
     memberCard={bg:'var(--warnp)',border:'1.5px solid #E8C07A',color:'var(--warn)',title:'👥 Time to upload the member roster',msg:`Last upload was ${daysSinceMemberUpload} days ago. Pull the latest report every 3 days to catch new members early.`};
   } else {
-    memberCard={bg:'var(--okp)',border:'1.5px solid #9ECDB5',color:'var(--ok)',title:'✓ Member roster up to date',msg:`Last uploaded ${daysSinceMemberUpload===0?'today':daysSinceMemberUpload===1?'yesterday':`${daysSinceMemberUpload} days ago`}. Next upload due in ${3-daysSinceMemberUpload} day${3-daysSinceMemberUpload!==1?'s':''}.`};
+    const daysUntilNextMember=Math.max(0,3-daysSinceMemberUpload);
+    memberCard={bg:'var(--okp)',border:'1.5px solid #9ECDB5',color:'var(--ok)',title:'✓ Member roster up to date',msg:`Last uploaded ${daysSinceMemberUpload===0?'today':daysSinceMemberUpload===1?'yesterday':`${daysSinceMemberUpload} days ago`}. Next upload due ${daysUntilNextMember===0?'today':`in ${daysUntilNextMember} day${daysUntilNextMember!==1?'s':''}`}.`};
   }
   // Step intro
   html+=`<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 8px;">Mindbody report uploads</div>
@@ -3019,6 +3026,8 @@ function processUploadRows(rows){
   } else {
     html+=`<div style="margin-top:14px;padding:12px;background:var(--warnp);border:1.5px solid #E8C07A;border-radius:8px;font-size:13px;color:var(--warn);"><strong>No matches found.</strong> If you expected updates, double-check that those members are in your New Guest tracker — try uploading the Member roster report first.</div>`;
     document.getElementById('upload-apply-btn').style.display='none';
+    // Still log the upload attempt so the dashboard cadence card stays accurate
+    logAttendanceReportUpload();
   }
   document.getElementById('upload-result').innerHTML=html;
 }
@@ -3324,6 +3333,16 @@ async function logMemberReportUpload(){
   else{try{await api('events',{method:'POST',body:rec});await loadEvents();}catch(e){console.warn('Could not log member upload',e.message);}}
 }
 
+async function logAttendanceReportUpload(){
+  // Track attendance uploads independently so the dashboard can show
+  // "next due" even if zero visit counts changed (which happens when no
+  // names matched — common in the early days).
+  const id='attlog-'+Date.now();
+  const rec={id,title:'__attendance-report-log',eventType:'other',startDate:toInputDate(new Date()),endDate:null,timeRange:'',description:'Attendance report upload',volunteerNeeded:false,assignedStaff:null,createdAt:new Date().toISOString()};
+  if(useLocalStorage){events.push(rec);lsSave();}
+  else{try{await api('events',{method:'POST',body:rec});await loadEvents();}catch(e){console.warn('Could not log attendance upload',e.message);}}
+}
+
 // ── PENDING MEMBER REVIEW (persists across uploads) ──────────────────────
 // Pending: flagged from report but not yet added or dismissed
 // Dismissed: explicitly dismissed by Mohogany (typo, nickname, etc.) — won't re-flag
@@ -3406,6 +3425,7 @@ async function applyUploadedVisits(){
     else{await api('guests?id='+c.id,{method:'PUT',body:{totalVisits:c.totalVisits,visitsUpdatedAt:c.visitsUpdatedAt}});}
   }
   if(useLocalStorage)lsSave();
+  await logAttendanceReportUpload();
   closeModal('upload-modal');
   if(newMilestonesCount>0){
     setTimeout(()=>alert(`✅ Updated ${updates.length} guest${updates.length!==1?'s':''}.\n\n🎉 ${newMilestonesCount} new milestone${newMilestonesCount!==1?'s':''} ready to celebrate!`),100);
