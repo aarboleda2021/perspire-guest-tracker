@@ -2475,13 +2475,6 @@ function renderMgrDashboard(){
   } else {
     uploadCard={bg:'var(--okp)',border:'1.5px solid #9ECDB5',color:'var(--ok)',title:'✓ Attendance report up to date',msg:`Last uploaded ${daysSinceUpload===0?'today':daysSinceUpload===1?'yesterday':`${daysSinceUpload} days ago`}. Next upload due in ${3-daysSinceUpload} day${3-daysSinceUpload!==1?'s':''}.`};
   }
-  html+=`<div style="background:${uploadCard.bg};border:${uploadCard.border};border-radius:12px;padding:14px 16px;margin-bottom:14px;">
-    <div style="font-weight:600;color:${uploadCard.color};font-size:13px;margin-bottom:4px;">${uploadCard.title}</div>
-    <div style="font-size:12px;color:var(--mid);line-height:1.5;margin-bottom:10px;">${uploadCard.msg}</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-g btn-sm" onclick="openModal('upload-instructions-modal')">📖 How to pull this report</button><button class="btn btn-p btn-sm" onclick="openUploadVisits()">📤 Upload now</button></div>
-  </div>`;
-
-  // Member roster upload card — same urgency tiers (3 day cadence)
   let memberCard;
   if(lastMemberUpload===null){
     memberCard={bg:'var(--warnp)',border:'2px solid #E8C07A',color:'var(--warn)',title:'👥 Upload your member roster from Mindbody',msg:'No member roster has been uploaded yet. Uploading lets us catch any new members who joined but aren\'t in the New Guest tracker yet.'};
@@ -2492,10 +2485,20 @@ function renderMgrDashboard(){
   } else {
     memberCard={bg:'var(--okp)',border:'1.5px solid #9ECDB5',color:'var(--ok)',title:'✓ Member roster up to date',msg:`Last uploaded ${daysSinceMemberUpload===0?'today':daysSinceMemberUpload===1?'yesterday':`${daysSinceMemberUpload} days ago`}. Next upload due in ${3-daysSinceMemberUpload} day${3-daysSinceMemberUpload!==1?'s':''}.`};
   }
-  html+=`<div style="background:${memberCard.bg};border:${memberCard.border};border-radius:12px;padding:14px 16px;margin-bottom:18px;">
-    <div style="font-weight:600;color:${memberCard.color};font-size:13px;margin-bottom:4px;">${memberCard.title}</div>
+  // Step intro
+  html+=`<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 8px;">Mindbody report uploads</div>
+    <div style="font-size:12px;color:var(--mid);margin-bottom:10px;line-height:1.5;">Always do these in order: <strong>Step 1</strong> catches any new members and adds them to the tracker. <strong>Step 2</strong> updates everyone's visit counts.</div>`;
+  // Step 1 — Member roster (FIRST)
+  html+=`<div style="background:${memberCard.bg};border:${memberCard.border};border-radius:12px;padding:14px 16px;margin-bottom:14px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span style="background:${memberCard.color};color:white;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;letter-spacing:.04em;">STEP 1</span><div style="font-weight:600;color:${memberCard.color};font-size:13px;">${memberCard.title}</div></div>
     <div style="font-size:12px;color:var(--mid);line-height:1.5;margin-bottom:10px;">${memberCard.msg}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-g btn-sm" onclick="openModal('member-instructions-modal')">📖 How to pull this report</button><button class="btn btn-p btn-sm" onclick="openUploadMembers()">📤 Upload now</button></div>
+  </div>`;
+  // Step 2 — Attendance (SECOND)
+  html+=`<div style="background:${uploadCard.bg};border:${uploadCard.border};border-radius:12px;padding:14px 16px;margin-bottom:18px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span style="background:${uploadCard.color};color:white;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;letter-spacing:.04em;">STEP 2</span><div style="font-weight:600;color:${uploadCard.color};font-size:13px;">${uploadCard.title}</div></div>
+    <div style="font-size:12px;color:var(--mid);line-height:1.5;margin-bottom:10px;">${uploadCard.msg}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-g btn-sm" onclick="openModal('upload-instructions-modal')">📖 How to pull this report</button><button class="btn btn-p btn-sm" onclick="openUploadVisits()">📤 Upload now</button></div>
   </div>`;
 
   html+=`<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 10px;">Needs attention</div>`;
@@ -5016,6 +5019,7 @@ async function updateDailyLogCell(staffId,colKey,val){
   const d=getViewDate();
   let log=dailyLogs.find(l=>l.staffId===staffId);
   if(!log){log={staffId,date:d,contactLogsDone:false,axleFollowupsDone:false};dailyLogs.push(log);}
+  const prevVal=log[colKey];
   if(val===''){
     delete log[colKey];
   } else {
@@ -5030,6 +5034,37 @@ async function updateDailyLogCell(staffId,colKey,val){
   } else {
     const body={[colKey]:val===''?null:parseInt(val)};
     await api('daily?resource=logs&date='+d+'&staffId='+staffId,{method:'PUT',body});
+  }
+  // Sales-triggered reminder: when staff bumps membership or package sales up,
+  // remind them to add the new guest(s) to the New Guest tracker
+  const newVal=parseInt(val)||0;
+  const oldVal=parseInt(prevVal)||0;
+  if((colKey==='membershipSales'||colKey==='packageSales')&&newVal>oldVal){
+    const delta=newVal-oldVal;
+    const kind=colKey==='membershipSales'?'membership':'package';
+    const staffName=sName(staffId)||'You';
+    promptAddNewGuestReminder(staffName,kind,delta);
+  }
+}
+
+function promptAddNewGuestReminder(staffName,kind,delta){
+  const noun=delta===1?(kind==='membership'?'a membership':'a package'):`${delta} ${kind}s`;
+  const msg=`🎉 Nice job logging ${noun} sale${delta!==1?'s':''}, ${staffName}!\n\nDon't forget to add the new ${kind==='membership'?'member':'package holder'}${delta!==1?'s':''} to the New Guest tracker so you can keep up with their touchpoints over the next 90 days.\n\nGo to New Guests now?`;
+  if(confirm(msg)){
+    setView('guests');
+    // Auto-open the add form for convenience
+    setTimeout(()=>{
+      const f=document.getElementById('add-guest-form');
+      if(f&&!f.classList.contains('open'))toggleAddGuest();
+      // Pre-select the type that matches what they just sold
+      const typeSel=document.getElementById('ng-type');
+      if(typeSel){typeSel.value=kind==='membership'?'member':'package';if(typeof updateTierOpts==='function')updateTierOpts();}
+      // Pre-fill assigned staff to whoever logged the sale (if matches a staff option)
+      const staffSel=document.getElementById('ng-staff');
+      if(staffSel){const opt=Array.from(staffSel.options).find(o=>o.text===staffName);if(opt)staffSel.value=opt.value;}
+      const nameInput=document.getElementById('ng-name');
+      if(nameInput)nameInput.focus();
+    },200);
   }
 }
 
