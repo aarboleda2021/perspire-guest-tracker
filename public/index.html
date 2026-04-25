@@ -3041,7 +3041,26 @@ function handleMembersUpload(event){
       const data=new Uint8Array(e.target.result);
       const wb=XLSX.read(data,{type:'array'});
       const ws=wb.Sheets[wb.SheetNames[0]];
-      const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      // Mindbody reports often have title/blank rows before the real header.
+      // Read as raw arrays first so we can find the actual header row.
+      const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      // Scan first 15 rows for the row that contains a name-related header keyword
+      let headerRowIdx=-1;
+      const nameKeywords=/^(client\s*name|client|name|first\s*name|last\s*name|full\s*name|member|guest)$/i;
+      for(let i=0;i<Math.min(15,aoa.length);i++){
+        const row=aoa[i]||[];
+        if(row.some(cell=>cell&&nameKeywords.test(String(cell).trim()))){
+          headerRowIdx=i;break;
+        }
+      }
+      if(headerRowIdx===-1){
+        // Fallback to default behavior — let the error message in processMemberRows guide them
+        const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+        processMemberRows(rows);
+        return;
+      }
+      // Re-parse using that row as the header
+      const rows=XLSX.utils.sheet_to_json(ws,{range:headerRowIdx,defval:''});
       processMemberRows(rows);
     } catch(err){
       document.getElementById('member-upload-result').innerHTML=`<div style="color:var(--err);padding:10px;">Error parsing file: ${err.message}</div>`;
