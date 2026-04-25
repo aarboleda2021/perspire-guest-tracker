@@ -2988,40 +2988,40 @@ function processUploadRows(rows){
     return;
   }
 
+  // Match against active MEMBERS in the New Guest tracker.
+  // The member roster upload is the gatekeeper for who belongs in the tracker —
+  // anyone not already there is either historical or hasn't been added yet, so
+  // we silently ignore unmatched names from the attendance report.
   const activeMembers=guests.filter(g=>g.type==='member'&&!g.deactivated);
   const matches=[];
+  let unmatchedCount=0;
   rows.forEach(r=>{
     const name=String(r[guestCol]||'').trim();
     const visits=parseInt(r[visitsCol]);
     if(!name||isNaN(visits))return;
     const match=activeMembers.find(g=>g.name.toLowerCase().trim()===name.toLowerCase());
-    matches.push({name,visits,guestId:match?match.id:null});
+    if(match){matches.push({name,visits,guestId:match.id});}
+    else{unmatchedCount++;}
   });
 
   _pendingUploadMatches=matches;
-  const matched=matches.filter(m=>m.guestId);
-  const unmatched=matches.filter(m=>!m.guestId);
 
-  let html=`<div style="margin-top:14px;font-weight:600;">Matched: ${matched.length} · Unmatched: ${unmatched.length}</div>`;
-  if(matched.length){
-    html+=`<div style="margin-top:10px;font-size:12px;color:var(--muted);">Matched (will be updated):</div>`;
-    html+=matched.slice(0,15).map(m=>{const g=guests.find(x=>x.id===m.guestId);return`<div class="upload-row matched">✓ ${m.name} → ${g.name}: ${m.visits} visits</div>`;}).join('');
-    if(matched.length>15)html+=`<div style="font-size:11px;color:var(--muted);padding:6px;">…and ${matched.length-15} more</div>`;
-  }
-  if(unmatched.length){
-    html+=`<div style="margin-top:14px;font-size:12px;color:var(--muted);">Unmatched (optional — link manually or skip):</div>`;
-    html+=unmatched.map((m,i)=>`<div class="upload-row unmatched">⚠ ${m.name} (${m.visits} visits) <select onchange="linkUnmatched(${i},this.value)"><option value="">Skip</option>${activeMembers.map(g=>`<option value="${g.id}">${g.name}</option>`).join('')}</select></div>`).join('');
+  let html=`<div style="margin-top:14px;font-weight:600;">${matches.length} member${matches.length!==1?'s':''} will be updated · ${unmatchedCount} other name${unmatchedCount!==1?'s':''} ignored</div>`;
+  html+=`<div style="font-size:12px;color:var(--mid);margin-top:6px;">Only members already in your New Guest tracker get visit-count updates. Anyone not in the tracker (historical members or not-yet-added members) is silently ignored — use the <strong>Member roster upload</strong> first to add new members.</div>`;
+  if(matches.length){
+    html+=`<div style="margin-top:14px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Updates ready</div>`;
+    html+=matches.slice(0,20).map(m=>{const g=guests.find(x=>x.id===m.guestId);return`<div class="upload-row matched">✓ ${g.name}: ${m.visits} visits</div>`;}).join('');
+    if(matches.length>20)html+=`<div style="font-size:11px;color:var(--muted);padding:6px;">…and ${matches.length-20} more</div>`;
+    document.getElementById('upload-apply-btn').style.display='inline-block';
+  } else {
+    html+=`<div style="margin-top:14px;padding:12px;background:var(--warnp);border:1.5px solid #E8C07A;border-radius:8px;font-size:13px;color:var(--warn);"><strong>No matches found.</strong> If you expected updates, double-check that those members are in your New Guest tracker — try uploading the Member roster report first.</div>`;
+    document.getElementById('upload-apply-btn').style.display='none';
   }
   document.getElementById('upload-result').innerHTML=html;
-  document.getElementById('upload-apply-btn').style.display='inline-block';
 }
 
-function linkUnmatched(unmatchedIdx,guestId){
-  const unmatched=_pendingUploadMatches.filter(m=>!m.guestId);
-  const target=unmatched[unmatchedIdx];if(!target)return;
-  const realIdx=_pendingUploadMatches.indexOf(target);
-  if(realIdx>=0)_pendingUploadMatches[realIdx].guestId=guestId||null;
-}
+// linkUnmatched removed — attendance upload no longer shows manual-link
+// dropdowns. Member roster upload is the gatekeeper for who's in the tracker.
 
 // ── MEMBER ROSTER UPLOAD ─────────────────────────────────────────────────
 let _pendingMemberMatches=[];
