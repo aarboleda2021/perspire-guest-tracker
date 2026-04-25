@@ -3077,7 +3077,12 @@ function processMemberRows(rows){
   const firstCol=cols.find(k=>/^first.?name$/i.test(k))||cols.find(k=>/^first$/i.test(k));
   const lastCol=cols.find(k=>/^last.?name$/i.test(k))||cols.find(k=>/^last$/i.test(k));
   const tierCol=cols.find(k=>/membership|pricing.?option|service|plan/i.test(k));
-  const startCol=cols.find(k=>/start.?date|join.?date|signup/i.test(k));
+  // Match Mindbody column variants: Date Joined / Join Date / Date Created /
+  // Created Date / Start Date / Signup Date / Date Added / Member Since, etc.
+  const startCol=cols.find(k=>/^date\s*joined$/i.test(k))
+    ||cols.find(k=>/join.?date|date.?join/i.test(k))
+    ||cols.find(k=>/date.?created|created.?date|date.?added|added.?date/i.test(k))
+    ||cols.find(k=>/start.?date|signup|sign.?up|member.?since/i.test(k));
   if(!nameCol&&!(firstCol&&lastCol)){
     document.getElementById('member-upload-result').innerHTML=`<div style="color:var(--err);padding:10px;">Could not find a name column. Looking for "Client Name", "Name", or "First Name" + "Last Name". Found columns: <strong>${cols.join(', ')}</strong></div>`;
     return;
@@ -3102,18 +3107,27 @@ function processMemberRows(rows){
   const alreadyPending=[]; // in report AND already pending from prior upload
   const dismissedInReport=[]; // report name matches a previously dismissed name
   const historical=[];
+  let missingDateCount=0;
   reportNames.forEach(rn=>{
     const lower=rn.name.toLowerCase().trim();
     const m=activeGuests.find(g=>g.name.toLowerCase().trim()===lower);
     if(m){matched.push({...rn,guestId:m.id});return;}
     if(dismissedNames.includes(lower)){dismissedInReport.push(rn);return;}
     const startD=rn.start?parseDate(rn.start):null;
-    if(startD&&cutoff&&startD<cutoff){historical.push(rn);return;}
+    // Strict: if the row has NO valid join date OR the join date is before cutoff,
+    // treat as historical and ignore. This way only members with confirmed
+    // post-launch join dates ever get flagged.
+    if(cutoff&&(!startD||startD<cutoff)){
+      historical.push(rn);
+      if(!startD)missingDateCount++;
+      return;
+    }
     // Check if already in pending list
     const existing=getPendingMembers().find(p=>(p.description||'').toLowerCase().trim()===lower);
     if(existing){alreadyPending.push(rn);return;}
     newlyFlagged.push(rn);
   });
+  window._lastUploadDebug={dateCol:startCol||'(none found)',cols,totalRows:reportNames.length,missingDateCount};
 
   // Persist newly flagged to pending
   (async ()=>{
@@ -3126,6 +3140,13 @@ function processMemberRows(rows){
   const totalPendingAfter=getPendingMembers().length+newlyFlagged.length;
   let html=`<div style="margin-top:14px;font-weight:600;">Already in tracker: ${matched.length} · Newly flagged: ${newlyFlagged.length} · Already pending: ${alreadyPending.length}${dismissedInReport.length?` · Previously dismissed: ${dismissedInReport.length}`:''}${historical.length?` · Historical (ignored): ${historical.length}`:''}</div>`;
   html+=`<div style="font-size:12px;color:var(--mid);margin-top:6px;">${reportNames.length} total members in your report. Only members who joined on or after <strong>${cutoffPretty}</strong> are being tracked.</div>`;
+  if(!startCol){
+    html+=`<div style="margin-top:10px;padding:10px 12px;background:var(--errp);border:1.5px solid var(--err);border-radius:8px;font-size:12px;color:var(--err);">
+      <strong>⚠ No "Date Joined" column found in this report.</strong> Without join dates, we can't filter out historical members. Found columns: <em>${cols.join(', ')}</em>. Please make sure the Mindbody export includes a date column (Date Joined / Date Created / Start Date).
+    </div>`;
+  } else {
+    html+=`<div style="font-size:11px;color:var(--muted);margin-top:4px;font-style:italic;">Reading join dates from "<strong>${startCol}</strong>" column.${missingDateCount>0?` ${missingDateCount} row${missingDateCount!==1?'s':''} had no date and ${missingDateCount===1?'was':'were'} skipped as historical.`:''}</div>`;
+  }
   if(newlyFlagged.length||alreadyPending.length){
     const total=newlyFlagged.length+alreadyPending.length;
     html+=`<div style="margin-top:14px;padding:12px;background:var(--warnp);border:1.5px solid #E8C07A;border-radius:8px;font-size:13px;color:var(--warn);">
