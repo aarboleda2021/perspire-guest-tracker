@@ -389,13 +389,14 @@
           <option value="suspension">Suspension / Freeze</option>
           <option value="downgrade">Downgrade</option>
           <option value="upgrade">Upgrade</option>
+          <option value="declined-payment">Declined Payment</option>
         </select>
       </div>
     </div>
 
     <div class="frow">
-      <div class="fg"><label class="fl">Date requested<span class="req">*</span></label><input type="date" class="fi" id="mc-req-date"></div>
-      <div class="fg"><label class="fl">Bill date<span class="req">*</span></label><input type="date" class="fi" id="mc-bill-date"></div>
+      <div class="fg"><label class="fl" id="mc-req-date-lbl">Date requested<span class="req">*</span></label><input type="date" class="fi" id="mc-req-date"></div>
+      <div class="fg"><label class="fl" id="mc-bill-date-lbl">Bill date<span class="req">*</span></label><input type="date" class="fi" id="mc-bill-date"></div>
     </div>
 
     <!-- Current tier (always shown) + New tier (downgrade / upgrade only) -->
@@ -508,6 +509,49 @@
           <input type="checkbox" class="fchk" id="chk-mb-susp">
           <div><div class="fchk-lbl">Mindbody contact log added</div><div class="fchk-desc">Member's profile → Contact Log → document this freeze request.</div></div>
         </div>
+      </div>
+    </div>
+
+    <!-- DECLINED PAYMENT: reason + deactivation confirmation + outreach -->
+    <div id="mc-decline-section" style="display:none;">
+      <div class="fg">
+        <label class="fl">Reason for decline (if listed)</label>
+        <select class="fi" id="mc-decline-reason">
+          <option value="">— Select reason —</option>
+          <option value="insufficient-funds">Insufficient funds</option>
+          <option value="fraud-charge">Fraud charge / blocked by bank</option>
+          <option value="missing-payment">Missing payment method on profile</option>
+          <option value="expired-card">Expired card</option>
+          <option value="invalid-card">Invalid card details</option>
+          <option value="other">Other (note below)</option>
+        </select>
+      </div>
+      <div class="fcs">
+        <div class="fcs-title">Required steps before logging<span class="req">*</span></div>
+        <div class="fci">
+          <input type="checkbox" class="fchk" id="chk-decl-deact">
+          <div>
+            <div class="fchk-lbl">Active sessions deactivated in Mindbody</div>
+            <div class="fchk-desc">Stops the member from booking until payment is resolved. <a href="#" onclick="event.preventDefault();openModal('decline-deact-modal')" style="color:var(--info);text-decoration:underline;">View instructions</a></div>
+          </div>
+        </div>
+        <div class="fci" style="margin-top:6px;">
+          <input type="checkbox" class="fchk" id="chk-decl-mb">
+          <div>
+            <div class="fchk-lbl">Mindbody contact log added</div>
+            <div class="fchk-desc">Member's profile → Contact Log → document the declined charge and what was deactivated.</div>
+          </div>
+        </div>
+        <div class="fci" style="margin-top:6px;">
+          <input type="checkbox" class="fchk" id="chk-decl-out">
+          <div>
+            <div class="fchk-lbl">Initial outreach attempted</div>
+            <div class="fchk-desc">Call first. Voicemail + follow-up text/email if no answer. <a href="#" onclick="event.preventDefault();openChangeScript('declined-payment-initial','Declined payment — initial outreach scripts')" style="color:var(--info);text-decoration:underline;">View scripts</a></div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--mid);background:var(--sand);border-left:3px solid var(--info);padding:10px 12px;border-radius:4px;margin-bottom:10px;line-height:1.5;">
+        💡 Once logged, this becomes a 14-day recovery effort with two follow-up touchpoints (Day 5 and Day 10). If still unresolved at Day 14, Mohogany will be alerted to convert it to a termination.
       </div>
     </div>
 
@@ -1091,6 +1135,29 @@
   </div>
 </div>
 
+<!-- DECLINED PAYMENT — DEACTIVATE SESSIONS INSTRUCTIONS -->
+<div class="modal-ov" id="decline-deact-modal">
+  <div class="modal" style="max-width:620px;">
+    <div class="modal-title">🛑 How to deactivate active sessions in Mindbody</div>
+    <div class="modal-sub">Use these steps when a member's payment has been declined and you need to stop them from booking until the charge is resolved.</div>
+    <div style="background:var(--sand);border-radius:10px;padding:16px;margin:6px 0 16px;font-size:13px;line-height:1.7;">
+      <div style="margin-bottom:12px;"><strong>1.</strong> Go to the client's <strong>Mindbody profile</strong></div>
+      <div style="margin-bottom:12px;"><strong>2.</strong> Click on <strong>"Account details"</strong></div>
+      <div style="margin-bottom:12px;"><strong>3.</strong> Review current line items under the <strong>"Active"</strong> section at the top</div>
+      <div style="margin-bottom:12px;"><strong>4.</strong> Click the <strong>three dots</strong> next to each item</div>
+      <div style="margin-bottom:12px;"><strong>5.</strong> Click <strong>"Edit"</strong></div>
+      <div style="margin-bottom:12px;"><strong>6.</strong> Uncheck the box next to <strong>"Active pricing option"</strong></div>
+      <div style="margin-bottom:0;"><strong>7.</strong> Save changes — repeat for any other active items</div>
+    </div>
+    <div style="font-size:12px;color:var(--mid);background:white;border-left:3px solid var(--info);padding:10px 12px;border-radius:4px;margin-bottom:14px;line-height:1.5;">
+      💡 Once payment is recovered, you can come back here to re-activate the same items by re-checking the "Active pricing option" box.
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-p" onclick="closeModal('decline-deact-modal')">Got it</button>
+    </div>
+  </div>
+</div>
+
 <!-- HELP / QUICK REFERENCE MODAL -->
 <div class="modal-ov" id="help-modal" onclick="if(event.target===this)closeModal('help-modal')">
   <div class="modal" style="max-width:780px;position:relative;">
@@ -1160,9 +1227,28 @@
       </details>
       <details style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;"><summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--tc);">🔄 Membership Changes</summary>
         <div style="font-size:13px;line-height:1.7;margin-top:10px;color:var(--mid);">
-          <p>Log a change request (termination / suspension / downgrade / upgrade). Required checkboxes ensure Mindbody contact logs were made.</p>
+          <p>Log a change request (termination / suspension / downgrade / upgrade / declined payment). Required checkboxes ensure Mindbody contact logs were made.</p>
           <p>Built-in <strong>retention scripts</strong> for outreach. Follow-up flag if the member didn't answer the first try.</p>
           <p>Mark processed when complete. Upgrades/downgrades auto-create a <strong>tier-change nurture</strong>. Suspensions auto-create a <strong>reactivation reminder</strong>.</p>
+        </div>
+      </details>
+      <details style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;"><summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--tc);">💳 Declined Payment Recovery</summary>
+        <div style="font-size:13px;line-height:1.7;margin-top:10px;color:var(--mid);">
+          <p>When a member's card declines, log it as a <strong>Declined Payment</strong> from the Membership Changes form. You'll need to:</p>
+          <ul style="margin:6px 0 8px 18px;padding:0;">
+            <li>Note the reason (insufficient funds, fraud, expired card, etc.)</li>
+            <li>Deactivate active sessions in Mindbody (instructions popup linked from form)</li>
+            <li>Add a Mindbody contact log noting the decline + what was deactivated</li>
+            <li>Initial outreach to the member with built-in scripts</li>
+          </ul>
+          <p>Logging the request <strong>automatically starts a 14-day recovery flow</strong> visible in <strong>Nurture &amp; Reactivations</strong>:</p>
+          <ul style="margin:6px 0 8px 18px;padding:0;">
+            <li><strong>Day 0</strong> — initial outreach (already done at logging)</li>
+            <li><strong>Day 5</strong> — first follow-up touchpoint</li>
+            <li><strong>Day 10</strong> — final follow-up touchpoint with cancellation warning</li>
+            <li><strong>Day 14</strong> — appears on Mohogany's dashboard alert as ready to convert to a termination</li>
+          </ul>
+          <p>If the member resolves the payment, mark the nurture complete to stop the timer.</p>
         </div>
       </details>
       <details style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;"><summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--tc);">💼 Manager View tabs</summary>
@@ -1564,6 +1650,98 @@ Thank you for trusting us with your wellness. We're so excited to keep supportin
 With gratitude,
 [Your Name]
 Perspire Sauna Studio Peachtree Corners`
+  },
+  'declined-payment-initial':{
+    call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners! I'm reaching out because we tried to process your most recent membership payment and it didn't go through.
+
+I just wanted to give you a heads up so we can get it sorted out — sometimes it's something simple like an expired card, a fraud hold from your bank, or a card that didn't save to your profile.
+
+Could you give us a call back at 404-947-8084 or stop by the studio so we can update your payment method? In the meantime, we've temporarily paused your booking access until we get the payment squared away. As soon as it's resolved, we'll get you right back in.
+
+Thanks so much, and let us know how we can help!`,
+    voicemail:`Hi [Name], it's [Your Name] from Perspire Peachtree Corners! I'm calling because your most recent membership payment didn't go through — could just be an expired card or a fraud hold from your bank.
+
+Please give us a call back at 404-947-8084 when you have a moment so we can update your payment info. We've temporarily paused your booking access in the meantime, but as soon as we get it sorted out we'll get you right back in! Thanks!`,
+    text:`Hi [Name], it's [Your Name] from Perspire Peachtree Corners 🧡 Just a heads up — your most recent membership payment didn't go through (could be expired card, fraud hold, etc.). We've paused your booking access temporarily. Could you give us a quick call at 404-947-8084 or stop by so we can get a new payment method on file? Once it's sorted, you'll be right back in! Thanks!`,
+    email:`Hi [Name],
+
+I hope you're doing well! I'm reaching out because we tried to process your most recent Perspire membership payment and it didn't go through.
+
+This usually happens for one of a few reasons:
+• Card on file expired
+• Bank flagged it as fraud and blocked it
+• A card wasn't saved to your profile properly
+
+To keep things simple, we've temporarily paused your booking access while we get this sorted out. As soon as we have a working payment method on file, you'll be right back in.
+
+Could you give us a call at 404-947-8084 or stop by the studio when it's convenient? We just need a couple minutes to update your card.
+
+Thanks so much for being part of the Perspire family — looking forward to getting this fixed and seeing you back soon!
+
+Warmly,
+[Your Name]
+Perspire Sauna Studio Peachtree Corners`
+  },
+  'declined-payment-followup-1':{
+    call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners checking in again! I called/texted you a few days ago about your declined membership payment and wanted to follow up.
+
+We're still here to help get this sorted whenever you have a moment — it usually only takes a couple minutes. We can update your card over the phone or you're welcome to stop by the studio.
+
+Just so you know, your booking access is still paused until we get the payment resolved, but we'd love to get you back in your suite soon! Could you give us a quick call at 404-947-8084?
+
+Thanks so much, [Name]!`,
+    voicemail:`Hi [Name], it's [Your Name] from Perspire Peachtree Corners checking in again! I left a message a few days ago about your declined membership payment — we'd love to get it sorted so you can get back in your sauna sessions.
+
+Please give us a call back at 404-947-8084 whenever you have a moment. Thanks!`,
+    text:`Hi [Name]! Just checking back in — we still need to get your declined payment sorted so we can get you back in your sauna sessions. It only takes a couple of minutes! Call 404-947-8084 or stop by anytime. We miss you! 🧡 — [Your Name], Perspire PTC`,
+    email:`Hi [Name],
+
+Just following up on my message from a few days ago — we still need to get your declined membership payment sorted out.
+
+We know life gets busy, so this is just a friendly nudge. As long as your booking access stays paused, you can't book your sauna sessions, and we'd hate for you to miss out on your wellness routine.
+
+Please give us a call at 404-947-8084 or stop by the studio whenever it's convenient. Updating your payment info usually takes about 2 minutes.
+
+If something has changed and you'd like to discuss your membership options instead (like switching to a different tier or pausing for a bit), we're happy to talk that through too — just let us know.
+
+Thanks, [Name] — looking forward to hearing from you!
+
+Warmly,
+[Your Name]
+Perspire Sauna Studio Peachtree Corners`
+  },
+  'declined-payment-followup-2':{
+    call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners — I wanted to reach out one more time about your declined membership payment.
+
+It's been about 10 days since the original charge didn't go through, and we want to make sure you don't lose your spot in our community. If we don't hear back from you in the next few days, we'll have to go ahead and process your membership cancellation.
+
+We'd really love to find a way to keep you here. If something has changed in your situation — financial, scheduling, or otherwise — we have options like switching to a smaller tier or pausing your membership temporarily. We're happy to work with you.
+
+Please call us back at 404-947-8084 as soon as you can so we can figure out the best path forward. Thank you so much, [Name].`,
+    voicemail:`Hi [Name], it's [Your Name] from Perspire Peachtree Corners. This is my last attempt to reach you about your declined payment from a couple weeks ago.
+
+If we don't hear back from you in the next few days, we'll have to process your membership cancellation. We really don't want that — please call us at 404-947-8084 so we can figure out the best path forward together.
+
+Talk soon, [Name].`,
+    text:`Hi [Name], it's [Your Name] at Perspire PTC. Final outreach about your declined payment from ~10 days ago — if we don't hear from you soon, we'll need to cancel your membership. We'd much rather work with you to find a solution. Call 404-947-8084 or stop by so we can talk through options. 🧡`,
+    email:`Hi [Name],
+
+I'm reaching out one more time about your declined membership payment from about 10 days ago.
+
+We genuinely don't want to cancel your membership, but if we don't hear back from you in the next few days, we'll need to go ahead and process the cancellation. I wanted to make sure you knew before that happens.
+
+If anything has changed and your current membership isn't working for you anymore, we have options:
+• Downgrade to a smaller membership tier (IRevive 2x or IRelax 4x)
+• Pause your membership for 30, 60, or 90 days
+• Update your payment method to keep things going as-is
+
+Please call us at 404-947-8084 or stop by the studio so we can figure out what works best for you. We'd much rather find a solution together than lose you.
+
+Thanks for everything, [Name] — hoping to hear from you soon.
+
+Warmly,
+[Your Name]
+Perspire Sauna Studio Peachtree Corners`
   }
 };
 
@@ -1709,6 +1887,34 @@ const OPENENDED_TPS=[
 ];
 const OPENENDED_WINS=[[25,30],[55,60],[85,90]];
 
+// Declined payment recovery touchpoints — Day 0/5/10, then Day 14 cancel deadline
+const DECLINED_PAYMENT_TPS=[
+  {label:'TP 1',window:'Day 0',goal:'Initial outreach (already done at logging)',channel:'call'},
+  {label:'TP 2',window:'Day 5',goal:'First follow-up — has payment been sorted?',channel:'call'},
+  {label:'TP 3',window:'Day 10',goal:'Final attempt — warn that membership cancellation will follow if unresolved',channel:'call'},
+];
+const DECLINED_PAYMENT_WINS=[[0,1],[5,7],[10,12]];
+const NURTURE_SCRIPTS_DECLINED=[
+  {// TP 1 — initial outreach (already done in form, but kept for consistency)
+    call:`(Initial outreach already completed at the time of logging. Use the same scripts if needed for reference.)`,
+    voicemail:`(See declined-payment initial outreach scripts above.)`,
+    text:`(See declined-payment initial outreach scripts above.)`,
+    email:`(See declined-payment initial outreach scripts above.)`
+  },
+  {// TP 2 — Day 5 follow-up — pulls from SCRIPTS['declined-payment-followup-1']
+    call:'__USE_SCRIPTS_DECLINED_PAYMENT_FOLLOWUP_1__',
+    voicemail:'__USE_SCRIPTS_DECLINED_PAYMENT_FOLLOWUP_1__',
+    text:'__USE_SCRIPTS_DECLINED_PAYMENT_FOLLOWUP_1__',
+    email:'__USE_SCRIPTS_DECLINED_PAYMENT_FOLLOWUP_1__'
+  },
+  {// TP 3 — Day 10 final attempt — pulls from SCRIPTS['declined-payment-followup-2']
+    call:'__USE_SCRIPTS_DECLINED_PAYMENT_FOLLOWUP_2__',
+    voicemail:'__USE_SCRIPTS_DECLINED_PAYMENT_FOLLOWUP_2__',
+    text:'__USE_SCRIPTS_DECLINED_PAYMENT_FOLLOWUP_2__',
+    email:'__USE_SCRIPTS_DECLINED_PAYMENT_FOLLOWUP_2__'
+  }
+];
+
 const NURTURE_SCRIPTS_REACTIVATION=[
   {// TP 1 — welcome-back email (7 days before reactivation)
     call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners! I'm calling because your membership freeze is ending soon and your [Tier] membership will be reactivating. We're excited to welcome you back!\n\nI wanted to make sure you're all set and help you get your first session back on the books. Do you have a few minutes?`,
@@ -1735,14 +1941,25 @@ const NURTURE_SCRIPTS_OPENENDED=[
 
 function getNurtureTPs(n){
   if(n.type==='reactivation'){return n.freezeDuration==='other'?OPENENDED_TPS:REACTIVATION_TPS;}
+  if(n.type==='declined-payment')return DECLINED_PAYMENT_TPS;
   return NURTURE_TPS;
 }
 function getNurtureWins(n){
   if(n.type==='reactivation'){return n.freezeDuration==='other'?OPENENDED_WINS:REACTIVATION_WINS;}
+  if(n.type==='declined-payment')return DECLINED_PAYMENT_WINS;
   return NURTURE_WINS;
 }
 function getNurtureScripts(n){
   if(n.type==='reactivation'){return n.freezeDuration==='other'?NURTURE_SCRIPTS_OPENENDED:NURTURE_SCRIPTS_REACTIVATION;}
+  if(n.type==='declined-payment'){
+    // Inline the real scripts from SCRIPTS — placeholder strings in
+    // NURTURE_SCRIPTS_DECLINED are just markers, swap them out here
+    return [
+      SCRIPTS['declined-payment-initial'],
+      SCRIPTS['declined-payment-followup-1'],
+      SCRIPTS['declined-payment-followup-2']
+    ];
+  }
   return NURTURE_SCRIPTS[n.type]||[];
 }
 
@@ -2009,9 +2226,24 @@ function onTypeChange(){
   document.getElementById('mc-term-section').style.display=t==='termination'?'block':'none';
   document.getElementById('mc-tierchange-section').style.display=(t==='downgrade'||t==='upgrade')?'block':'none';
   document.getElementById('mc-susp-section').style.display=t==='suspension'?'block':'none';
+  const declSec=document.getElementById('mc-decline-section');
+  if(declSec)declSec.style.display=t==='declined-payment'?'block':'none';
   if(t==='termination') initFrmScript();
   hide('mc-si-wrap');hide('mc-si-other-wrap');hide('mc-di-wrap');
   const oo=document.getElementById('mc-out-outcome');if(oo)oo.value='';
+  // Date label switching for declined payments — "Date of declined charge"
+  // makes more sense than "Bill date" in that context.
+  const reqLbl=document.getElementById('mc-req-date-lbl');
+  const billLbl=document.getElementById('mc-bill-date-lbl');
+  if(reqLbl&&billLbl){
+    if(t==='declined-payment'){
+      reqLbl.innerHTML='Date logged<span class="req">*</span>';
+      billLbl.innerHTML='Date of declined charge<span class="req">*</span>';
+    } else {
+      reqLbl.innerHTML='Date requested<span class="req">*</span>';
+      billLbl.innerHTML='Bill date<span class="req">*</span>';
+    }
+  }
 }
 
 function onFreezeDurChange(selId,wrapId){
@@ -2268,8 +2500,8 @@ function renderChangeCard(c,prefix=''){
   const du=daysUntil(c.billDate);
   const duLbl=du===null?'':du<0?'Bill date passed':du===0?'⚠ BILL DATE TODAY':du===1?'⚠ TOMORROW':`${du} days to bill`;
   const urgCls=needsFollowupNow(c)?'isfol':urg==='urgent'&&c.status!=='closed'?'isurg':urg==='warn'&&c.status!=='closed'?'iswarn':'';
-  const tmap={termination:'bTERM',suspension:'bSUSP',downgrade:'bDOWN',upgrade:'bUP'};
-  const tlbl={termination:'Termination',suspension:'Suspension',downgrade:'Downgrade',upgrade:'Upgrade'};
+  const tmap={termination:'bTERM',suspension:'bSUSP',downgrade:'bDOWN',upgrade:'bUP','declined-payment':'bod'};
+  const tlbl={termination:'Termination',suspension:'Suspension',downgrade:'Downgrade',upgrade:'Upgrade','declined-payment':'💳 Declined Payment'};
 
   const clItems=buildPostChecklist(c);
   const clHtml=clItems.map((item,i)=>{
@@ -2401,8 +2633,10 @@ function renderMgrDashboard(){
   const followUpChanges=changes.filter(c=>needsFollowupNow(c));
   const openChanges=changes.filter(c=>c.status!=='closed');
   const pendingGrads=guests.filter(c=>!c.deactivated&&guestStatus(c)==='complete');
-  const overdueNurtures=nurtures.filter(n=>n.status==='active'&&getNurtureTPs(n).some((_,i)=>nurtureStatus(n,i)==='overdue'));
-  const dueNowNurtures=nurtures.filter(n=>n.status==='active'&&getNurtureTPs(n).some((_,i)=>nurtureStatus(n,i)==='due-now'));
+  // Tier-change nurture counts EXCLUDE declined-payment (those have their own
+  // dedicated alert card with the 14-day deadline)
+  const overdueNurtures=nurtures.filter(n=>n.status==='active'&&n.type!=='declined-payment'&&getNurtureTPs(n).some((_,i)=>nurtureStatus(n,i)==='overdue'));
+  const dueNowNurtures=nurtures.filter(n=>n.status==='active'&&n.type!=='declined-payment'&&getNurtureTPs(n).some((_,i)=>nurtureStatus(n,i)==='due-now'));
   const urgentNotes=shiftNotes.filter(n=>!n.resolvedAt&&n.priority==='urgent'&&isNoteActive(n));
   const overdueGuests=guests.filter(c=>!c.deactivated&&guestStatus(c)==='overdue');
   const atRiskGuests=guests.filter(c=>!c.deactivated&&c.visitStatus==='at-risk');
@@ -2437,10 +2671,18 @@ function renderMgrDashboard(){
   // Pending members from Mindbody report (not yet added or dismissed)
   const pendingMembersCount=getPendingMembers().length;
 
+  // Declined payments overdue 14+ days — ready to convert to termination
+  const declinedOverdue=nurtures.filter(n=>{
+    if(n.type!=='declined-payment'||n.status!=='active')return false;
+    const sd=parseDate(n.startDate);if(!sd)return false;
+    return Math.floor((today()-sd)/86400000)>=14;
+  }).length;
+
   // Build alert cards — always show all categories, with 0 if nothing
   const alertDef=[
     {count:urgentChanges.length,label:'Urgent bill dates',sub:'Process before close of business',urgentColor:'var(--urg)',urgentBg:'var(--urgp)',tab:'changes'},
     {count:followUpChanges.length,label:'Follow-ups needed',sub:'Second outreach required',urgentColor:'#856404',urgentBg:'#FFF8E1',tab:'changes'},
+    {count:declinedOverdue,label:'Declined payments overdue',sub:'14+ days unresolved — convert to termination',urgentColor:'var(--err)',urgentBg:'var(--errp)',tab:'nurture'},
     {count:unsentWelcomeEmails,label:'Welcome emails not sent',sub:'Send from Gmail template',urgentColor:'var(--warn)',urgentBg:'var(--warnp)',tab:'overview'},
     {count:unsignedAgreements,label:'Unsigned agreements',sub:'Members — goal: within 2 weeks',urgentColor:'var(--warn)',urgentBg:'var(--warnp)',tab:'overview'},
     {count:pendingGrads.length,label:'Pending graduations',sub:'Ready to celebrate 🎓',urgentColor:'var(--ok)',urgentBg:'var(--okp)',tab:'graduated'},
@@ -2720,7 +2962,12 @@ function renderNurtureCard(n,prefix=''){
   const st=n.status==='completed'?'complete':hasOverdue?'overdue':hasDue?'due-now':'on-track';
   const sBdg={overdue:`<span class="badge bod">Overdue</span>`,'due-now':`<span class="badge bdu">Due now</span>`,'on-track':`<span class="badge bot">On track</span>`,complete:`<span class="badge bhlt">Complete</span>`}[st]||'';
   const isReact=n.type==='reactivation';
-  const tBdg=isReact?`<span class="badge" style="background:var(--okp);color:var(--ok);">Reactivation</span>`:`<span class="badge" style="background:var(--purp);color:var(--pur);">Tier Change</span> `+(n.type==='upgrade'?`<span class="badge bUP">Upgrade</span>`:`<span class="badge bDOWN">Downgrade</span>`);
+  const isDecl=n.type==='declined-payment';
+  const tBdg=isDecl
+    ?`<span class="badge bod">💳 Declined Payment Recovery</span>`
+    :isReact
+      ?`<span class="badge" style="background:var(--okp);color:var(--ok);">Reactivation</span>`
+      :`<span class="badge" style="background:var(--purp);color:var(--pur);">Tier Change</span> `+(n.type==='upgrade'?`<span class="badge bUP">Upgrade</span>`:`<span class="badge bDOWN">Downgrade</span>`);
 
   const tpHtml=tps.map((tp,i)=>{
     const s=nurtureStatus(n,i),log=n.logs?.[i],ch=chLabel(tp.channel);
@@ -2731,14 +2978,22 @@ function renderNurtureCard(n,prefix=''){
     return`<div class="tpi ${s}"><div class="tpn">${tp.label}</div><div class="tpw">${tp.window}</div>${dates?`<div style="font-size:10px;color:var(--muted);margin-bottom:3px;">${dates}</div>`:''}<div class="tpgl">${tp.goal}</div><span class="chtag ${ch.cls}">${ch.label}</span><div class="tpst ${stCls}">${stTxt}</div>${canLog?`<button class="tlbtn" onclick="openNurtureLog('${n.id}',${i})">Log outreach</button>`:''}${log&&n.status==='active'?`<button class="tlbtn logged editable" onclick="openNurtureLog('${n.id}',${i})" title="Click to edit this log">✓ Logged · Edit</button>`:log?`<button class="tlbtn logged" disabled>✓ Logged</button>`:''}<button class="tlbtn" style="border-color:var(--info);color:var(--info);margin-top:3px;" onclick="event.stopPropagation();openNurtureScript('${n.type}',${i},'${n.id}')">View script</button>${log?.notes?`<div class="tpnts">"${log.notes}"</div>`:''}</div>`;
   }).join('');
 
-  const infoBox=isReact
-    ?`<div class="reactiv" style="margin-bottom:12px;"><p>🔔 <strong>Membership reactivation</strong> — ${n.freezeDuration==='other'?'Open-ended freeze (checking in monthly)':`${n.freezeDuration}-day freeze`}<br>Tier: ${n.oldTier} · Cadence on return: ${cadenceGuide(n.oldTier).ideal}</p></div>`
-    :`<div class="tier-box" style="margin-bottom:12px;"><strong>Tier change:</strong> ${n.oldTier} → ${n.newTier}<br><span style="opacity:.8">Target cadence: ${cadenceGuide(n.newTier).ideal}</span></div>`;
+  const declineDeadline=(()=>{const sd=parseDate(n.startDate);if(!sd)return null;const d=new Date(sd);d.setDate(d.getDate()+14);return d;})();
+  const declineDeadlineDays=declineDeadline?Math.max(0,Math.floor((declineDeadline-today())/86400000)):null;
+  const declineLbl={'insufficient-funds':'Insufficient funds','fraud-charge':'Fraud charge / blocked by bank','missing-payment':'Missing payment method on profile','expired-card':'Expired card','invalid-card':'Invalid card details','other':'Other'}[n.freezeDuration]||'Reason not noted';
+  const infoBox=isDecl
+    ?`<div style="margin-bottom:12px;padding:11px 14px;background:var(--errp);border:1.5px solid #E8A8A3;border-radius:10px;">
+        <div style="font-size:11px;font-weight:600;color:var(--err);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">💳 Declined Payment Recovery</div>
+        <div style="font-size:13px;color:#6B1A0A;line-height:1.6;"><strong>Tier:</strong> ${n.oldTier}<br><strong>Reason for decline:</strong> ${declineLbl}<br><strong>Cancellation deadline:</strong> ${declineDeadline?declineDeadline.toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'})+(declineDeadlineDays>0?` (${declineDeadlineDays} day${declineDeadlineDays!==1?'s':''} from now)`:declineDeadlineDays===0?' (today!)':' (overdue)'):'—'}</div>
+      </div>`
+    :isReact
+      ?`<div class="reactiv" style="margin-bottom:12px;"><p>🔔 <strong>Membership reactivation</strong> — ${n.freezeDuration==='other'?'Open-ended freeze (checking in monthly)':`${n.freezeDuration}-day freeze`}<br>Tier: ${n.oldTier} · Cadence on return: ${cadenceGuide(n.oldTier).ideal}</p></div>`
+      :`<div class="tier-box" style="margin-bottom:12px;"><strong>Tier change:</strong> ${n.oldTier} → ${n.newTier}<br><span style="opacity:.8">Target cadence: ${cadenceGuide(n.newTier).ideal}</span></div>`;
 
   return`<div class="ccard ${st==='overdue'?'isod':st==='due-now'?'isdu':''}" id="${prefix}nur-${n.id}">
     <div class="chdr" onclick="toggleCard('${prefix}nur-${n.id}')">
       <div class="cav">${initials(n.guestName)}</div>
-      <div class="ci"><div class="cn">${n.guestName}</div><div class="cm">${isReact?(n.freezeDuration==='other'?'Open-ended freeze':'Reactivation reminder'):n.oldTier+' → '+n.newTier} · Day ${days} · ${done}/${tps.length} touchpoints · Assigned: ${sName(n.assignedStaff||'mohogany')}</div></div>
+      <div class="ci"><div class="cn">${n.guestName}</div><div class="cm">${isDecl?'Declined payment — '+(n.oldTier||'member'):isReact?(n.freezeDuration==='other'?'Open-ended freeze':'Reactivation reminder'):n.oldTier+' → '+n.newTier} · Day ${days} · ${done}/${tps.length} touchpoints · Assigned: ${sName(n.assignedStaff||'mohogany')}</div></div>
       <div class="cbdg">${tBdg}${sBdg}</div>
       <svg class="xic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
     </div>
@@ -3479,7 +3734,8 @@ function toggleAddChange(){
   document.getElementById('mc-notes').value='';
   document.getElementById('mc-type').value='termination';
   // Reset all form checkboxes
-  ['chk-mb','chk-out','chk-mb-tc','chk-mb-susp'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
+  ['chk-mb','chk-out','chk-mb-tc','chk-mb-susp','chk-decl-deact','chk-decl-mb','chk-decl-out'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
+  const dr=document.getElementById('mc-decline-reason');if(dr)dr.value='';
   onTypeChange();
   initFrmScript();
 }
@@ -3543,6 +3799,15 @@ async function submitChange(){
     freezeDuration=document.getElementById('mc-freeze-dur').value;
     if(freezeDuration==='other')freezeOtherNote=document.getElementById('mc-freeze-other').value.trim();
   }
+  if(type==='declined-payment'){
+    if(!document.getElementById('chk-decl-deact').checked)errs.push('Active sessions deactivated (required checkbox)');
+    if(!document.getElementById('chk-decl-mb').checked)errs.push('Mindbody contact log (required checkbox)');
+    if(!document.getElementById('chk-decl-out').checked)errs.push('Initial outreach attempted (required checkbox)');
+    // Repurpose freezeOtherNote field to store the decline reason — same DB
+    // column, no schema change needed
+    const reason=document.getElementById('mc-decline-reason').value;
+    freezeOtherNote=reason||null;
+  }
 
   if(errs.length){alert('Please complete:\n• '+errs.join('\n• '));return;}
 
@@ -3561,6 +3826,14 @@ async function submitChange(){
     const rec={id:Date.now().toString(),guestName:name,type:finalType,dateRequested:useLocalStorage?parseDate(dateRequestedStr)?.toISOString()||new Date().toISOString():dateRequestedStr,billDate:useLocalStorage?parseDate(billDateStr).toISOString():billDateStr,currentTier:curTier,newTier:finalNewTier,freezeDuration,freezeOtherNote,notes,status:'open',outcome:'pending',outcomeNotes:'',checklist:{},freezeOverride:false,needsFollowup,outreachOutcome,createdAt:new Date().toISOString()};
     if(useLocalStorage){changes.push(rec);lsSave();}
     else{await api('changes',{method:'POST',body:{...rec}});await loadChanges();}
+    // Auto-create the declined-payment recovery nurture immediately on logging
+    // (Day 0 = today, TP2 fires at Day 5, TP3 at Day 10, alert at Day 14)
+    if(finalType==='declined-payment'){
+      const todayStr=new Date().toISOString().split('T')[0];
+      const nrec={id:Date.now().toString()+'-n',changeId:rec.id,guestName:name,type:'declined-payment',oldTier:curTier,newTier:curTier,startDate:todayStr,freezeDuration:freezeOtherNote||null,logs:{0:{date:new Date().toISOString(),channel:'Initial outreach',notes:'Logged at time of declined-payment intake'}},status:'active',assignedStaff:'mohogany',createdAt:new Date().toISOString()};
+      if(useLocalStorage){nurtures.push(nrec);lsSave();}
+      else{await api('nurtures',{method:'POST',body:nrec});await loadNurtures();}
+    }
   }
   cancelChangeForm();refreshChanges();
 }
@@ -5591,7 +5864,7 @@ function setMgrTab(tab){
 // Escape key closes modals
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
-    ['log-modal','edit-guest-modal','edit-change-modal','rassign-modal','tp-script-modal','deactivate-modal','milestone-modal','upload-modal','graduation-modal','task-complete-modal','cintas-modal','contact-log-template-modal','upload-instructions-modal','member-upload-modal','member-quickadd-modal','member-instructions-modal','help-modal'].forEach(id=>{
+    ['log-modal','edit-guest-modal','edit-change-modal','rassign-modal','tp-script-modal','deactivate-modal','milestone-modal','upload-modal','graduation-modal','task-complete-modal','cintas-modal','contact-log-template-modal','upload-instructions-modal','member-upload-modal','member-quickadd-modal','member-instructions-modal','help-modal','decline-deact-modal'].forEach(id=>{
       const el=document.getElementById(id);if(el&&el.classList.contains('open'))closeModal(id);
     });
   }
