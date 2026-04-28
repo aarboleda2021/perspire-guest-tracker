@@ -3548,33 +3548,90 @@ async function confirmGraduation(){
   renderMgrGraduated();
 }
 
+// Helpers for nurture filtering
+function nurtureNeedsOutreach(n){
+  if(n.status!=='active')return false;
+  return getNurtureTPs(n).some((_,i)=>{const s=nurtureStatus(n,i);return s==='overdue'||s==='due-now';});
+}
+function nurtureIsUpcoming(n){
+  if(n.status!=='active')return false;
+  return!nurtureNeedsOutreach(n);
+}
+
+let _mgrNurFilter=localStorage.getItem('psp-v7-mgrnur-filter')||'needs';
+function setMgrNurFilter(val){
+  _mgrNurFilter=val;
+  try{localStorage.setItem('psp-v7-mgrnur-filter',val);}catch(e){}
+  renderMgrNurture();
+}
+
 function renderMgrNurture(){
   const active=nurtures.filter(n=>n.status==='active');
   const completed=nurtures.filter(n=>n.status==='completed');
+  const needsOutreach=active.filter(nurtureNeedsOutreach);
+  const upcoming=active.filter(nurtureIsUpcoming);
   const overdue=active.filter(n=>getNurtureTPs(n).some((_,i)=>nurtureStatus(n,i)==='overdue')).length;
   const dueNow=active.filter(n=>getNurtureTPs(n).some((_,i)=>nurtureStatus(n,i)==='due-now')).length;
   document.getElementById('mgr-nur-stats').innerHTML=`
-    <div class="sc"><div class="scl">Active nurtures</div><div class="scv">${active.length}</div></div>
+    <div class="sc"><div class="scl">Needs outreach</div><div class="scv ${needsOutreach.length>0?'w':''}">${needsOutreach.length}</div></div>
     <div class="sc"><div class="scl">Overdue</div><div class="scv ${overdue>0?'d':''}">${overdue}</div></div>
-    <div class="sc"><div class="scl">Due now</div><div class="scv ${dueNow>0?'w':''}">${dueNow}</div></div>
+    <div class="sc"><div class="scl">Upcoming</div><div class="scv">${upcoming.length}</div></div>
     <div class="sc"><div class="scl">Completed</div><div class="scv s">${completed.length}</div></div>`;
-  document.getElementById('mgr-nur-stats').innerHTML+=`<div style="grid-column:1/-1;text-align:right;"><button class="btn btn-g btn-sm" onclick="exportNurtures()">Export CSV</button></div>`;
+  document.getElementById('mgr-nur-stats').innerHTML+=`<div style="grid-column:1/-1;text-align:right;display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap;">
+    <span class="tlbl">Show</span>
+    <select class="fi" style="width:auto;font-size:12px;padding:5px 8px;" onchange="setMgrNurFilter(this.value)">
+      <option value="needs" ${_mgrNurFilter==='needs'?'selected':''}>Needs outreach now</option>
+      <option value="upcoming" ${_mgrNurFilter==='upcoming'?'selected':''}>Upcoming (active, not yet due)</option>
+      <option value="active" ${_mgrNurFilter==='active'?'selected':''}>All active</option>
+      <option value="completed" ${_mgrNurFilter==='completed'?'selected':''}>Completed only</option>
+      <option value="all" ${_mgrNurFilter==='all'?'selected':''}>All (active + completed)</option>
+    </select>
+    <button class="btn btn-g btn-sm" onclick="exportNurtures()">Export CSV</button>
+  </div>`;
 
-  const sorted=[...active].sort((a,b)=>{
+  // Pick which set of records to show based on filter
+  const sortByUrgency=(arr)=>[...arr].sort((a,b)=>{
     const urgA=getNurtureTPs(a).some((_,i)=>nurtureStatus(a,i)==='overdue')?0:getNurtureTPs(a).some((_,i)=>nurtureStatus(a,i)==='due-now')?1:2;
     const urgB=getNurtureTPs(b).some((_,i)=>nurtureStatus(b,i)==='overdue')?0:getNurtureTPs(b).some((_,i)=>nurtureStatus(b,i)==='due-now')?1:2;
     return urgA-urgB;
   });
+  const sortByDate=(arr)=>[...arr].sort((a,b)=>{const da=parseDate(a.startDate)||new Date(0);const db=parseDate(b.startDate)||new Date(0);return da-db;});
 
   const el=document.getElementById('mgr-nur-list');
-  if(!sorted.length&&!completed.length){el.innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No nurtures or reactivations yet.<br>They are created automatically when a downgrade, upgrade, or suspension is marked processed.</p></div>`;return;}
+  if(!active.length&&!completed.length){el.innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No nurtures or reactivations yet.<br>They are created automatically when a downgrade, upgrade, or suspension is marked processed.</p></div>`;return;}
 
   let html='';
-  if(sorted.length){
-    html+=`<div class="sec-hdr"><div class="sec-title">Active</div><div class="sec-ct">${sorted.length}</div></div><div class="clist">${sorted.map(n=>renderNurtureCard(n,'mgr-')).join('')}</div>`;
-  }
-  if(completed.length){
-    html+=`<div class="sec-hdr" style="margin-top:22px;"><div class="sec-title">Completed</div><div class="sec-ct">${completed.length}</div></div><div class="clist">${completed.map(n=>renderNurtureCard(n,'mgr-')).join('')}</div>`;
+  if(_mgrNurFilter==='needs'){
+    if(needsOutreach.length){
+      const sorted=sortByUrgency(needsOutreach);
+      html+=`<div class="sec-hdr"><div class="sec-title">Needs outreach now</div><div class="sec-ct">${sorted.length}</div></div><div class="clist">${sorted.map(n=>renderNurtureCard(n,'mgr-')).join('')}</div>`;
+    } else {
+      html+=`<div class="empty" style="padding:24px;"><div class="empty-icon">✓</div><p>No nurtures need outreach right now.${upcoming.length?`<br><a href="#" onclick="event.preventDefault();setMgrNurFilter('upcoming')" style="color:var(--info);">View ${upcoming.length} upcoming nurture${upcoming.length!==1?'s':''} →</a>`:''}</p></div>`;
+    }
+  } else if(_mgrNurFilter==='upcoming'){
+    if(upcoming.length){
+      const sorted=sortByDate(upcoming);
+      html+=`<div class="sec-hdr"><div class="sec-title">Upcoming nurtures</div><div class="sec-ct">${sorted.length}</div></div><div style="font-size:12px;color:var(--muted);margin-bottom:10px;">These don't need outreach yet — touchpoint windows haven't opened. Sorted by start date.</div><div class="clist">${sorted.map(n=>renderNurtureCard(n,'mgr-')).join('')}</div>`;
+    } else {
+      html+=`<div class="empty" style="padding:24px;"><p>No upcoming nurtures.</p></div>`;
+    }
+  } else if(_mgrNurFilter==='active'){
+    const sorted=sortByUrgency(active);
+    html+=`<div class="sec-hdr"><div class="sec-title">All active</div><div class="sec-ct">${sorted.length}</div></div><div class="clist">${sorted.map(n=>renderNurtureCard(n,'mgr-')).join('')}</div>`;
+  } else if(_mgrNurFilter==='completed'){
+    if(completed.length){
+      html+=`<div class="sec-hdr"><div class="sec-title">Completed</div><div class="sec-ct">${completed.length}</div></div><div class="clist">${completed.map(n=>renderNurtureCard(n,'mgr-')).join('')}</div>`;
+    } else {
+      html+=`<div class="empty" style="padding:24px;"><p>No completed nurtures yet.</p></div>`;
+    }
+  } else {// all
+    if(active.length){
+      const sorted=sortByUrgency(active);
+      html+=`<div class="sec-hdr"><div class="sec-title">Active</div><div class="sec-ct">${sorted.length}</div></div><div class="clist">${sorted.map(n=>renderNurtureCard(n,'mgr-')).join('')}</div>`;
+    }
+    if(completed.length){
+      html+=`<div class="sec-hdr" style="margin-top:22px;"><div class="sec-title">Completed</div><div class="sec-ct">${completed.length}</div></div><div class="clist">${completed.map(n=>renderNurtureCard(n,'mgr-')).join('')}</div>`;
+    }
   }
   el.innerHTML=html;
   restoreExpanded();
