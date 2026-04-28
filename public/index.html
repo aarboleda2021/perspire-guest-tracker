@@ -572,6 +572,7 @@
 <div id="view-manager" style="display:none;">
   <div class="tabs">
     <button class="tab active" onclick="setMgrTab('dashboard')" id="tab-dash">Dashboard</button>
+    <button class="tab" onclick="setMgrTab('teamlead')" id="tab-tl">Team Lead Tasks</button>
     <button class="tab" onclick="setMgrTab('overview')" id="tab-ov">New Guests Overview</button>
     <button class="tab" onclick="setMgrTab('changes')" id="tab-chg">All Membership Changes</button>
     <button class="tab" onclick="setMgrTab('nurture')" id="tab-nur">Nurture & Reactivations</button>
@@ -579,6 +580,7 @@
     <button class="tab" onclick="setMgrTab('staff')" id="tab-st">Staff Management</button>
   </div>
   <div id="mgr-dashboard"><div style="font-size:12px;color:var(--muted);margin-bottom:12px;">At-a-glance overview of everything that needs attention across the studio.</div><div id="dashboard-content"></div></div>
+  <div id="mgr-teamlead" style="display:none;"><div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Mohogany's master checklist — daily reminders auto-update, weekly tasks reset every Sunday at midnight, and monthly tasks reset on the 1st. Complete in any order, on whichever days you're working.</div><div id="teamlead-content"></div></div>
   <div id="mgr-ov" style="display:none;"><div style="font-size:12px;color:var(--muted);margin-bottom:12px;">All active new guests grouped by staff member — monitor touchpoint progress and visit milestones.</div><div class="srow" id="mgr-stats"></div><div id="mgr-list"></div></div>
   <div id="mgr-chg" style="display:none;"><div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Full view of all membership change requests — open, urgent, and processed.</div><div class="srow" id="mgr-chg-stats"></div><div id="mgr-chg-list"></div></div>
   <div id="mgr-nurture" style="display:none;"><div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Follow-up touchpoints for tier changes and reactivation reminders for returning members after a freeze.</div><div class="srow" id="mgr-nur-stats"></div><div id="mgr-nur-list"></div></div>
@@ -1254,11 +1256,24 @@
       <details style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;"><summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--tc);">💼 Manager View tabs</summary>
         <div style="font-size:13px;line-height:1.7;margin-top:10px;color:var(--mid);">
           <p><strong>Dashboard</strong> — alert cards for everything needing attention. Click any card to jump to the relevant section.</p>
+          <p><strong>Team Lead Tasks</strong> — Mohogany's master checklist. See the dedicated Help section below.</p>
           <p><strong>New Guests Overview</strong> — active guests grouped by staff. Upload buttons for both the Attendance Analysis (visits) and New Members reports.</p>
           <p><strong>All Membership Changes</strong> — full log, past and present.</p>
           <p><strong>Nurture & Reactivations</strong> — follow-ups for tier changes and returning members.</p>
           <p><strong>Graduated</strong> — members who completed 90 days. Celebrate + mark graduated.</p>
           <p><strong>Staff Management</strong> — team roster, monthly goals, data backup, daily summary email preview.</p>
+        </div>
+      </details>
+      <details style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;"><summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--tc);">✅ Team Lead Tasks</summary>
+        <div style="font-size:13px;line-height:1.7;margin-top:10px;color:var(--mid);">
+          <p>Mohogany's home base for recurring responsibilities. Three sections:</p>
+          <ul style="margin:6px 0 8px 18px;padding:0;">
+            <li><strong>🌅 Daily Reminders</strong> — auto-generated. Upload prompts, declined-payment 14-day deadlines, pending member reviews. Each row clicks straight to the action. Disappears when done.</li>
+            <li><strong>📅 This Week</strong> — full master checklist resets every Sunday at midnight ET. Mohogany completes in any order, on whichever days she's working. Examples: Pull Last Visit Report, Care calls, Inventory, B2B management, Staff coaching, Audit previous week's first visits, etc.</li>
+            <li><strong>🗓️ This Month</strong> — resets on the 1st of each month. Examples: Update backroom whiteboard.</li>
+          </ul>
+          <p>Click the checkbox to mark complete. Click <strong>📋 View instructions</strong> on any task to see step-by-step how-to (with sub-steps, target days, notes, and examples where applicable).</p>
+          <p>Days off? No problem. Mohogany just doesn't check anything off — Sunday's reset starts fresh regardless.</p>
         </div>
       </details>
       <details style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;"><summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--tc);">📤 Uploading reports from Mindbody</summary>
@@ -2846,6 +2861,277 @@ async function updateStaffGoal(staffId,key,val){
 // ── RENDER: TIER CHANGE NURTURE ──────────────────────────────────────────
 
 // Graduated queue — guests who reached 'complete' status and haven't been processed yet
+// ── TEAM LEAD TASKS (Mohogany's master checklist) ──────────────────────
+// Frequency: weekly | monthly | placeholder
+// Weekly tasks reset Sunday at midnight ET. Monthly tasks reset on the 1st.
+const TEAM_LEAD_TASKS=[
+  // ── WEEKLY ──
+  {key:'tl-last-visit',freq:'weekly',title:'Pull Last Visit Report',
+    steps:[
+      'Text any member who hasn\'t visited in the last week',
+      'Call any member who hasn\'t visited in two weeks'
+    ]},
+  {key:'tl-care-calls',freq:'weekly',title:'Perform care calls',
+    steps:[
+      'Pull "Contact Log" report for previous 1 week',
+      'Review all contact logs made',
+      'For any contact log that cites a bad experience, give the customer a call just to check in on them, let them know we are here and are working to resolve whatever the issue was'
+    ]},
+  {key:'tl-milestone-outreach',freq:'weekly',title:'Milestone update outreach',placeholder:true,
+    steps:[
+      'Coming soon — Amanda + Claude will design this step together',
+      'Placeholder for now so the slot is reserved on the weekly checklist'
+    ]},
+  {key:'tl-inventory',freq:'weekly',title:'Inventory',
+    steps:[
+      'Complete inventory in shared Google sheet',
+      'Text Amanda of any ordering needs'
+    ]},
+  {key:'tl-studio-upkeep',freq:'weekly',title:'Studio upkeep',
+    steps:[
+      'Review previous week\'s maintenance list to ensure tasks were actually completed',
+      'Assign any outstanding tasks to staff, if needed'
+    ]},
+  {key:'tl-organization',freq:'weekly',title:'Organization update',
+    steps:[
+      'Review towel organization and stock — delegate staff to fold/reorganize as needed',
+      'Review stock of retail and beverage items up front — delegate staff to restock/reorganize as needed',
+      'Review skinny back room — reorganize items as needed',
+      'Review larger back room — reorganize items as needed'
+    ]},
+  {key:'tl-b2b',freq:'weekly',title:'B2B management',
+    note:'Wednesdays · Goal: 3-5 tabling events a month, at minimum',
+    steps:[
+      'Update B2B tracking sheet with new numbers',
+      'Review studio schedule for following month',
+      'Reach out to old and new B2B partners to schedule additional tabling opportunities',
+      'Update B2B Partners list with any new partner information, as needed'
+    ]},
+  {key:'tl-sales-outreach',freq:'weekly',title:'Coordinate sales outreach',
+    steps:[
+      'If current month has a promotion, pull Axle client lists to perform calls and texts outreach',
+      'Create script for outreach, if needed',
+      'Delegate to staff for outreach, if needed'
+    ]},
+  {key:'tl-comms-calendar',freq:'weekly',title:'Communications calendar review',
+    steps:[
+      'Double check that comms have delivered as scheduled through Axle',
+      'For any manual messages, review when upcoming dates are'
+    ]},
+  {key:'tl-staff-coaching',freq:'weekly',title:'Staff coaching',
+    steps:[
+      'Update each staff member\'s "Upskilling/Training" spreadsheet — note any progress from the current week',
+      'Plan upskilling/training topic for staff member for the next week & set a date for the following week to complete the task'
+    ],
+    examples:[
+      'Conduct mock phone calls to staff (act as a lead inquiring, act as member wanting to cancel, act as member asking studio policies questions)',
+      'Practice tours',
+      'Practice fielding objections to memberships/packages',
+      'Practice tabling techniques',
+      'Quiz on modalities/benefits, studio policies, where to find certain items in studio, process/procedures, etc.',
+      'Quiz staff on Perspire blog topics (e.g. ask for their biggest takeaway from last month\'s article)',
+      'Reassign Woven learnings and have them complete in real time'
+    ]},
+  {key:'tl-staff-progress',freq:'weekly',title:'Staff progress inspection',
+    steps:[
+      'Review Learning Library tab to review progress on watching Performance Lab calls',
+      'Remind them of new video, if needed',
+      'Review any open learnings for any staff on Woven',
+      'Reassign learnings to staff on Woven, as needed'
+    ]},
+  {key:'tl-week-audit',freq:'weekly',title:'Audit previous week\'s first visits, sales, & follow-ups',
+    steps:[
+      'Review previous week\'s first visits (green stars) — check that each person has: waiver signed, preferences logged, contact log created, and Axle follow-up created (if no sale was made)',
+      'Review previous week\'s new member sales — double check that welcome email was sent, guest was added to "New Guests" list on the dashboard, etc.',
+      'Review Axle follow-up list outreach: Axle → Lists → "Follow-ups" → click "view" on relevant lists, scan "contacted last 7 days" column for check marks to ensure staff are contacting guests properly. If guests still need outreach, do it yourself or delegate/coordinate with staff.',
+      'Review average lead contact time: Axle → Reports → "Lead first contact" → review "delay" and "first contact" columns to see how quickly staff are returning calls. Tip: manually set a window time to focus on last week, last month, etc. Tip: export to Excel and upload into ChatGPT to ask it to analyze the report findings and give you averages.'
+    ]},
+  {key:'tl-competition',freq:'weekly',title:'Review progress against current month\'s employee competition',
+    steps:[
+      'Review overall progress among staff',
+      'Provide reminders to staff, if needed',
+      'Send encouraging text to staff on which staff member is in the lead'
+    ]},
+  // ── MONTHLY ──
+  {key:'tl-whiteboard',freq:'monthly',title:'Update backroom whiteboard, if needed',
+    steps:[
+      'Review the backroom whiteboard',
+      'Update any staff/team-relevant info that has changed since last month'
+    ]}
+];
+
+// Period helpers
+function getCurrentWeekStart(){
+  // Sunday of the current week (weekly tasks reset Sun at midnight ET)
+  const now=new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'}));
+  const day=now.getDay();
+  const sun=new Date(now);sun.setDate(now.getDate()-day);
+  return`${sun.getFullYear()}-${String(sun.getMonth()+1).padStart(2,'0')}-${String(sun.getDate()).padStart(2,'0')}`;
+}
+function getCurrentMonthStart(){
+  const now=new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'}));
+  return`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+}
+
+// Cache for loaded completions per period date (avoids re-fetching on every render)
+const _tlCompletionsCache={};
+async function loadTeamLeadCompletions(date){
+  if(useLocalStorage){return lsGet('psp-v7-dtasks-'+date,[]);}
+  if(_tlCompletionsCache[date])return _tlCompletionsCache[date];
+  try{
+    const data=await api('daily?resource=tasks&date='+date);
+    _tlCompletionsCache[date]=data||[];
+    return _tlCompletionsCache[date];
+  }catch(e){return[];}
+}
+function clearTeamLeadCache(){Object.keys(_tlCompletionsCache).forEach(k=>delete _tlCompletionsCache[k]);}
+
+async function renderMgrTeamLead(){
+  const el=document.getElementById('teamlead-content');
+  el.innerHTML=`<div style="padding:30px;text-align:center;color:var(--muted);">Loading…</div>`;
+  const weekStart=getCurrentWeekStart();
+  const monthStart=getCurrentMonthStart();
+  const [weekly,monthly]=await Promise.all([loadTeamLeadCompletions(weekStart),loadTeamLeadCompletions(monthStart)]);
+  // Find latest completion for B2B-style "last updated" tracking — look back up to 8 weeks
+  const lastUpdatedMap={};
+  if(!useLocalStorage){
+    // Try to gather last completion timestamps for a few past periods (lazy approach: just current period)
+    [...weekly,...monthly].forEach(t=>{lastUpdatedMap[t.taskKey]=t.completedAt;});
+  } else {
+    [...weekly,...monthly].forEach(t=>{lastUpdatedMap[t.taskKey]=t.completedAt;});
+  }
+
+  // ── DAILY (auto-injected reminders) ──
+  const dailyItems=[];
+  // Visits upload reminder
+  const members=guests.filter(c=>c.type==='member'&&!c.deactivated);
+  const attendanceLogs=events.filter(e=>e.eventType==='other'&&e.title==='__attendance-report-log').sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const fromLog=attendanceLogs[0]?new Date(attendanceLogs[0].createdAt):null;
+  const fromGuests=members.map(c=>c.visitsUpdatedAt).filter(Boolean).map(d=>new Date(d)).sort((a,b)=>b-a)[0]||null;
+  const lastUpload=fromLog&&fromGuests?(fromLog>fromGuests?fromLog:fromGuests):(fromLog||fromGuests||null);
+  const daysSinceUpload=lastUpload?Math.floor((new Date()-lastUpload)/86400000):null;
+  if(daysSinceUpload===null||daysSinceUpload>=3){
+    dailyItems.push({label:`📤 Upload the Attendance Analysis report ${daysSinceUpload===null?'(never uploaded)':`(${daysSinceUpload} day${daysSinceUpload!==1?'s':''} ago)`}`,action:`openUploadVisits()`,urgent:daysSinceUpload!==null&&daysSinceUpload>=5});
+  }
+  const memberUploadLogs=events.filter(e=>e.eventType==='other'&&e.title==='__member-report-log').sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const lastMemberUpload=memberUploadLogs[0]?new Date(memberUploadLogs[0].createdAt):null;
+  const daysSinceMemberUpload=lastMemberUpload?Math.floor((new Date()-lastMemberUpload)/86400000):null;
+  if(daysSinceMemberUpload===null||daysSinceMemberUpload>=3){
+    dailyItems.push({label:`👥 Upload the New Members roster ${daysSinceMemberUpload===null?'(never uploaded)':`(${daysSinceMemberUpload} day${daysSinceMemberUpload!==1?'s':''} ago)`}`,action:`openUploadMembers()`,urgent:daysSinceMemberUpload!==null&&daysSinceMemberUpload>=5});
+  }
+  // Declined payments overdue 14+ days
+  const declinedOverdue=nurtures.filter(n=>{
+    if(n.type!=='declined-payment'||n.status!=='active')return false;
+    const sd=parseDate(n.startDate);if(!sd)return false;
+    return Math.floor((today()-sd)/86400000)>=14;
+  });
+  if(declinedOverdue.length){
+    dailyItems.push({label:`💳 Convert ${declinedOverdue.length} overdue declined-payment${declinedOverdue.length!==1?'s':''} to termination`,action:`setMgrTab('nurture')`,urgent:true});
+  }
+  // Pending member roster reviews
+  const pendingMembersCount=getPendingMembers().length;
+  if(pendingMembersCount){
+    dailyItems.push({label:`⚠ Review ${pendingMembersCount} member${pendingMembersCount!==1?'s':''} flagged from the last roster upload`,action:`openPendingMembers()`,urgent:false});
+  }
+
+  // Build HTML
+  let html='';
+
+  // DAILY section
+  html+=`<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 10px;">🌅 Daily Reminders</div>`;
+  if(!dailyItems.length){
+    html+=`<div style="background:var(--okp);border:1.5px solid #9ECDB5;border-radius:10px;padding:14px 16px;margin-bottom:22px;font-size:13px;color:var(--ok);">✓ All caught up — no urgent reminders right now.</div>`;
+  } else {
+    html+=`<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:22px;">`;
+    dailyItems.forEach(item=>{
+      const bg=item.urgent?'var(--errp)':'var(--warnp)';
+      const border=item.urgent?'1.5px solid var(--err)':'1.5px solid #E8C07A';
+      const color=item.urgent?'var(--err)':'var(--warn)';
+      html+=`<div style="background:${bg};border:${border};border-radius:10px;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;" onclick="${item.action}"><div style="font-size:13px;color:${color};font-weight:600;">${item.label}</div><span style="color:${color};font-size:18px;">→</span></div>`;
+    });
+    html+=`</div>`;
+  }
+
+  // WEEKLY section
+  const weeklyTasks=TEAM_LEAD_TASKS.filter(t=>t.freq==='weekly');
+  const weeklyDone=weeklyTasks.filter(t=>weekly.find(c=>c.taskKey===t.key)).length;
+  const weeklyDate=parseDate(weekStart);
+  const weekLbl=weeklyDate?`Week of ${weeklyDate.toLocaleDateString('en-US',{month:'numeric',day:'numeric'})}`:'';
+  html+=`<div style="display:flex;justify-content:space-between;align-items:baseline;margin:4px 0 10px;"><div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">📅 This Week — ${weekLbl}</div><div style="font-size:12px;color:var(--mid);">${weeklyDone}/${weeklyTasks.length} complete</div></div>`;
+  html+=`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:22px;">${weeklyTasks.map(t=>renderTeamLeadTask(t,weekly,weekStart)).join('')}</div>`;
+
+  // MONTHLY section
+  const monthlyTasks=TEAM_LEAD_TASKS.filter(t=>t.freq==='monthly');
+  const monthlyDone=monthlyTasks.filter(t=>monthly.find(c=>c.taskKey===t.key)).length;
+  const monthDate=parseDate(monthStart);
+  const monthLbl=monthDate?monthDate.toLocaleDateString('en-US',{month:'long',year:'numeric'}):'';
+  html+=`<div style="display:flex;justify-content:space-between;align-items:baseline;margin:4px 0 10px;"><div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">🗓️ This Month — ${monthLbl}</div><div style="font-size:12px;color:var(--mid);">${monthlyDone}/${monthlyTasks.length} complete</div></div>`;
+  html+=`<div style="display:flex;flex-direction:column;gap:6px;">${monthlyTasks.map(t=>renderTeamLeadTask(t,monthly,monthStart)).join('')}</div>`;
+
+  el.innerHTML=html;
+}
+
+function renderTeamLeadTask(task,completions,periodDate){
+  const done=completions.find(c=>c.taskKey===task.key);
+  const completedTime=done?new Date(done.completedAt).toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric'}):'';
+  const isPlaceholder=task.placeholder;
+  const checkColor=done?'var(--ok)':'var(--border)';
+  const opacity=done?'opacity:.6;':'';
+  const placeholderBadge=isPlaceholder?'<span class="badge bia" style="font-size:9px;margin-left:6px;">PLACEHOLDER</span>':'';
+  return`<div class="stask ${done?'done':''}" style="${opacity}${isPlaceholder?'border:1.5px dashed var(--muted);background:var(--sand);':''}">
+    <div class="stask-chk" style="${done?'background:var(--ok);border-color:var(--ok);':`background:white;border:2px solid ${checkColor};`}cursor:pointer;" onclick="toggleTeamLeadTask('${task.key}','${periodDate}')">${done?'<svg width="12" height="12" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div>
+    <div class="stask-body">
+      <div class="stask-lbl" style="cursor:pointer;" onclick="toggleTeamLeadTask('${task.key}','${periodDate}')">${task.title}${placeholderBadge}</div>
+      ${task.note?`<div style="font-size:11px;color:var(--muted);font-style:italic;margin-top:2px;">${task.note}</div>`:''}
+      ${done?`<div class="stask-meta">✓ Completed ${completedTime}</div>`:''}
+      <div style="margin-top:6px;"><button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openTeamLeadHowTo('${task.key}')">📋 View instructions</button></div>
+    </div>
+  </div>`;
+}
+
+async function toggleTeamLeadTask(taskKey,periodDate){
+  const completions=await loadTeamLeadCompletions(periodDate);
+  const existing=completions.find(c=>c.taskKey===taskKey);
+  if(existing){
+    // Undo — delete the completion
+    if(useLocalStorage){
+      const filtered=completions.filter(c=>c.taskKey!==taskKey);
+      localStorage.setItem('psp-v7-dtasks-'+periodDate,JSON.stringify(filtered));
+    } else {
+      await api(`daily?resource=tasks&date=${periodDate}&taskKey=${taskKey}`,{method:'DELETE'});
+    }
+  } else {
+    // Mark complete — auto-credit Mohogany
+    const rec={date:periodDate,taskKey,completedBy:'mohogany',completedAt:new Date().toISOString()};
+    if(useLocalStorage){
+      const updated=[...completions,rec];
+      localStorage.setItem('psp-v7-dtasks-'+periodDate,JSON.stringify(updated));
+    } else {
+      await api('daily?resource=tasks',{method:'POST',body:rec});
+    }
+  }
+  clearTeamLeadCache();
+  renderMgrTeamLead();
+}
+
+function openTeamLeadHowTo(taskKey){
+  const task=TEAM_LEAD_TASKS.find(t=>t.key===taskKey);if(!task)return;
+  document.getElementById('tp-script-title').textContent=`📋 ${task.title}`;
+  document.getElementById('tp-script-sub').textContent=task.freq==='weekly'?'Weekly task':task.freq==='monthly'?'Monthly task':'';
+  document.getElementById('tp-script-tabs').innerHTML='';
+  let body=`<div style="font-size:13px;line-height:1.7;">`;
+  if(task.note){
+    body+=`<div style="background:var(--info);background:var(--infop);border-left:3px solid var(--info);padding:8px 12px;border-radius:4px;margin-bottom:12px;font-size:12px;color:var(--info);"><strong>Note:</strong> ${task.note}</div>`;
+  }
+  body+=`<div style="font-weight:600;color:var(--dark);margin-bottom:8px;">Steps:</div><ol style="margin:0 0 12px 18px;padding:0;">${task.steps.map(s=>`<li style="margin-bottom:6px;">${s}</li>`).join('')}</ol>`;
+  if(task.examples&&task.examples.length){
+    body+=`<div style="font-weight:600;color:var(--dark);margin:14px 0 8px;">Examples / ideas:</div><ul style="margin:0 0 0 18px;padding:0;">${task.examples.map(e=>`<li style="margin-bottom:4px;">${e}</li>`).join('')}</ul>`;
+  }
+  body+='</div>';
+  document.getElementById('tp-script-body').innerHTML=body;
+  document.getElementById('tp-script-modal').classList.add('open');
+}
+
 function renderMgrGraduated(){
   const pending=guests.filter(c=>!c.deactivated&&guestStatus(c)==='complete');
   const processed=guests.filter(c=>c.deactivated&&c.deactivatedReason==='graduated');
@@ -5989,10 +6275,13 @@ function setView(v){
 function setMgrTab(tab){
   if(tab==='history')tab='dashboard'; // legacy — history tab removed
   currentMgrTab=tab;
-  const map={dashboard:'mgr-dashboard',overview:'mgr-ov',changes:'mgr-chg',nurture:'mgr-nurture',graduated:'mgr-graduated',staff:'mgr-staff'};
+  const map={dashboard:'mgr-dashboard',teamlead:'mgr-teamlead',overview:'mgr-ov',changes:'mgr-chg',nurture:'mgr-nurture',graduated:'mgr-graduated',staff:'mgr-staff'};
   Object.entries(map).forEach(([k,id])=>document.getElementById(id).style.display=k===tab?'block':'none');
-  ['dash','ov','chg','nur','grad','st'].forEach((s,i)=>document.getElementById('tab-'+s).classList.toggle('active',['dashboard','overview','changes','nurture','graduated','staff'][i]===tab));
+  const tabKeys=['dashboard','teamlead','overview','changes','nurture','graduated','staff'];
+  const tabIds=['dash','tl','ov','chg','nur','grad','st'];
+  tabIds.forEach((s,i)=>document.getElementById('tab-'+s).classList.toggle('active',tabKeys[i]===tab));
   if(tab==='dashboard')renderMgrDashboard();
+  else if(tab==='teamlead')renderMgrTeamLead();
   else if(tab==='overview')renderMgrOverview();
   else if(tab==='changes')renderMgrChanges();
   else if(tab==='nurture')renderMgrNurture();
