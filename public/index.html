@@ -2866,7 +2866,7 @@ async function updateStaffGoal(staffId,key,val){
 // Weekly tasks reset Sunday at midnight ET. Monthly tasks reset on the 1st.
 const TEAM_LEAD_TASKS=[
   // ── DAILY (always-show checkboxes — reset every midnight ET) ──
-  {key:'tl-emails',freq:'daily',title:'Check email inbox'},
+  {key:'tl-emails',freq:'daily',title:'Check PTC Admin email'},
   // ── WEEKLY ──
   {key:'tl-members-at-risk',freq:'weekly',title:'Conduct members-at-risk outreach',
     steps:[
@@ -2894,33 +2894,60 @@ const TEAM_LEAD_TASKS=[
       }}
     ]
   },
+  // ── (Members-at-risk outreach is the highest-priority retention task — kept first above) ──
+
+  // RETENTION RECOVERY — directly affects keeping members
   {key:'tl-care-calls',freq:'weekly',title:'Perform care calls',
     steps:[
       'Pull "Contact Log" report for previous 1 week',
       'Review all contact logs made',
-      'For any contact log that cites a bad experience, give the customer a call just to check in on them, let them know we are here and are working to resolve whatever the issue was'
+      'For any contact log that cites a bad experience, give the customer a call to check in, let them know we\'re here and are working to resolve whatever the issue was — use the scripts below'
+    ],
+    scripts:[
+      {label:'🤝 Care call — bad-experience check-in',channels:{
+        call:`Hi [Name], this is [Your Name], one of the leads at Perspire Peachtree Corners. I was reviewing some recent member feedback and noticed that your most recent visit may not have been the experience we wanted to give you.\n\nI just wanted to call personally to check in on you. We genuinely care about your experience here and want to make sure we're providing the kind of service you deserve.\n\nIs there anything you'd like to share or anything we can do better for you moving forward? Your feedback truly helps us improve.`,
+        voicemail:`Hi [Name], it's [Your Name] from Perspire Peachtree Corners. I'm calling to personally check in after your last visit — I want to make sure your experience has been a good one. Please give me a call back at 404-947-8084 whenever you have a moment. Thank you!`,
+        text:`Hi [Name]! It's [Your Name] from Perspire 🧡 I wanted to personally check in after your last visit and make sure everything was up to par. We really value your experience with us. If there's anything you'd like to share, please call/text us at 404-947-8084 anytime.`,
+        email:`Hi [Name],\n\nI hope you're doing well. I'm reaching out personally because I noticed your most recent visit may not have lived up to our usual standards.\n\nI want to make sure your experience at Perspire is one you genuinely enjoy. If there's anything specific that didn't meet your expectations — or anything we could be doing better — I would truly love to hear it. Your feedback is invaluable to us and helps us continue to improve.\n\nPlease feel free to reply to this email or give us a call at 404-947-8084. We're always here for you.\n\nWarmly,\n[Your Name]\nTeam Lead, Perspire Sauna Studio Peachtree Corners`
+      }}
     ]},
-  {key:'tl-milestone-outreach',freq:'weekly',title:'Milestone update outreach',placeholder:true,
+
+  // CONVERSION & PIPELINE AUDIT — protects revenue from leaks
+  {key:'tl-audit-first-visits',freq:'weekly',title:'Audit previous week\'s first visits',
     steps:[
-      'Coming soon — Amanda + Claude will design this step together',
-      'Placeholder for now so the slot is reserved on the weekly checklist'
+      'Pull the previous week\'s first visits (green stars)',
+      'For each visit, check that the guest has: waiver signed, preferences logged, contact log created, and Axle follow-up created (if no sale was made)',
+      'Flag/coordinate with staff to resolve any gaps'
     ]},
-  {key:'tl-inventory',freq:'weekly',title:'Inventory',
+  {key:'tl-audit-new-sales',freq:'weekly',title:'Audit previous week\'s new member sales',
     steps:[
-      'Complete inventory in shared Google sheet',
-      'Text Amanda of any ordering needs'
+      'Review the previous week\'s new member sales',
+      'Double-check that the welcome email was sent',
+      'Confirm each new guest was added to the "New Guests" list on the dashboard',
+      'Flag/coordinate any missing follow-up tasks with staff'
     ]},
-  {key:'tl-studio-upkeep',freq:'weekly',title:'Studio upkeep',
+  {key:'tl-audit-lead-time',freq:'weekly',title:'Review average lead contact time',
     steps:[
-      'Review previous week\'s maintenance list to ensure tasks were actually completed',
-      'Assign any outstanding tasks to staff, if needed'
+      'Go into Axle → Reports section (left sidebar)',
+      'Click "Lead first contact"',
+      'Review the "delay" and "first contact" columns to see how quickly staff are returning calls',
+      'Tip: manually set a window time to focus on last week, last month, etc.',
+      'Tip: export to Excel and upload into ChatGPT to have it analyze the findings and give you averages'
     ]},
-  {key:'tl-organization',freq:'weekly',title:'Organization update',
+  {key:'tl-audit-axle-followups',freq:'weekly',title:'Review Axle follow-up list outreach',
     steps:[
-      'Review towel organization and stock — delegate staff to fold/reorganize as needed',
-      'Review stock of retail and beverage items up front — delegate staff to restock/reorganize as needed',
-      'Review skinny back room — reorganize items as needed',
-      'Review larger back room — reorganize items as needed'
+      'Go into Axle → Lists → "Follow-ups"',
+      'Click "view" on each relevant list',
+      'Scan the "contacted last 7 days" column for check marks to confirm staff are reaching out as required',
+      'If any guests still need outreach, do it yourself or delegate/coordinate with staff'
+    ]},
+
+  // REVENUE GROWTH
+  {key:'tl-sales-outreach',freq:'weekly',title:'Coordinate sales outreach',
+    steps:[
+      'If current month has a promotion, pull Axle client lists to perform calls and texts outreach',
+      'Create script for outreach, if needed',
+      'Delegate to staff for outreach, if needed'
     ]},
   {key:'tl-b2b',freq:'weekly',title:'B2B management',
     note:'Goal: 3-5 tabling events a month, at minimum',
@@ -2930,17 +2957,18 @@ const TEAM_LEAD_TASKS=[
       'Reach out to old and new B2B partners to schedule additional tabling opportunities',
       'Update B2B Partners list with any new partner information, as needed'
     ]},
-  {key:'tl-sales-outreach',freq:'weekly',title:'Coordinate sales outreach',
-    steps:[
-      'If current month has a promotion, pull Axle client lists to perform calls and texts outreach',
-      'Create script for outreach, if needed',
-      'Delegate to staff for outreach, if needed'
-    ]},
   {key:'tl-comms-calendar',freq:'weekly',title:'Communications calendar review',
     steps:[
       'Double check that comms have delivered as scheduled through Axle',
       'For any manual messages, review when upcoming dates are'
     ]},
+  {key:'tl-milestone-outreach',freq:'weekly',title:'Milestone update outreach',placeholder:true,
+    steps:[
+      'Coming soon — Amanda + Claude will design this step together',
+      'Placeholder for now so the slot is reserved on the weekly checklist'
+    ]},
+
+  // STAFF DEVELOPMENT — long-term capability that compounds
   {key:'tl-staff-coaching',freq:'weekly',title:'Staff coaching',
     steps:[
       'Update each staff member\'s "Upskilling/Training" spreadsheet — note any progress from the current week',
@@ -2962,47 +2990,42 @@ const TEAM_LEAD_TASKS=[
       'Review any open learnings for any staff on Woven',
       'Reassign learnings to staff on Woven, as needed'
     ]},
-  {key:'tl-audit-first-visits',freq:'weekly',title:'Audit previous week\'s first visits',
-    steps:[
-      'Pull the previous week\'s first visits (green stars)',
-      'For each visit, check that the guest has: waiver signed, preferences logged, contact log created, and Axle follow-up created (if no sale was made)',
-      'Flag/coordinate with staff to resolve any gaps'
-    ]},
-  {key:'tl-audit-new-sales',freq:'weekly',title:'Audit previous week\'s new member sales',
-    steps:[
-      'Review the previous week\'s new member sales',
-      'Double-check that the welcome email was sent',
-      'Confirm each new guest was added to the "New Guests" list on the dashboard',
-      'Flag/coordinate any missing follow-up tasks with staff'
-    ]},
-  {key:'tl-audit-axle-followups',freq:'weekly',title:'Review Axle follow-up list outreach',
-    steps:[
-      'Go into Axle → Lists → "Follow-ups"',
-      'Click "view" on each relevant list',
-      'Scan the "contacted last 7 days" column for check marks to confirm staff are reaching out as required',
-      'If any guests still need outreach, do it yourself or delegate/coordinate with staff'
-    ]},
-  {key:'tl-audit-lead-time',freq:'weekly',title:'Review average lead contact time',
-    steps:[
-      'Go into Axle → Reports section (left sidebar)',
-      'Click "Lead first contact"',
-      'Review the "delay" and "first contact" columns to see how quickly staff are returning calls',
-      'Tip: manually set a window time to focus on last week, last month, etc.',
-      'Tip: export to Excel and upload into ChatGPT to have it analyze the findings and give you averages'
-    ]},
   {key:'tl-competition',freq:'weekly',title:'Review progress against current month\'s employee competition',
     steps:[
       'Review overall progress among staff',
       'Provide reminders to staff, if needed',
       'Send encouraging text to staff on which staff member is in the lead'
     ]},
+
+  // OPERATIONS — service-quality / behind-the-scenes
+  {key:'tl-inventory',freq:'weekly',title:'Inventory',
+    steps:[
+      'Complete inventory in shared Google sheet',
+      'Text Amanda of any ordering needs'
+    ]},
+  {key:'tl-studio-upkeep',freq:'weekly',title:'Studio upkeep',
+    steps:[
+      'Review previous week\'s maintenance list to ensure tasks were actually completed',
+      'Assign any outstanding tasks to staff, if needed'
+    ]},
+  {key:'tl-organization',freq:'weekly',title:'Organization update',
+    steps:[
+      'Review towel organization and stock — delegate staff to fold/reorganize as needed',
+      'Review stock of retail and beverage items up front — delegate staff to restock/reorganize as needed',
+      'Review skinny back room — reorganize items as needed',
+      'Review larger back room — reorganize items as needed'
+    ]},
+
   // ── MONTHLY ──
   {key:'tl-suite-audits',freq:'monthly',targetWeek:1,title:'Suite audits & clean heaters in each suite',
+    note:'Tip: most managers split this across 2–3 days. Check off each suite as you finish it.',
+    subItems:['Suite 1','Suite 2','Suite 3','Suite 4','Suite 5','Suite 6'],
     steps:[
-      'Walk through each suite (1–6) for a thorough audit',
+      'Walk through each suite for a thorough audit using the <a href="https://docs.google.com/spreadsheets/d/1og5xrYCIq-XA12oct76eGSStLoL9h3yx0m9LQhbqS54/edit?usp=sharing" target="_blank" style="color:var(--info);">Suite Audit tracking sheet ↗</a>',
+      'Clean the heaters in each suite — see the <a href="https://docs.google.com/presentation/d/1TCiTNtCSxzBGawDXzrDZRu5eLxn6Q0sR7v2Njo6UXkg/edit?slide=id.p1#slide=id.p1" target="_blank" style="color:var(--info);">heater cleaning how-to ↗</a>',
       'Note anything that needs maintenance, repair, or restocking',
-      'Clean the heaters in each suite',
-      'Submit any maintenance requests / order any needed parts'
+      'Submit any maintenance requests / order any needed parts',
+      'Check off each suite below as you complete it (you can split this across multiple days)'
     ]},
   {key:'tl-whiteboard',freq:'monthly',targetWeek:1,title:'Update backroom whiteboard, if needed',
     steps:[
@@ -3010,19 +3033,28 @@ const TEAM_LEAD_TASKS=[
       'Update any staff/team-relevant info that has changed since last month'
     ]},
   {key:'tl-birthday-email',freq:'monthly',targetWeek:4,title:'Prep next month\'s birthday email',
-    note:'Send goes out on the 1st of next month',
+    note:'Sends out at 8 AM on the 1st of next month',
     steps:[
-      'Pull list of members with birthdays in the upcoming month',
-      'Draft the birthday email in the email tool',
-      'Schedule it to send on the 1st of next month',
+      'Go to Mindbody → Insights → Reports',
+      'Go to Membership, filter status to "Active", press Generate',
+      'Under "Tag actions", select "Tag new"',
+      'Then run the Mailing Lists report',
+      'Filter to list clients with "birthdays between" — select the first day of next month and the last day of next month',
+      'Mark the checkbox for "tagged guests only"',
+      'Click Generate to pull the list of next month\'s birthday clients',
+      'Go to Axle → Mass communications → Drafts',
+      'Duplicate the birthday email template',
+      'Customize for the upcoming month',
+      'Update to/from info',
+      'Add the emails from the Mindbody list into the distribution list',
+      'Schedule the email for 8 AM on the 1st of next month',
       'Confirm scheduling went through'
     ]},
   {key:'tl-comms-schedule',freq:'monthly',targetWeek:4,title:'Schedule next month\'s communications',
     steps:[
-      'Review the communications calendar for next month',
-      'Schedule each upcoming message in Axle (or relevant tool)',
-      'Verify scheduled dates match the comms calendar',
-      'Flag anything that needs Amanda\'s approval before sending'
+      'Review the <a href="https://docs.google.com/spreadsheets/d/1JLTqWpmhAELB_EXlvCSVu1j1g_WOpg_NpuulL3P5Tb8/edit?usp=sharing" target="_blank" style="color:var(--info);">communications calendar ↗</a> for next month',
+      'Schedule each upcoming message in Axle',
+      'Verify scheduled dates match the comms calendar'
     ]}
 ];
 
@@ -3166,9 +3198,28 @@ async function renderMgrTeamLead(){
     html+=`</div>`;
   }
 
+  // Helper: true if a task is fully complete (handles sub-item tasks)
+  const isTaskFullyComplete=(task,completionRow)=>{
+    if(!completionRow)return false;
+    if(task.subItems&&task.subItems.length){
+      const data=completionRow.taskData||{};
+      return task.subItems.every((_,i)=>data[i]);
+    }
+    return true;
+  };
+  // Sort: incomplete tasks first (in original priority order), completed at the bottom
+  const sortByCompletion=(tasks,completions)=>{
+    return[...tasks].sort((a,b)=>{
+      const aDone=isTaskFullyComplete(a,completions.find(c=>c.taskKey===a.key));
+      const bDone=isTaskFullyComplete(b,completions.find(c=>c.taskKey===b.key));
+      return aDone===bDone?0:aDone?1:-1;
+    });
+  };
+
   // Daily checkbox tasks (always-show, reset at midnight ET)
   if(dailyTasksList.length){
-    html+=`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:22px;">${dailyTasksList.map(t=>renderTeamLeadTask(t,dailyCompletions,dailyDate)).join('')}</div>`;
+    const dailySorted=sortByCompletion(dailyTasksList,dailyCompletions);
+    html+=`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:22px;">${dailySorted.map(t=>renderTeamLeadTask(t,dailyCompletions,dailyDate)).join('')}</div>`;
   }
 
   // If both auto-reminders AND daily checkboxes are empty, show all-caught-up
@@ -3178,11 +3229,12 @@ async function renderMgrTeamLead(){
 
   // WEEKLY section
   const weeklyTasks=TEAM_LEAD_TASKS.filter(t=>t.freq==='weekly');
-  const weeklyDone=weeklyTasks.filter(t=>weekly.find(c=>c.taskKey===t.key)).length;
+  const weeklyDone=weeklyTasks.filter(t=>isTaskFullyComplete(t,weekly.find(c=>c.taskKey===t.key))).length;
+  const weeklySorted=sortByCompletion(weeklyTasks,weekly);
   const weeklyDate=parseDate(weekStart);
   const weekLbl=weeklyDate?`Week of ${weeklyDate.toLocaleDateString('en-US',{month:'numeric',day:'numeric'})}`:'';
   html+=`<div style="display:flex;justify-content:space-between;align-items:baseline;margin:4px 0 10px;"><div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">📅 This Week — ${weekLbl}</div><div style="font-size:12px;color:var(--mid);">${weeklyDone}/${weeklyTasks.length} complete</div></div>`;
-  html+=`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:22px;">${weeklyTasks.map(t=>renderTeamLeadTask(t,weekly,weekStart)).join('')}</div>`;
+  html+=`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:22px;">${weeklySorted.map(t=>renderTeamLeadTask(t,weekly,weekStart)).join('')}</div>`;
 
   // MONTHLY section — reveal each week as it starts
   const dayOfMonth=(()=>{const d=new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'}));return d.getDate();})();
@@ -3190,11 +3242,12 @@ async function renderMgrTeamLead(){
   const allMonthly=TEAM_LEAD_TASKS.filter(t=>t.freq==='monthly');
   const visibleMonthly=allMonthly.filter(t=>!t.targetWeek||t.targetWeek<=currentMonthWeek);
   const hiddenMonthlyCount=allMonthly.length-visibleMonthly.length;
-  const monthlyDone=visibleMonthly.filter(t=>monthly.find(c=>c.taskKey===t.key)).length;
+  const monthlyDone=visibleMonthly.filter(t=>isTaskFullyComplete(t,monthly.find(c=>c.taskKey===t.key))).length;
+  const monthlySorted=sortByCompletion(visibleMonthly,monthly);
   const monthDate=parseDate(monthStart);
   const monthLbl=monthDate?monthDate.toLocaleDateString('en-US',{month:'long',year:'numeric'}):'';
   html+=`<div style="display:flex;justify-content:space-between;align-items:baseline;margin:4px 0 10px;"><div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">🗓️ This Month — ${monthLbl}<span style="margin-left:8px;font-weight:400;text-transform:none;letter-spacing:0;">(currently in week ${currentMonthWeek})</span></div><div style="font-size:12px;color:var(--mid);">${monthlyDone}/${visibleMonthly.length} complete</div></div>`;
-  html+=`<div style="display:flex;flex-direction:column;gap:6px;">${visibleMonthly.map(t=>renderTeamLeadTask(t,monthly,monthStart)).join('')}</div>`;
+  html+=`<div style="display:flex;flex-direction:column;gap:6px;">${monthlySorted.map(t=>renderTeamLeadTask(t,monthly,monthStart)).join('')}</div>`;
   if(hiddenMonthlyCount){
     html+=`<div style="font-size:11px;color:var(--muted);font-style:italic;margin-top:8px;">${hiddenMonthlyCount} more monthly task${hiddenMonthlyCount!==1?'s':''} will appear in upcoming week${hiddenMonthlyCount!==1?'s':''} of the month.</div>`;
   }
@@ -3203,23 +3256,48 @@ async function renderMgrTeamLead(){
 }
 
 function renderTeamLeadTask(task,completions,periodDate){
-  const done=completions.find(c=>c.taskKey===task.key);
-  const completedTime=done?new Date(done.completedAt).toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric'}):'';
+  const completionRow=completions.find(c=>c.taskKey===task.key);
+  const taskData=completionRow?.taskData||{};
+  // Compute "done" considering sub-items
+  const hasSubItems=task.subItems&&task.subItems.length;
+  const done=hasSubItems?(completionRow&&task.subItems.every((_,i)=>taskData[i])):!!completionRow;
+  const completedTime=done&&completionRow?new Date(completionRow.completedAt).toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric'}):'';
   const isPlaceholder=task.placeholder;
   const checkColor=done?'var(--ok)':'var(--border)';
   const opacity=done?'opacity:.6;':'';
   const placeholderBadge=isPlaceholder?'<span class="badge bia" style="font-size:9px;margin-left:6px;">PLACEHOLDER</span>':'';
   const targetWeekBadge=task.targetWeek?`<span class="badge bia" style="font-size:9px;margin-left:6px;">Target: Week ${task.targetWeek}</span>`:'';
+  // Sub-items progress badge (e.g. "3/6 done")
+  let subItemsBadge='';
+  if(hasSubItems){
+    const completedCount=task.subItems.filter((_,i)=>taskData[i]).length;
+    subItemsBadge=`<span class="badge ${done?'bhlt':'bdu'}" style="font-size:9px;margin-left:6px;">${completedCount}/${task.subItems.length} done</span>`;
+  }
   // Only show "View instructions" if the task has steps or scripts
   const hasInstructions=(task.steps&&task.steps.length)||(task.scripts&&task.scripts.length);
   const instructionsBtn=hasInstructions?`<div style="margin-top:6px;"><button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openTeamLeadHowTo('${task.key}')">📋 View instructions</button></div>`:'';
+  // Sub-items inline — checkbox per sub-item
+  let subItemsHtml='';
+  if(hasSubItems){
+    subItemsHtml=`<div style="margin-top:8px;padding:8px 10px;background:var(--sand);border-radius:6px;display:flex;flex-direction:column;gap:4px;">${task.subItems.map((label,i)=>{
+      const subDone=!!taskData[i];
+      const subTime=subDone?` <span style="font-size:10px;color:var(--muted);">· ${new Date(taskData[i].date).toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric'})}</span>`:'';
+      return `<div style="display:flex;align-items:center;gap:8px;cursor:pointer;${subDone?'opacity:.65;':''}" onclick="event.stopPropagation();toggleTeamLeadSubItem('${task.key}',${i},'${periodDate}')">
+        <div style="width:16px;height:16px;border-radius:4px;${subDone?'background:var(--ok);border:2px solid var(--ok);':'background:white;border:2px solid var(--border);'}flex-shrink:0;display:flex;align-items:center;justify-content:center;">${subDone?'<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div>
+        <div style="font-size:12px;color:${subDone?'var(--mid)':'var(--dark)'};${subDone?'text-decoration:line-through;':''}">${label}${subTime}</div>
+      </div>`;
+    }).join('')}</div>`;
+  }
+  // Parent checkbox: clicking it toggles ALL sub-items at once when present
+  const parentClickHandler=hasSubItems?`toggleAllTeamLeadSubItems('${task.key}','${periodDate}',${done?'false':'true'})`:`toggleTeamLeadTask('${task.key}','${periodDate}')`;
   return`<div class="stask ${done?'done':''}" style="${opacity}${isPlaceholder?'border:1.5px dashed var(--muted);background:var(--sand);':''}">
-    <div class="stask-chk" style="${done?'background:var(--ok);border-color:var(--ok);':`background:white;border:2px solid ${checkColor};`}cursor:pointer;" onclick="toggleTeamLeadTask('${task.key}','${periodDate}')">${done?'<svg width="12" height="12" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div>
+    <div class="stask-chk" style="${done?'background:var(--ok);border-color:var(--ok);':`background:white;border:2px solid ${checkColor};`}cursor:pointer;" onclick="${parentClickHandler}">${done?'<svg width="12" height="12" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div>
     <div class="stask-body">
-      <div class="stask-lbl" style="cursor:pointer;" onclick="toggleTeamLeadTask('${task.key}','${periodDate}')">${task.title}${placeholderBadge}${targetWeekBadge}</div>
+      <div class="stask-lbl" style="cursor:${hasSubItems?'default':'pointer'};" ${hasSubItems?'':`onclick="toggleTeamLeadTask('${task.key}','${periodDate}')"`}>${task.title}${placeholderBadge}${targetWeekBadge}${subItemsBadge}</div>
       ${task.note?`<div style="font-size:11px;color:var(--muted);font-style:italic;margin-top:2px;">${task.note}</div>`:''}
       ${done?`<div class="stask-meta">✓ Completed ${completedTime}</div>`:''}
       ${instructionsBtn}
+      ${subItemsHtml}
     </div>
   </div>`;
 }
@@ -3241,6 +3319,67 @@ async function toggleTeamLeadTask(taskKey,periodDate){
     if(useLocalStorage){
       const updated=[...completions,rec];
       localStorage.setItem('psp-v7-dtasks-'+periodDate,JSON.stringify(updated));
+    } else {
+      await api('daily?resource=tasks',{method:'POST',body:rec});
+    }
+  }
+  clearTeamLeadCache();
+  renderMgrTeamLead();
+}
+
+// Toggle a single sub-item on a task that has subItems (e.g. Suite 1, Suite 2, ...)
+async function toggleTeamLeadSubItem(taskKey,subIdx,periodDate){
+  const task=TEAM_LEAD_TASKS.find(t=>t.key===taskKey);if(!task||!task.subItems)return;
+  const completions=await loadTeamLeadCompletions(periodDate);
+  const existing=completions.find(c=>c.taskKey===taskKey);
+  const currentData=existing?.taskData||{};
+  // Toggle this sub-item
+  if(currentData[subIdx]){delete currentData[subIdx];}
+  else{currentData[subIdx]={date:new Date().toISOString()};}
+  // Determine if any sub-items remain checked
+  const anyChecked=task.subItems.some((_,i)=>currentData[i]);
+  if(!anyChecked){
+    // No sub-items checked — remove the parent row entirely
+    if(useLocalStorage){
+      const filtered=completions.filter(c=>c.taskKey!==taskKey);
+      localStorage.setItem('psp-v7-dtasks-'+periodDate,JSON.stringify(filtered));
+    } else {
+      await api(`daily?resource=tasks&date=${periodDate}&taskKey=${taskKey}`,{method:'DELETE'});
+    }
+  } else {
+    // At least one sub-item is checked — upsert the row with updated taskData
+    const rec={date:periodDate,taskKey,completedBy:'mohogany',completedAt:new Date().toISOString(),taskData:currentData};
+    if(useLocalStorage){
+      const others=completions.filter(c=>c.taskKey!==taskKey);
+      localStorage.setItem('psp-v7-dtasks-'+periodDate,JSON.stringify([...others,rec]));
+    } else {
+      await api('daily?resource=tasks',{method:'POST',body:rec});
+    }
+  }
+  clearTeamLeadCache();
+  renderMgrTeamLead();
+}
+
+// When the parent checkbox of a sub-item task is clicked, toggle ALL sub-items at once
+async function toggleAllTeamLeadSubItems(taskKey,periodDate,checkAll){
+  const task=TEAM_LEAD_TASKS.find(t=>t.key===taskKey);if(!task||!task.subItems)return;
+  const completions=await loadTeamLeadCompletions(periodDate);
+  if(!checkAll){
+    // Uncheck all — remove the parent row entirely
+    if(useLocalStorage){
+      const filtered=completions.filter(c=>c.taskKey!==taskKey);
+      localStorage.setItem('psp-v7-dtasks-'+periodDate,JSON.stringify(filtered));
+    } else {
+      await api(`daily?resource=tasks&date=${periodDate}&taskKey=${taskKey}`,{method:'DELETE'});
+    }
+  } else {
+    // Check all sub-items
+    const data={};const ts=new Date().toISOString();
+    task.subItems.forEach((_,i)=>{data[i]={date:ts};});
+    const rec={date:periodDate,taskKey,completedBy:'mohogany',completedAt:ts,taskData:data};
+    if(useLocalStorage){
+      const others=completions.filter(c=>c.taskKey!==taskKey);
+      localStorage.setItem('psp-v7-dtasks-'+periodDate,JSON.stringify([...others,rec]));
     } else {
       await api('daily?resource=tasks',{method:'POST',body:rec});
     }
