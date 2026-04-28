@@ -3001,6 +3001,7 @@ function renderNurtureCard(n,prefix=''){
       ${infoBox}
       <div class="tpg">${tpHtml}</div>
       <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+        ${isDecl&&n.status==='active'?`<button class="btn btn-p btn-sm" onclick="markPaymentRecovered('${n.id}')" style="background:var(--ok);border-color:var(--ok);">💳 Payment recovered</button>`:''}
         ${n.status==='active'?`<button class="btn btn-g btn-sm" onclick="completeNurture('${n.id}')">Mark complete ✓</button>`:`<button class="btn btn-g btn-sm" onclick="reopenNurture('${n.id}')">Reopen</button>`}
         <button class="btn btn-g btn-sm" onclick="openReassignNurture('${n.id}')">Reassign</button>
         <button class="btn btn-sm btn-do" onclick="removeNurture('${n.id}')">Remove</button>
@@ -3069,6 +3070,39 @@ async function reopenNurture(id){
   else{await api('nurtures?id='+id,{method:'PUT',body:{status:'active'}});}
   renderMgrNurture();
 }
+
+async function markPaymentRecovered(id){
+  const n=nurtures.find(x=>x.id===id);if(!n||n.type!=='declined-payment')return;
+  // Show a confirmation modal that requires Mohogany to certify she
+  // re-activated the previously deactivated sessions in Mindbody
+  const confirmed=confirm(`💳 Mark "${n.guestName}"'s payment as recovered?\n\nBefore continuing, please confirm that you have:\n\n1. Successfully processed the payment in Mindbody\n2. Re-activated any active pricing options that were previously deactivated\n   (Client profile → Account details → "Active" section → three dots → Edit → re-check "Active pricing option")\n\nClick OK to confirm both steps are done, or Cancel to skip.`);
+  if(!confirmed)return;
+  n.status='completed';
+  // Add a Day 0/recovery marker into logs so there's a record of when payment was recovered
+  if(!n.logs)n.logs={};
+  // Find an empty TP slot to record the recovery, or use a synthetic slot
+  const recoveryNote='✓ Payment recovered and active pricing options re-activated in Mindbody on '+new Date().toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'});
+  // Mark the latest TP as completed if it isn't already, otherwise just store the recovery in a synthetic last entry
+  const tps=getNurtureTPs(n);
+  let placedRecovery=false;
+  for(let i=tps.length-1;i>=0;i--){
+    if(!n.logs[i]){
+      n.logs[i]={date:new Date().toISOString(),channel:'Payment recovered',notes:recoveryNote};
+      placedRecovery=true;
+      break;
+    }
+  }
+  if(!placedRecovery){
+    // All TPs already logged — append a synthetic entry
+    n.logs['recovery']={date:new Date().toISOString(),channel:'Payment recovered',notes:recoveryNote};
+  }
+  if(useLocalStorage){lsSave();}
+  else{await api('nurtures?id='+id,{method:'PUT',body:{status:'completed',logs:n.logs}});}
+  alert(`🎉 ${n.guestName}'s payment has been marked recovered. The recovery flow is now complete and they're back in good standing.`);
+  renderMgrNurture();
+  // Also refresh the manager dashboard alerts in case Mohogany navigates back
+  if(currentView==='manager')setMgrTab(currentMgrTab);
+}
 let reassignNurtureId=null;
 function openReassignNurture(nid){
   reassignNurtureId=nid;
@@ -3134,13 +3168,41 @@ async function addGuest(){
   document.getElementById('ng-name').value='';document.getElementById('ng-welcome-email').checked=false;document.getElementById('ng-notes').value='';toggleAddGuest();renderGuests();
 }
 async function removeGuest(id){
-  if(!confirm('Remove this client?'))return;
+  const guest=guests.find(c=>c.id===id);if(!guest)return;
+  // Find any related membership changes (and their auto-created nurtures)
+  const lower=guest.name.toLowerCase().trim();
+  const relatedChanges=changes.filter(c=>c.guestName.toLowerCase().trim()===lower);
+  const relatedNurtures=nurtures.filter(n=>n.guestName.toLowerCase().trim()===lower);
+  let extra='';
+  if(relatedChanges.length||relatedNurtures.length){
+    const parts=[];
+    if(relatedChanges.length)parts.push(`${relatedChanges.length} membership change request${relatedChanges.length!==1?'s':''}`);
+    if(relatedNurtures.length)parts.push(`${relatedNurtures.length} nurture${relatedNurtures.length!==1?'s':''}`);
+    extra=`\n\nThis will also delete ${parts.join(' and ')} for ${guest.name} to keep things in sync.`;
+  }
+  if(!confirm(`Remove ${guest.name} from the tracker?${extra}`))return;
+  // Delete the guest first
   if(useLocalStorage){
     guests=guests.filter(c=>c.id!==id);lsSave();
   } else {
-    await api('guests?id='+id,{method:'DELETE'});await loadGuests();
+    await api('guests?id='+id,{method:'DELETE'});
   }
+  // Cascade: delete related changes
+  for(const c of relatedChanges){
+    if(useLocalStorage){changes=changes.filter(x=>x.id!==c.id);}
+    else{try{await api('changes?id='+c.id,{method:'DELETE'});}catch(e){console.warn('Could not cascade-delete change',e.message);}}
+  }
+  // Cascade: delete related nurtures
+  for(const n of relatedNurtures){
+    if(useLocalStorage){nurtures=nurtures.filter(x=>x.id!==n.id);}
+    else{try{await api('nurtures?id='+n.id,{method:'DELETE'});}catch(e){console.warn('Could not cascade-delete nurture',e.message);}}
+  }
+  if(useLocalStorage)lsSave();
+  else{await Promise.all([loadGuests(),loadChanges(),loadNurtures()]);}
   renderGuests();
+  // Also refresh manager view if open so dashboard counts and overview reflect the change
+  if(currentView==='manager')setMgrTab(currentMgrTab);
+  if(currentView==='changes')renderChanges();
 }
 async function toggleRisk(id){
   const c=guests.find(x=>x.id===id);if(!c)return;
@@ -3839,10 +3901,36 @@ async function submitChange(){
 }
 
 async function removeChange(id){
-  if(!confirm('Remove this request?'))return;
-  if(useLocalStorage){changes=changes.filter(c=>c.id!==id);lsSave();}
-  else{await api('changes?id='+id,{method:'DELETE'});await loadChanges();}
+  const change=changes.find(c=>c.id===id);if(!change)return;
+  const lower=change.guestName.toLowerCase().trim();
+  // Find related nurtures (auto-created from this change) AND any matching new guest
+  const relatedNurtures=nurtures.filter(n=>n.changeId===id||n.guestName.toLowerCase().trim()===lower);
+  const matchingGuest=guests.find(g=>g.name.toLowerCase().trim()===lower);
+  let extra='';
+  const parts=[];
+  if(relatedNurtures.length)parts.push(`${relatedNurtures.length} nurture${relatedNurtures.length!==1?'s':''}`);
+  if(matchingGuest)parts.push(`their entry on the New Guests tracker`);
+  if(parts.length)extra=`\n\nThis will also delete ${parts.join(' and ')} for ${change.guestName} to keep things in sync.`;
+  if(!confirm(`Remove this ${change.type} request for ${change.guestName}?${extra}`))return;
+  // Delete the change first
+  if(useLocalStorage){changes=changes.filter(c=>c.id!==id);}
+  else{await api('changes?id='+id,{method:'DELETE'});}
+  // Cascade: delete related nurtures
+  for(const n of relatedNurtures){
+    if(useLocalStorage){nurtures=nurtures.filter(x=>x.id!==n.id);}
+    else{try{await api('nurtures?id='+n.id,{method:'DELETE'});}catch(e){console.warn('Could not cascade-delete nurture',e.message);}}
+  }
+  // Cascade: delete the matching guest if there is one
+  if(matchingGuest){
+    if(useLocalStorage){guests=guests.filter(g=>g.id!==matchingGuest.id);}
+    else{try{await api('guests?id='+matchingGuest.id,{method:'DELETE'});}catch(e){console.warn('Could not cascade-delete guest',e.message);}}
+  }
+  if(useLocalStorage)lsSave();
+  else{await Promise.all([loadChanges(),loadNurtures(),loadGuests()]);}
   refreshChanges();
+  // Refresh other views if open
+  if(currentView==='guests')renderGuests();
+  if(currentView==='manager')setMgrTab(currentMgrTab);
 }
 async function toggleClose(id){
   const c=changes.find(x=>x.id===id);if(!c)return;
