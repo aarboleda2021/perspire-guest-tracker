@@ -2866,18 +2866,34 @@ async function updateStaffGoal(staffId,key,val){
 // Weekly tasks reset Sunday at midnight ET. Monthly tasks reset on the 1st.
 const TEAM_LEAD_TASKS=[
   // ── DAILY (always-show checkboxes — reset every midnight ET) ──
-  {key:'tl-emails',freq:'daily',title:'Check team email inbox',
-    steps:[
-      'Open team email inbox',
-      'Reply to / triage all unread messages',
-      'Flag anything that needs Amanda\'s attention'
-    ]},
+  {key:'tl-emails',freq:'daily',title:'Check email inbox'},
   // ── WEEKLY ──
-  {key:'tl-last-visit',freq:'weekly',title:'Pull Last Visit Report',
+  {key:'tl-members-at-risk',freq:'weekly',title:'Conduct members-at-risk outreach',
     steps:[
-      'Text any member who hasn\'t visited in the last week',
-      'Call any member who hasn\'t visited in two weeks'
-    ]},
+      'Go to Mindbody → Insights → Reports',
+      'First, go to Membership, filter status to "Active", press Generate',
+      'Under "Tag actions", select "Tag new"',
+      'Then go to the "Last Visit" report',
+      'Under dates: select "Last 365 days"',
+      'Under filters: select "show tagged clients only" and click "hide clients with future visits"',
+      'Under options: ensure "Detail" is selected and it shows guests with 1 or more visits on or before that day\'s date',
+      'The first column the report shows is "Last Visit" — click that header to sort by who hasn\'t visited in the longest',
+      'Export the report to Excel (.xls) and filter as needed',
+      'Text any member who hasn\'t visited in 7+ days (use the 7-day script in the Scripts section)',
+      'Call any member who hasn\'t visited in 14+ days (use the 14-day call script — voicemail / email backups in Scripts section)'
+    ],
+    scripts:[
+      {label:'📱 7-day inactive — TEXT',channels:{
+        text:`Hi [Name]! It's [Your Name] from Perspire Peachtree Corners 🧡 Just checking in — we haven't seen you this week and I wanted to make sure everything's good. Anything we can help you with? We'd love to get your next session on the books!`
+      }},
+      {label:'📞 14-day inactive — CALL / VOICEMAIL / TEXT / EMAIL',channels:{
+        call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners! I'm calling to check in — we noticed you haven't been in for a couple weeks and wanted to make sure everything is okay.\n\nWe miss seeing you! Is there anything going on that's been keeping you from making it in? We'd love to help you get back to your routine — even if it's just helping you book your next session.\n\nLet me know what works for you!`,
+        voicemail:`Hi [Name], it's [Your Name] from Perspire Peachtree Corners — just checking in! We miss you and would love to help you get your next session booked. Give us a call back at 404-947-8084 anytime!`,
+        text:`Hi [Name]! It's [Your Name] from Perspire 🧡 Just wanted to check in — it's been a couple weeks since we've seen you and we miss you! Everything good? We'd love to help you get back into your routine. Call/text us anytime at 404-947-8084!`,
+        email:`Hi [Name],\n\nJust checking in — we haven't seen you in a couple weeks and wanted to make sure everything is okay. We miss you!\n\nIs there anything we can do to help you get back to your routine? Even if it's just helping you book your next session, we're happy to make it easy for you.\n\nReply to this email or call us at 404-947-8084 anytime — we'd love to hear from you.\n\nWarmly,\n[Your Name]\nPerspire Sauna Studio Peachtree Corners`
+      }}
+    ]
+  },
   {key:'tl-care-calls',freq:'weekly',title:'Perform care calls',
     steps:[
       'Pull "Contact Log" report for previous 1 week',
@@ -2907,7 +2923,7 @@ const TEAM_LEAD_TASKS=[
       'Review larger back room — reorganize items as needed'
     ]},
   {key:'tl-b2b',freq:'weekly',title:'B2B management',
-    note:'Wednesdays · Goal: 3-5 tabling events a month, at minimum',
+    note:'Goal: 3-5 tabling events a month, at minimum',
     steps:[
       'Update B2B tracking sheet with new numbers',
       'Review studio schedule for following month',
@@ -2946,12 +2962,33 @@ const TEAM_LEAD_TASKS=[
       'Review any open learnings for any staff on Woven',
       'Reassign learnings to staff on Woven, as needed'
     ]},
-  {key:'tl-week-audit',freq:'weekly',title:'Audit previous week\'s first visits, sales, & follow-ups',
+  {key:'tl-audit-first-visits',freq:'weekly',title:'Audit previous week\'s first visits',
     steps:[
-      'Review previous week\'s first visits (green stars) — check that each person has: waiver signed, preferences logged, contact log created, and Axle follow-up created (if no sale was made)',
-      'Review previous week\'s new member sales — double check that welcome email was sent, guest was added to "New Guests" list on the dashboard, etc.',
-      'Review Axle follow-up list outreach: Axle → Lists → "Follow-ups" → click "view" on relevant lists, scan "contacted last 7 days" column for check marks to ensure staff are contacting guests properly. If guests still need outreach, do it yourself or delegate/coordinate with staff.',
-      'Review average lead contact time: Axle → Reports → "Lead first contact" → review "delay" and "first contact" columns to see how quickly staff are returning calls. Tip: manually set a window time to focus on last week, last month, etc. Tip: export to Excel and upload into ChatGPT to ask it to analyze the report findings and give you averages.'
+      'Pull the previous week\'s first visits (green stars)',
+      'For each visit, check that the guest has: waiver signed, preferences logged, contact log created, and Axle follow-up created (if no sale was made)',
+      'Flag/coordinate with staff to resolve any gaps'
+    ]},
+  {key:'tl-audit-new-sales',freq:'weekly',title:'Audit previous week\'s new member sales',
+    steps:[
+      'Review the previous week\'s new member sales',
+      'Double-check that the welcome email was sent',
+      'Confirm each new guest was added to the "New Guests" list on the dashboard',
+      'Flag/coordinate any missing follow-up tasks with staff'
+    ]},
+  {key:'tl-audit-axle-followups',freq:'weekly',title:'Review Axle follow-up list outreach',
+    steps:[
+      'Go into Axle → Lists → "Follow-ups"',
+      'Click "view" on each relevant list',
+      'Scan the "contacted last 7 days" column for check marks to confirm staff are reaching out as required',
+      'If any guests still need outreach, do it yourself or delegate/coordinate with staff'
+    ]},
+  {key:'tl-audit-lead-time',freq:'weekly',title:'Review average lead contact time',
+    steps:[
+      'Go into Axle → Reports section (left sidebar)',
+      'Click "Lead first contact"',
+      'Review the "delay" and "first contact" columns to see how quickly staff are returning calls',
+      'Tip: manually set a window time to focus on last week, last month, etc.',
+      'Tip: export to Excel and upload into ChatGPT to have it analyze the findings and give you averages'
     ]},
   {key:'tl-competition',freq:'weekly',title:'Review progress against current month\'s employee competition',
     steps:[
@@ -2960,10 +2997,32 @@ const TEAM_LEAD_TASKS=[
       'Send encouraging text to staff on which staff member is in the lead'
     ]},
   // ── MONTHLY ──
-  {key:'tl-whiteboard',freq:'monthly',title:'Update backroom whiteboard, if needed',
+  {key:'tl-suite-audits',freq:'monthly',targetWeek:1,title:'Suite audits & clean heaters in each suite',
+    steps:[
+      'Walk through each suite (1–6) for a thorough audit',
+      'Note anything that needs maintenance, repair, or restocking',
+      'Clean the heaters in each suite',
+      'Submit any maintenance requests / order any needed parts'
+    ]},
+  {key:'tl-whiteboard',freq:'monthly',targetWeek:1,title:'Update backroom whiteboard, if needed',
     steps:[
       'Review the backroom whiteboard',
       'Update any staff/team-relevant info that has changed since last month'
+    ]},
+  {key:'tl-birthday-email',freq:'monthly',targetWeek:4,title:'Prep next month\'s birthday email',
+    note:'Send goes out on the 1st of next month',
+    steps:[
+      'Pull list of members with birthdays in the upcoming month',
+      'Draft the birthday email in the email tool',
+      'Schedule it to send on the 1st of next month',
+      'Confirm scheduling went through'
+    ]},
+  {key:'tl-comms-schedule',freq:'monthly',targetWeek:4,title:'Schedule next month\'s communications',
+    steps:[
+      'Review the communications calendar for next month',
+      'Schedule each upcoming message in Axle (or relevant tool)',
+      'Verify scheduled dates match the comms calendar',
+      'Flag anything that needs Amanda\'s approval before sending'
     ]}
 ];
 
@@ -3125,13 +3184,20 @@ async function renderMgrTeamLead(){
   html+=`<div style="display:flex;justify-content:space-between;align-items:baseline;margin:4px 0 10px;"><div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">📅 This Week — ${weekLbl}</div><div style="font-size:12px;color:var(--mid);">${weeklyDone}/${weeklyTasks.length} complete</div></div>`;
   html+=`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:22px;">${weeklyTasks.map(t=>renderTeamLeadTask(t,weekly,weekStart)).join('')}</div>`;
 
-  // MONTHLY section
-  const monthlyTasks=TEAM_LEAD_TASKS.filter(t=>t.freq==='monthly');
-  const monthlyDone=monthlyTasks.filter(t=>monthly.find(c=>c.taskKey===t.key)).length;
+  // MONTHLY section — reveal each week as it starts
+  const dayOfMonth=(()=>{const d=new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'}));return d.getDate();})();
+  const currentMonthWeek=dayOfMonth<=7?1:dayOfMonth<=14?2:dayOfMonth<=21?3:4;
+  const allMonthly=TEAM_LEAD_TASKS.filter(t=>t.freq==='monthly');
+  const visibleMonthly=allMonthly.filter(t=>!t.targetWeek||t.targetWeek<=currentMonthWeek);
+  const hiddenMonthlyCount=allMonthly.length-visibleMonthly.length;
+  const monthlyDone=visibleMonthly.filter(t=>monthly.find(c=>c.taskKey===t.key)).length;
   const monthDate=parseDate(monthStart);
   const monthLbl=monthDate?monthDate.toLocaleDateString('en-US',{month:'long',year:'numeric'}):'';
-  html+=`<div style="display:flex;justify-content:space-between;align-items:baseline;margin:4px 0 10px;"><div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">🗓️ This Month — ${monthLbl}</div><div style="font-size:12px;color:var(--mid);">${monthlyDone}/${monthlyTasks.length} complete</div></div>`;
-  html+=`<div style="display:flex;flex-direction:column;gap:6px;">${monthlyTasks.map(t=>renderTeamLeadTask(t,monthly,monthStart)).join('')}</div>`;
+  html+=`<div style="display:flex;justify-content:space-between;align-items:baseline;margin:4px 0 10px;"><div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">🗓️ This Month — ${monthLbl}<span style="margin-left:8px;font-weight:400;text-transform:none;letter-spacing:0;">(currently in week ${currentMonthWeek})</span></div><div style="font-size:12px;color:var(--mid);">${monthlyDone}/${visibleMonthly.length} complete</div></div>`;
+  html+=`<div style="display:flex;flex-direction:column;gap:6px;">${visibleMonthly.map(t=>renderTeamLeadTask(t,monthly,monthStart)).join('')}</div>`;
+  if(hiddenMonthlyCount){
+    html+=`<div style="font-size:11px;color:var(--muted);font-style:italic;margin-top:8px;">${hiddenMonthlyCount} more monthly task${hiddenMonthlyCount!==1?'s':''} will appear in upcoming week${hiddenMonthlyCount!==1?'s':''} of the month.</div>`;
+  }
 
   el.innerHTML=html;
 }
@@ -3143,13 +3209,17 @@ function renderTeamLeadTask(task,completions,periodDate){
   const checkColor=done?'var(--ok)':'var(--border)';
   const opacity=done?'opacity:.6;':'';
   const placeholderBadge=isPlaceholder?'<span class="badge bia" style="font-size:9px;margin-left:6px;">PLACEHOLDER</span>':'';
+  const targetWeekBadge=task.targetWeek?`<span class="badge bia" style="font-size:9px;margin-left:6px;">Target: Week ${task.targetWeek}</span>`:'';
+  // Only show "View instructions" if the task has steps or scripts
+  const hasInstructions=(task.steps&&task.steps.length)||(task.scripts&&task.scripts.length);
+  const instructionsBtn=hasInstructions?`<div style="margin-top:6px;"><button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openTeamLeadHowTo('${task.key}')">📋 View instructions</button></div>`:'';
   return`<div class="stask ${done?'done':''}" style="${opacity}${isPlaceholder?'border:1.5px dashed var(--muted);background:var(--sand);':''}">
     <div class="stask-chk" style="${done?'background:var(--ok);border-color:var(--ok);':`background:white;border:2px solid ${checkColor};`}cursor:pointer;" onclick="toggleTeamLeadTask('${task.key}','${periodDate}')">${done?'<svg width="12" height="12" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div>
     <div class="stask-body">
-      <div class="stask-lbl" style="cursor:pointer;" onclick="toggleTeamLeadTask('${task.key}','${periodDate}')">${task.title}${placeholderBadge}</div>
+      <div class="stask-lbl" style="cursor:pointer;" onclick="toggleTeamLeadTask('${task.key}','${periodDate}')">${task.title}${placeholderBadge}${targetWeekBadge}</div>
       ${task.note?`<div style="font-size:11px;color:var(--muted);font-style:italic;margin-top:2px;">${task.note}</div>`:''}
       ${done?`<div class="stask-meta">✓ Completed ${completedTime}</div>`:''}
-      <div style="margin-top:6px;"><button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openTeamLeadHowTo('${task.key}')">📋 View instructions</button></div>
+      ${instructionsBtn}
     </div>
   </div>`;
 }
@@ -3182,15 +3252,36 @@ async function toggleTeamLeadTask(taskKey,periodDate){
 function openTeamLeadHowTo(taskKey){
   const task=TEAM_LEAD_TASKS.find(t=>t.key===taskKey);if(!task)return;
   document.getElementById('tp-script-title').textContent=`📋 ${task.title}`;
-  document.getElementById('tp-script-sub').textContent=task.freq==='weekly'?'Weekly task':task.freq==='monthly'?'Monthly task':'';
+  const subParts=[];
+  if(task.freq==='daily')subParts.push('Daily task');
+  else if(task.freq==='weekly')subParts.push('Weekly task');
+  else if(task.freq==='monthly')subParts.push(task.targetWeek?`Monthly task · target Week ${task.targetWeek}`:'Monthly task');
+  document.getElementById('tp-script-sub').textContent=subParts.join(' · ');
   document.getElementById('tp-script-tabs').innerHTML='';
   let body=`<div style="font-size:13px;line-height:1.7;">`;
   if(task.note){
-    body+=`<div style="background:var(--info);background:var(--infop);border-left:3px solid var(--info);padding:8px 12px;border-radius:4px;margin-bottom:12px;font-size:12px;color:var(--info);"><strong>Note:</strong> ${task.note}</div>`;
+    body+=`<div style="background:var(--infop);border-left:3px solid var(--info);padding:8px 12px;border-radius:4px;margin-bottom:12px;font-size:12px;color:var(--info);"><strong>Note:</strong> ${task.note}</div>`;
   }
-  body+=`<div style="font-weight:600;color:var(--dark);margin-bottom:8px;">Steps:</div><ol style="margin:0 0 12px 18px;padding:0;">${task.steps.map(s=>`<li style="margin-bottom:6px;">${s}</li>`).join('')}</ol>`;
+  if(task.steps&&task.steps.length){
+    body+=`<div style="font-weight:600;color:var(--dark);margin-bottom:8px;">Steps:</div><ol style="margin:0 0 12px 18px;padding:0;">${task.steps.map(s=>`<li style="margin-bottom:6px;">${s}</li>`).join('')}</ol>`;
+  }
   if(task.examples&&task.examples.length){
     body+=`<div style="font-weight:600;color:var(--dark);margin:14px 0 8px;">Examples / ideas:</div><ul style="margin:0 0 0 18px;padding:0;">${task.examples.map(e=>`<li style="margin-bottom:4px;">${e}</li>`).join('')}</ul>`;
+  }
+  if(task.scripts&&task.scripts.length){
+    body+=`<div style="font-weight:600;color:var(--dark);margin:18px 0 8px;border-top:1px solid var(--border);padding-top:14px;">📞 Scripts:</div>`;
+    task.scripts.forEach(group=>{
+      body+=`<div style="background:var(--sand);border-left:3px solid var(--tc);padding:10px 12px;border-radius:4px;margin-bottom:12px;">`;
+      body+=`<div style="font-weight:600;color:var(--dark);margin-bottom:8px;font-size:13px;">${group.label}</div>`;
+      const channels=group.channels||{};
+      const channelLabels={call:'☎ Phone call',voicemail:'📨 Voicemail',text:'💬 Text',email:'✉ Email'};
+      ['call','voicemail','text','email'].forEach(ch=>{
+        if(!channels[ch])return;
+        const lines=channels[ch].split('\n').map(l=>l.replace(/</g,'&lt;')).join('<br>');
+        body+=`<div style="margin-top:8px;"><div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">${channelLabels[ch]}</div><div style="font-size:13px;color:var(--mid);background:white;padding:8px 10px;border-radius:4px;border:1px solid var(--border);">${lines}</div></div>`;
+      });
+      body+=`</div>`;
+    });
   }
   body+='</div>';
   document.getElementById('tp-script-body').innerHTML=body;
