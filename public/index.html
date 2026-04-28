@@ -2865,6 +2865,13 @@ async function updateStaffGoal(staffId,key,val){
 // Frequency: weekly | monthly | placeholder
 // Weekly tasks reset Sunday at midnight ET. Monthly tasks reset on the 1st.
 const TEAM_LEAD_TASKS=[
+  // ── DAILY (always-show checkboxes — reset every midnight ET) ──
+  {key:'tl-emails',freq:'daily',title:'Check team email inbox',
+    steps:[
+      'Open team email inbox',
+      'Reply to / triage all unread messages',
+      'Flag anything that needs Amanda\'s attention'
+    ]},
   // ── WEEKLY ──
   {key:'tl-last-visit',freq:'weekly',title:'Pull Last Visit Report',
     steps:[
@@ -2960,7 +2967,12 @@ const TEAM_LEAD_TASKS=[
     ]}
 ];
 
-// Period helpers
+// Period helpers — all reset at midnight ET per Amanda's preference
+function getMidnightETDateStr(){
+  // Pure ET calendar date — used by daily team-lead tasks (resets at midnight)
+  const now=new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'}));
+  return`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+}
 function getCurrentWeekStart(){
   // Sunday of the current week (weekly tasks reset Sun at midnight ET)
   const now=new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'}));
@@ -3001,8 +3013,45 @@ async function renderMgrTeamLead(){
     [...weekly,...monthly].forEach(t=>{lastUpdatedMap[t.taskKey]=t.completedAt;});
   }
 
-  // ── DAILY (auto-injected reminders) ──
+  // ── DAILY (auto-injected smart reminders that disappear when resolved) ──
   const dailyItems=[];
+  // Open membership change requests — always urgent if there are any
+  const openChanges=changes.filter(c=>c.status!=='closed');
+  const urgentChanges=openChanges.filter(c=>billUrgency(c.billDate)==='urgent');
+  if(openChanges.length){
+    const urgNote=urgentChanges.length?` · ${urgentChanges.length} URGENT`:'';
+    dailyItems.push({label:`📋 Process ${openChanges.length} open membership change request${openChanges.length!==1?'s':''}${urgNote}`,action:`setView('changes')`,urgent:urgentChanges.length>0});
+  }
+  // Membership change follow-up calls
+  const followUpChanges=changes.filter(c=>needsFollowupNow(c));
+  if(followUpChanges.length){
+    dailyItems.push({label:`📞 Make ${followUpChanges.length} membership-change follow-up call${followUpChanges.length!==1?'s':''}`,action:`setView('changes')`,urgent:false});
+  }
+  // New guest touchpoint outreach (overdue + due-now across all active guests)
+  let guestTpsDue=0;
+  guests.filter(g=>!g.deactivated).forEach(g=>{
+    const tps=getTPs(g.type);
+    tps.forEach((_,i)=>{const s=tpStatus(g,i);if(s==='overdue'||s==='due-now')guestTpsDue++;});
+  });
+  if(guestTpsDue){
+    dailyItems.push({label:`🧑‍🤝‍🧑 ${guestTpsDue} new-guest touchpoint${guestTpsDue!==1?'s':''} need outreach today`,action:`setView('guests')`,urgent:false});
+  }
+  // Nurture & reactivation calls (overdue + due-now, EXCLUDING declined-payment which has its own card)
+  let nurtureTpsDue=0;
+  nurtures.filter(n=>n.status==='active'&&n.type!=='declined-payment').forEach(n=>{
+    getNurtureTPs(n).forEach((_,i)=>{const s=nurtureStatus(n,i);if(s==='overdue'||s==='due-now')nurtureTpsDue++;});
+  });
+  if(nurtureTpsDue){
+    dailyItems.push({label:`🌟 Make ${nurtureTpsDue} nurture/reactivation call${nurtureTpsDue!==1?'s':''}`,action:`setMgrTab('nurture')`,urgent:false});
+  }
+  // Declined-payment recovery touchpoint calls (overdue + due-now)
+  let declinedTpsDue=0;
+  nurtures.filter(n=>n.type==='declined-payment'&&n.status==='active').forEach(n=>{
+    getNurtureTPs(n).forEach((_,i)=>{const s=nurtureStatus(n,i);if(s==='overdue'||s==='due-now')declinedTpsDue++;});
+  });
+  if(declinedTpsDue){
+    dailyItems.push({label:`💳 Make ${declinedTpsDue} declined-payment follow-up call${declinedTpsDue!==1?'s':''}`,action:`setMgrTab('nurture')`,urgent:true});
+  }
   // Visits upload reminder
   const members=guests.filter(c=>c.type==='member'&&!c.deactivated);
   const attendanceLogs=events.filter(e=>e.eventType==='other'&&e.title==='__attendance-report-log').sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
@@ -3034,15 +3083,21 @@ async function renderMgrTeamLead(){
     dailyItems.push({label:`⚠ Review ${pendingMembersCount} member${pendingMembersCount!==1?'s':''} flagged from the last roster upload`,action:`openPendingMembers()`,urgent:false});
   }
 
+  // ── DAILY CHECKBOX TASKS (always-show, reset midnight ET) ──
+  const dailyDate=getMidnightETDateStr();
+  const dailyCompletions=await loadTeamLeadCompletions(dailyDate);
+  const dailyTasksList=TEAM_LEAD_TASKS.filter(t=>t.freq==='daily');
+
   // Build HTML
   let html='';
 
   // DAILY section
-  html+=`<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 10px;">🌅 Daily Reminders</div>`;
-  if(!dailyItems.length){
-    html+=`<div style="background:var(--okp);border:1.5px solid #9ECDB5;border-radius:10px;padding:14px 16px;margin-bottom:22px;font-size:13px;color:var(--ok);">✓ All caught up — no urgent reminders right now.</div>`;
-  } else {
-    html+=`<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:22px;">`;
+  const dailyDateLbl=(()=>{const d=parseDate(dailyDate);return d?d.toLocaleDateString('en-US',{weekday:'long',month:'numeric',day:'numeric'}):'';})();
+  html+=`<div style="display:flex;justify-content:space-between;align-items:baseline;margin:4px 0 10px;"><div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">🌅 Today — ${dailyDateLbl}</div><div style="font-size:11px;color:var(--muted);">Resets at midnight</div></div>`;
+
+  // Smart auto-disappearing reminders first
+  if(dailyItems.length){
+    html+=`<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">`;
     dailyItems.forEach(item=>{
       const bg=item.urgent?'var(--errp)':'var(--warnp)';
       const border=item.urgent?'1.5px solid var(--err)':'1.5px solid #E8C07A';
@@ -3050,6 +3105,16 @@ async function renderMgrTeamLead(){
       html+=`<div style="background:${bg};border:${border};border-radius:10px;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;" onclick="${item.action}"><div style="font-size:13px;color:${color};font-weight:600;">${item.label}</div><span style="color:${color};font-size:18px;">→</span></div>`;
     });
     html+=`</div>`;
+  }
+
+  // Daily checkbox tasks (always-show, reset at midnight ET)
+  if(dailyTasksList.length){
+    html+=`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:22px;">${dailyTasksList.map(t=>renderTeamLeadTask(t,dailyCompletions,dailyDate)).join('')}</div>`;
+  }
+
+  // If both auto-reminders AND daily checkboxes are empty, show all-caught-up
+  if(!dailyItems.length&&!dailyTasksList.length){
+    html+=`<div style="background:var(--okp);border:1.5px solid #9ECDB5;border-radius:10px;padding:14px 16px;margin-bottom:22px;font-size:13px;color:var(--ok);">✓ All caught up — no urgent reminders right now.</div>`;
   }
 
   // WEEKLY section
