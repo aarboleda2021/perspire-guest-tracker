@@ -571,16 +571,16 @@
 <!-- ══ MANAGER VIEW ══════════════════════════════════════════════════════ -->
 <div id="view-manager" style="display:none;">
   <div class="tabs">
-    <button class="tab active" onclick="setMgrTab('dashboard')" id="tab-dash">Dashboard</button>
-    <button class="tab" onclick="setMgrTab('teamlead')" id="tab-tl">Team Lead Tasks</button>
+    <button class="tab active" onclick="setMgrTab('teamlead')" id="tab-tl">Team Lead Tasks</button>
+    <button class="tab" onclick="setMgrTab('dashboard')" id="tab-dash">Dashboard</button>
     <button class="tab" onclick="setMgrTab('overview')" id="tab-ov">New Guests Overview</button>
     <button class="tab" onclick="setMgrTab('changes')" id="tab-chg">All Membership Changes</button>
     <button class="tab" onclick="setMgrTab('nurture')" id="tab-nur">Nurture & Reactivations</button>
     <button class="tab" onclick="setMgrTab('graduated')" id="tab-grad">Graduated</button>
     <button class="tab" onclick="setMgrTab('staff')" id="tab-st">Staff Management</button>
   </div>
-  <div id="mgr-dashboard"><div style="font-size:12px;color:var(--muted);margin-bottom:12px;">At-a-glance overview of everything that needs attention across the studio.</div><div id="dashboard-content"></div></div>
-  <div id="mgr-teamlead" style="display:none;"><div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Mohogany's master checklist — daily reminders auto-update, weekly tasks reset every Sunday at midnight, and monthly tasks reset on the 1st. Complete in any order, on whichever days you're working.</div><div id="teamlead-content"></div></div>
+  <div id="mgr-teamlead"><div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Mohogany's master checklist — daily reminders auto-update, weekly tasks reset every Sunday at midnight, and monthly tasks reset on the 1st. Complete in any order, on whichever days you're working.</div><div id="teamlead-content"></div></div>
+  <div id="mgr-dashboard" style="display:none;"><div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Studio health snapshot — high-level numbers and only the critical alerts that need today's attention. For your full to-do list, head to <strong>Team Lead Tasks</strong>.</div><div id="dashboard-content"></div></div>
   <div id="mgr-ov" style="display:none;"><div style="font-size:12px;color:var(--muted);margin-bottom:12px;">All active new guests grouped by staff member — monitor touchpoint progress and visit milestones.</div><div class="srow" id="mgr-stats"></div><div id="mgr-list"></div></div>
   <div id="mgr-chg" style="display:none;"><div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Full view of all membership change requests — open, urgent, and processed.</div><div class="srow" id="mgr-chg-stats"></div><div id="mgr-chg-list"></div></div>
   <div id="mgr-nurture" style="display:none;"><div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Follow-up touchpoints for tier changes and reactivation reminders for returning members after a freeze.</div><div class="srow" id="mgr-nur-stats"></div><div id="mgr-nur-list"></div></div>
@@ -2631,7 +2631,7 @@ function buildPostChecklist(c){
 // ── RENDER: MANAGER VIEW ──────────────────────────────────────────────────
 
 // Dashboard — summary of items needing Mohogany's attention
-function renderMgrDashboard(){
+async function renderMgrDashboard(){
   // Last visits upload — prefer the explicit attendance upload log (works
   // even when zero rows matched). Fall back to max visitsUpdatedAt for
   // historical compatibility with uploads that happened before logging existed.
@@ -2697,99 +2697,141 @@ function renderMgrDashboard(){
     return Math.floor((today()-sd)/86400000)>=14;
   }).length;
 
-  // Build alert cards — always show all categories, with 0 if nothing
-  const alertDef=[
-    {count:urgentChanges.length,label:'Urgent bill dates',sub:'Process before close of business',urgentColor:'var(--urg)',urgentBg:'var(--urgp)',tab:'changes'},
-    {count:followUpChanges.length,label:'Follow-ups needed',sub:'Second outreach required',urgentColor:'#856404',urgentBg:'#FFF8E1',tab:'changes'},
-    {count:declinedOverdue,label:'Declined payments overdue',sub:'14+ days unresolved — convert to termination',urgentColor:'var(--err)',urgentBg:'var(--errp)',tab:'nurture'},
-    {count:unsentWelcomeEmails,label:'Welcome emails not sent',sub:'Send from Gmail template',urgentColor:'var(--warn)',urgentBg:'var(--warnp)',tab:'overview'},
-    {count:unsignedAgreements,label:'Unsigned agreements',sub:'Members — goal: within 2 weeks',urgentColor:'var(--warn)',urgentBg:'var(--warnp)',tab:'overview'},
-    {count:pendingGrads.length,label:'Pending graduations',sub:'Ready to celebrate 🎓',urgentColor:'var(--ok)',urgentBg:'var(--okp)',tab:'graduated'},
-    {count:overdueNurtures.length,label:'Overdue tier nurtures',sub:'Need outreach now',urgentColor:'var(--err)',urgentBg:'var(--errp)',tab:'nurture'},
-    {count:dueNowNurtures.length,label:'Nurtures due this week',sub:'Touchpoint window open',urgentColor:'var(--warn)',urgentBg:'var(--warnp)',tab:'nurture'},
-    {count:upcomingReacts.length,label:'Reactivations coming up',sub:'Send welcome-back outreach',urgentColor:'var(--ok)',urgentBg:'var(--okp)',tab:'nurture'},
-    {count:urgentNotes.length,label:'Urgent shift notes',sub:'Unresolved and flagged',urgentColor:'var(--urg)',urgentBg:'var(--urgp)',tab:null,goto:'daily-notes'},
-    {count:pendingAnnouncements,label:'Announcements pending ack',sub:'Leadership announcements awaiting staff review',urgentColor:'var(--info)',urgentBg:'var(--infop)',tab:null,goto:'daily-notes'},
-    {count:incompleteRecordings,label:'Training recordings pending',sub:'Recordings not yet completed by all staff',urgentColor:'var(--info)',urgentBg:'var(--infop)',tab:null,goto:'daily-learning'},
-    {count:pendingMembersCount,label:'Members pending review',sub:'Flagged from Mindbody upload — add or dismiss',urgentColor:'var(--warn)',urgentBg:'var(--warnp)',tab:null,action:'openPendingMembers()'},
-  ];
-  const alerts=alertDef.map(a=>({
-    ...a,
-    color:a.count>0?a.urgentColor:'var(--muted)',
-    bg:a.count>0?a.urgentBg:'white'
-  }));
+  let html=`<div style="font-family:'DM Serif Display',serif;font-size:22px;margin-bottom:4px;">Studio Health</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:22px;">${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})} · At-a-glance snapshot of where things stand. For your full to-do list, head to <a href="#" onclick="event.preventDefault();setMgrTab('teamlead')" style="color:var(--info);text-decoration:underline;">Team Lead Tasks</a>.</div>`;
 
-  // Status counts
-  const statusCards=[
-    {count:openChanges.length,label:'Open membership changes',tab:'changes'},
-    {count:overdueGuests.length,label:'Overdue new guest touchpoints',tab:'overview'},
-    {count:atRiskGuests.length,label:'At-risk new members',tab:'overview'},
-    {count:guests.filter(c=>!c.deactivated).length,label:'Active new guests',tab:'overview'},
-  ];
-
-  let html=`<div style="font-family:'DM Serif Display',serif;font-size:22px;margin-bottom:4px;">Dashboard</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:22px;">${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})} · At-a-glance view of what needs attention</div>`;
-
-  // Visits upload prompt — always shown with appropriate state
-  let uploadCard;
-  if(lastUpload===undefined||lastUpload===null){
-    uploadCard={bg:'var(--warnp)',border:'2px solid #E8C07A',color:'var(--warn)',title:'📤 Upload the attendance analysis report',msg:'No visits report has been uploaded yet. Uploading keeps session milestones accurate for all members.'};
-  } else if(daysSinceUpload>=5){
-    uploadCard={bg:'var(--errp)',border:'2px solid var(--err)',color:'var(--err)',title:'⚠ Overdue: upload the attendance analysis report',msg:`Last upload was <strong>${daysSinceUpload} days ago</strong>. Milestone tracking may be outdated — please pull the latest report and upload.`};
-  } else if(daysSinceUpload>=3){
-    uploadCard={bg:'var(--warnp)',border:'1.5px solid #E8C07A',color:'var(--warn)',title:'📤 Time to upload the attendance analysis report',msg:`Last upload was ${daysSinceUpload} days ago. Pull the latest report every 3 days to keep milestones fresh.`};
-  } else {
-    const daysUntilNext=Math.max(0,3-daysSinceUpload);
-    uploadCard={bg:'var(--okp)',border:'1.5px solid #9ECDB5',color:'var(--ok)',title:'✓ Attendance report up to date',msg:`Last uploaded ${daysSinceUpload===0?'today':daysSinceUpload===1?'yesterday':`${daysSinceUpload} days ago`}. Next upload due ${daysUntilNext===0?'today':`in ${daysUntilNext} day${daysUntilNext!==1?'s':''}`}.`};
-  }
-  let memberCard;
-  if(lastMemberUpload===null){
-    memberCard={bg:'var(--warnp)',border:'2px solid #E8C07A',color:'var(--warn)',title:'👥 Upload your member roster from Mindbody',msg:'No member roster has been uploaded yet. Uploading lets us catch any new members who joined but aren\'t in the New Guest tracker yet.'};
-  } else if(daysSinceMemberUpload>=5){
-    memberCard={bg:'var(--errp)',border:'2px solid var(--err)',color:'var(--err)',title:'⚠ Overdue: upload the member roster',msg:`Last upload was <strong>${daysSinceMemberUpload} days ago</strong>. New members may be missing from the tracker — please pull the latest report and upload.`};
-  } else if(daysSinceMemberUpload>=3){
-    memberCard={bg:'var(--warnp)',border:'1.5px solid #E8C07A',color:'var(--warn)',title:'👥 Time to upload the member roster',msg:`Last upload was ${daysSinceMemberUpload} days ago. Pull the latest report every 3 days to catch new members early.`};
-  } else {
-    const daysUntilNextMember=Math.max(0,3-daysSinceMemberUpload);
-    memberCard={bg:'var(--okp)',border:'1.5px solid #9ECDB5',color:'var(--ok)',title:'✓ Member roster up to date',msg:`Last uploaded ${daysSinceMemberUpload===0?'today':daysSinceMemberUpload===1?'yesterday':`${daysSinceMemberUpload} days ago`}. Next upload due ${daysUntilNextMember===0?'today':`in ${daysUntilNextMember} day${daysUntilNextMember!==1?'s':''}`}.`};
-  }
-  // Step intro
-  html+=`<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 8px;">Mindbody report uploads</div>
-    <div style="font-size:12px;color:var(--mid);margin-bottom:10px;line-height:1.5;">Always do these in order: <strong>Step 1</strong> catches any new members and adds them to the tracker. <strong>Step 2</strong> updates everyone's visit counts.</div>`;
-  // Step 1 — Member roster (FIRST)
-  html+=`<div style="background:${memberCard.bg};border:${memberCard.border};border-radius:12px;padding:14px 16px;margin-bottom:14px;">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span style="background:${memberCard.color};color:white;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;letter-spacing:.04em;">STEP 1</span><div style="font-weight:600;color:${memberCard.color};font-size:13px;">${memberCard.title}</div></div>
-    <div style="font-size:12px;color:var(--mid);line-height:1.5;margin-bottom:10px;">${memberCard.msg}</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-g btn-sm" onclick="openModal('member-instructions-modal')">📖 How to pull this report</button><button class="btn btn-p btn-sm" onclick="openUploadMembers()">📤 Upload now</button></div>
-  </div>`;
-  // Step 2 — Attendance (SECOND)
-  html+=`<div style="background:${uploadCard.bg};border:${uploadCard.border};border-radius:12px;padding:14px 16px;margin-bottom:18px;">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span style="background:${uploadCard.color};color:white;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;letter-spacing:.04em;">STEP 2</span><div style="font-weight:600;color:${uploadCard.color};font-size:13px;">${uploadCard.title}</div></div>
-    <div style="font-size:12px;color:var(--mid);line-height:1.5;margin-bottom:10px;">${uploadCard.msg}</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-g btn-sm" onclick="openModal('upload-instructions-modal')">📖 How to pull this report</button><button class="btn btn-p btn-sm" onclick="openUploadVisits()">📤 Upload now</button></div>
+  // ── 1. UPLOAD STATUS BANNER (compact) ──────────────────────────────────
+  const uploadStatus=(() => {
+    const visitsState=lastUpload===undefined||lastUpload===null?'never':daysSinceUpload>=5?'overdue':daysSinceUpload>=3?'due':'fresh';
+    const memberState=lastMemberUpload===null?'never':daysSinceMemberUpload>=5?'overdue':daysSinceMemberUpload>=3?'due':'fresh';
+    const anyOverdue=visitsState==='overdue'||memberState==='overdue';
+    const anyDue=visitsState==='due'||memberState==='due'||visitsState==='never'||memberState==='never';
+    const allFresh=visitsState==='fresh'&&memberState==='fresh';
+    let bg,border,color,icon,msg,actions='';
+    if(allFresh){
+      const visitsNext=Math.max(0,3-daysSinceUpload);const memberNext=Math.max(0,3-daysSinceMemberUpload);
+      const soonest=Math.min(visitsNext,memberNext);
+      bg='var(--okp)';border='1.5px solid #9ECDB5';color='var(--ok)';icon='✓';
+      msg=`Mindbody uploads up to date · next due ${soonest===0?'today':`in ${soonest} day${soonest!==1?'s':''}`}`;
+    } else if(anyOverdue){
+      bg='var(--errp)';border='1.5px solid var(--err)';color='var(--err)';icon='⚠';
+      const items=[];
+      if(visitsState==='overdue')items.push(`Attendance ${daysSinceUpload}d overdue`);
+      if(memberState==='overdue')items.push(`Member roster ${daysSinceMemberUpload}d overdue`);
+      msg=`Mindbody upload overdue: ${items.join(' · ')}`;
+      actions=`<button class="btn btn-p btn-sm" onclick="openUploadMembers()">Upload member roster</button><button class="btn btn-p btn-sm" onclick="openUploadVisits()">Upload attendance</button>`;
+    } else {
+      bg='var(--warnp)';border='1.5px solid #E8C07A';color='var(--warn)';icon='📤';
+      const items=[];
+      if(memberState==='due'||memberState==='never')items.push(`Member roster${memberState==='never'?' (never uploaded)':` (${daysSinceMemberUpload}d ago)`}`);
+      if(visitsState==='due'||visitsState==='never')items.push(`Attendance${visitsState==='never'?' (never uploaded)':` (${daysSinceUpload}d ago)`}`);
+      msg=`Time to upload: ${items.join(' · ')}`;
+      const btns=[];
+      if(memberState==='due'||memberState==='never')btns.push('<button class="btn btn-p btn-sm" onclick="openUploadMembers()">Upload member roster</button>');
+      if(visitsState==='due'||visitsState==='never')btns.push('<button class="btn btn-p btn-sm" onclick="openUploadVisits()">Upload attendance</button>');
+      actions=btns.join('');
+    }
+    return{bg,border,color,icon,msg,actions};
+  })();
+  html+=`<div style="background:${uploadStatus.bg};border:${uploadStatus.border};border-radius:10px;padding:10px 14px;margin-bottom:18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <div style="font-size:18px;color:${uploadStatus.color};">${uploadStatus.icon}</div>
+    <div style="flex:1;min-width:200px;font-size:13px;color:${uploadStatus.color};font-weight:600;">${uploadStatus.msg}</div>
+    ${uploadStatus.actions?`<div style="display:flex;gap:6px;flex-wrap:wrap;">${uploadStatus.actions}</div>`:''}
   </div>`;
 
-  html+=`<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 10px;">Needs attention</div>`;
-  html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-bottom:22px;">`;
-  html+=alerts.map(a=>{
-    const onclick=a.tab?`onclick="setMgrTab('${a.tab}')"`:(a.goto?`onclick="setView('daily');setDailyTab('${a.goto.replace('daily-','')}')"`:(a.action?`onclick="${a.action}"`:''));
-    return`<div style="background:${a.bg};border:1.5px solid ${a.color};border-radius:12px;padding:14px 16px;cursor:pointer;transition:transform .1s;" ${onclick} onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div style="font-family:'DM Serif Display',serif;font-size:32px;color:${a.color};line-height:1;">${a.count}</div>
-        <div style="flex:1;">
-          <div style="font-weight:600;font-size:13px;color:${a.color};">${a.label}</div>
-          <div style="font-size:11px;color:var(--mid);margin-top:2px;">${a.sub}</div>
+  // ── 2. CRITICAL ALERTS (today-must-do only) ───────────────────────────
+  const criticalAlerts=[
+    {count:urgentChanges.length,label:'Urgent bill dates',sub:'Process before close of business',color:'var(--urg)',bg:'var(--urgp)',tab:'changes'},
+    {count:declinedOverdue,label:'Declined payments overdue',sub:'14+ days unresolved — convert to termination',color:'var(--err)',bg:'var(--errp)',tab:'nurture'},
+    {count:urgentNotes.length,label:'Urgent shift notes',sub:'Unresolved and flagged',color:'var(--urg)',bg:'var(--urgp)',action:`setView('daily');setDailyTab('notes')`}
+  ].filter(a=>a.count>0);
+  if(criticalAlerts.length){
+    html+=`<div style="font-size:11px;font-weight:600;color:var(--err);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 8px;">🔴 Critical — needs today's attention</div>`;
+    html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;margin-bottom:18px;">`;
+    html+=criticalAlerts.map(a=>{
+      const onclick=a.tab?`onclick="setMgrTab('${a.tab}')"`:`onclick="${a.action}"`;
+      return`<div style="background:${a.bg};border:1.5px solid ${a.color};border-radius:10px;padding:12px 14px;cursor:pointer;transition:transform .1s;" ${onclick} onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="font-family:'DM Serif Display',serif;font-size:32px;color:${a.color};line-height:1;">${a.count}</div>
+          <div style="flex:1;"><div style="font-weight:600;font-size:13px;color:${a.color};">${a.label}</div><div style="font-size:11px;color:var(--mid);margin-top:2px;">${a.sub}</div></div>
+          <div style="color:${a.color};font-size:18px;">→</div>
         </div>
-        <div style="color:${a.color};font-size:18px;">→</div>
-      </div>
-    </div>`;
-  }).join('');
-  html+=`</div>`;
+      </div>`;
+    }).join('');
+    html+=`</div>`;
+  }
 
-  html+=`<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 10px;">Studio status</div>`;
-  html+=`<div class="srow" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr));">`;
-  html+=statusCards.map(s=>`<div class="sc" style="cursor:pointer;" onclick="setMgrTab('${s.tab}')"><div class="scl">${s.label}</div><div class="scv">${s.count}</div></div>`).join('');
-  html+=`</div>`;
+  // ── 3. STUDIO HEALTH SNAPSHOT (the headline numbers) ──────────────────
+  const totalActive=guests.filter(c=>!c.deactivated).length;
+  const totalMembers=guests.filter(c=>!c.deactivated&&c.type==='member').length;
+  const totalPackages=guests.filter(c=>!c.deactivated&&c.type==='package').length;
+  html+=`<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 10px;">📊 Studio at a glance</div>`;
+  html+=`<div class="srow" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr));margin-bottom:18px;">
+    <div class="sc" style="cursor:pointer;" onclick="setMgrTab('overview')"><div class="scl">Active new guests</div><div class="scv">${totalActive}</div><div style="font-size:10px;color:var(--muted);margin-top:4px;">${totalMembers} member${totalMembers!==1?'s':''} · ${totalPackages} package holder${totalPackages!==1?'s':''}</div></div>
+    <div class="sc" style="cursor:pointer;" onclick="setMgrTab('overview')"><div class="scl">Overdue touchpoints</div><div class="scv ${overdueGuests.length>0?'d':''}">${overdueGuests.length}</div></div>
+    <div class="sc" style="cursor:pointer;" onclick="setMgrTab('overview')"><div class="scl">At-risk new members</div><div class="scv ${atRiskGuests.length>0?'d':''}">${atRiskGuests.length}</div></div>
+    <div class="sc" style="cursor:pointer;" onclick="setMgrTab('changes')"><div class="scl">Open changes</div><div class="scv ${openChanges.length>0?'w':''}">${openChanges.length}</div></div>
+    <div class="sc" style="cursor:pointer;" onclick="setMgrTab('nurture')"><div class="scl">Active nurtures</div><div class="scv">${nurtures.filter(n=>n.status==='active').length}</div></div>
+    <div class="sc" style="cursor:pointer;" onclick="setMgrTab('graduated')"><div class="scl">Pending graduations</div><div class="scv ${pendingGrads.length>0?'s':''}">${pendingGrads.length}</div></div>
+  </div>`;
+
+  // ── 4. TEAM LEAD TASKS SUMMARY (link to checklist) ────────────────────
+  // Quick read of weekly progress
+  try{
+    const weekStart=getCurrentWeekStart();
+    const weeklyCompletions=await loadTeamLeadCompletions(weekStart);
+    const weeklyTasks=TEAM_LEAD_TASKS.filter(t=>t.freq==='weekly');
+    const weeklyDoneCount=weeklyTasks.filter(t=>{
+      const c=weeklyCompletions.find(x=>x.taskKey===t.key);
+      if(!c)return false;
+      if(t.subItems&&t.subItems.length){const data=c.taskData||{};return t.subItems.every((_,i)=>data[i]);}
+      return true;
+    }).length;
+    const pct=weeklyTasks.length?Math.round((weeklyDoneCount/weeklyTasks.length)*100):0;
+    const pctColor=pct===100?'var(--ok)':pct>=50?'var(--info)':'var(--warn)';
+    html+=`<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 10px;">✅ Your week so far</div>`;
+    html+=`<div style="background:white;border:1.5px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:18px;cursor:pointer;display:flex;align-items:center;gap:14px;flex-wrap:wrap;" onclick="setMgrTab('teamlead')" onmouseover="this.style.borderColor='var(--tc)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="font-family:'DM Serif Display',serif;font-size:28px;color:${pctColor};line-height:1;">${weeklyDoneCount}<span style="font-size:18px;color:var(--muted);">/${weeklyTasks.length}</span></div>
+      <div style="flex:1;min-width:160px;">
+        <div style="font-weight:600;font-size:14px;color:var(--dark);">Weekly Team Lead Tasks complete</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px;">${pct}% — open the full checklist for daily, weekly, and monthly tasks</div>
+        <div style="height:6px;background:var(--border);border-radius:3px;margin-top:8px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${pctColor};transition:width .3s;"></div></div>
+      </div>
+      <div style="color:var(--tc);font-size:18px;">→</div>
+    </div>`;
+  }catch(e){/* non-critical — skip the summary if it fails */}
+
+  // ── 5. SECONDARY ALERTS (still important, but not today-must-do) ──────
+  const secondaryAlerts=[
+    {count:followUpChanges.length,label:'Follow-ups needed',sub:'Second outreach for change requests',color:'#856404',bg:'#FFF8E1',tab:'changes'},
+    {count:unsentWelcomeEmails,label:'Welcome emails not sent',sub:'Send from Gmail template',color:'var(--warn)',bg:'var(--warnp)',tab:'overview'},
+    {count:unsignedAgreements,label:'Unsigned agreements',sub:'Members — goal: within 2 weeks',color:'var(--warn)',bg:'var(--warnp)',tab:'overview'},
+    {count:overdueNurtures.length,label:'Overdue tier nurtures',sub:'Need outreach now',color:'var(--err)',bg:'var(--errp)',tab:'nurture'},
+    {count:dueNowNurtures.length,label:'Nurtures due this week',sub:'Touchpoint window open',color:'var(--warn)',bg:'var(--warnp)',tab:'nurture'},
+    {count:upcomingReacts.length,label:'Reactivations coming up',sub:'Send welcome-back outreach',color:'var(--ok)',bg:'var(--okp)',tab:'nurture'},
+    {count:pendingMembersCount,label:'Members pending review',sub:'Flagged from Mindbody upload',color:'var(--warn)',bg:'var(--warnp)',action:'openPendingMembers()'},
+    {count:pendingAnnouncements,label:'Announcements pending ack',sub:'Awaiting staff review',color:'var(--info)',bg:'var(--infop)',action:`setView('daily');setDailyTab('notes')`},
+    {count:incompleteRecordings,label:'Training recordings pending',sub:'Not yet completed by all staff',color:'var(--info)',bg:'var(--infop)',action:`setView('daily');setDailyTab('learning')`}
+  ].filter(a=>a.count>0);
+  if(secondaryAlerts.length){
+    html+=`<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 10px;">📌 This week's queue</div>`;
+    html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-bottom:22px;">`;
+    html+=secondaryAlerts.map(a=>{
+      const onclick=a.tab?`onclick="setMgrTab('${a.tab}')"`:`onclick="${a.action}"`;
+      return`<div style="background:${a.bg};border:1.5px solid ${a.color};border-radius:10px;padding:12px 14px;cursor:pointer;transition:transform .1s;" ${onclick} onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="font-family:'DM Serif Display',serif;font-size:24px;color:${a.color};line-height:1;">${a.count}</div>
+          <div style="flex:1;"><div style="font-weight:600;font-size:12px;color:${a.color};">${a.label}</div><div style="font-size:11px;color:var(--mid);margin-top:2px;">${a.sub}</div></div>
+        </div>
+      </div>`;
+    }).join('');
+    html+=`</div>`;
+  }
+
+  // If there are NO alerts at all (critical or secondary), celebrate
+  if(!criticalAlerts.length&&!secondaryAlerts.length){
+    html+=`<div style="background:var(--okp);border:1.5px solid #9ECDB5;border-radius:10px;padding:18px 20px;text-align:center;font-size:14px;color:var(--ok);font-weight:600;">🎉 The studio is running smoothly — no alerts to address right now!</div>`;
+  }
 
   document.getElementById('dashboard-content').innerHTML=html;
 }
@@ -6557,7 +6599,7 @@ function loadViewState(){
   }catch(e){return null;}
 }
 
-let currentView='daily',currentMgrTab='dashboard';
+let currentView='daily',currentMgrTab='teamlead';
 function setView(v){
   currentView=v;
   ['guests','changes','daily','manager'].forEach(x=>{document.getElementById('view-'+x).style.display=x===v?'block':'none';document.getElementById('btn-'+x).classList.toggle('active',x===v);});
