@@ -2572,7 +2572,11 @@ function renderChangeCard(c,prefix=''){
     ${c.outcome==='saved-downgrade'?`<div class="frow"><div class="fg"><label class="fl">Downgrade to</label><select class="fi" id="out-tier-${c.id}" onchange="applyOutcomeTier('${c.id}')"><option value="IRevive 2x">IRevive 2x</option><option value="IRelax 4x">IRelax 4x</option><option value="IRecover 8x">IRecover 8x</option></select></div></div>`:''}
     ${c.outcome==='saved-freeze'?`<div class="frow"><div class="fg"><label class="fl">Freeze duration</label><select class="fi" id="out-freeze-${c.id}" onchange="applyOutcomeFreeze('${c.id}')"><option value="30">30 days</option><option value="60">60 days</option><option value="90">90 days (requires approval)</option><option value="other">Other (open-ended / requires approval)</option></select></div></div>`:''}
   </div>`:`<div style="margin-top:8px;"><input type="text" class="notes-in" style="width:100%;" placeholder="Notes..." value="${c.outcomeNotes||''}" onblur="updateNotes('${c.id}',this.value)"></div>`;
+  const recoveredBtn=(c.type==='declined-payment'&&c.status!=='closed')
+    ?`<button class="btn btn-p btn-sm" onclick="markPaymentRecoveredFromChange('${c.id}')" style="background:var(--ok);border-color:var(--ok);">💳 Payment recovered</button>`
+    :'';
   const actHtml=`<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+    ${recoveredBtn}
     <button class="btn btn-g btn-sm" onclick="openEditChangeFull('${c.id}')">Edit</button>
     <button class="btn btn-g btn-sm" onclick="toggleClose('${c.id}')">${c.status==='closed'?'Reopen':'Mark processed ✓'}</button>
     <button class="btn btn-sm btn-do" onclick="removeChange('${c.id}')">Remove</button>
@@ -3071,18 +3075,16 @@ async function reopenNurture(id){
   renderMgrNurture();
 }
 
-async function markPaymentRecovered(id){
-  const n=nurtures.find(x=>x.id===id);if(!n||n.type!=='declined-payment')return;
-  // Show a confirmation modal that requires Mohogany to certify she
-  // re-activated the previously deactivated sessions in Mindbody
-  const confirmed=confirm(`💳 Mark "${n.guestName}"'s payment as recovered?\n\nBefore continuing, please confirm that you have:\n\n1. Successfully processed the payment in Mindbody\n2. Re-activated any active pricing options that were previously deactivated\n   (Client profile → Account details → "Active" section → three dots → Edit → re-check "Active pricing option")\n\nClick OK to confirm both steps are done, or Cancel to skip.`);
-  if(!confirmed)return;
+// Shared confirmation prompt used by both the nurture-card and change-card flows
+function confirmPaymentRecoveryReactivation(guestName){
+  return confirm(`💳 Mark "${guestName}"'s payment as recovered?\n\nBefore continuing, please confirm that you have:\n\n1. Successfully processed the payment in Mindbody\n2. Re-activated any active pricing options that were previously deactivated\n   (Client profile → Account details → "Active" section → three dots → Edit → re-check "Active pricing option")\n\nClick OK to confirm both steps are done, or Cancel to skip.`);
+}
+
+// Shared logic to mark a declined-payment nurture as recovered + log the recovery note
+async function recoverNurtureInPlace(n){
   n.status='completed';
-  // Add a Day 0/recovery marker into logs so there's a record of when payment was recovered
   if(!n.logs)n.logs={};
-  // Find an empty TP slot to record the recovery, or use a synthetic slot
   const recoveryNote='✓ Payment recovered and active pricing options re-activated in Mindbody on '+new Date().toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'});
-  // Mark the latest TP as completed if it isn't already, otherwise just store the recovery in a synthetic last entry
   const tps=getNurtureTPs(n);
   let placedRecovery=false;
   for(let i=tps.length-1;i>=0;i--){
@@ -3093,14 +3095,47 @@ async function markPaymentRecovered(id){
     }
   }
   if(!placedRecovery){
-    // All TPs already logged — append a synthetic entry
     n.logs['recovery']={date:new Date().toISOString(),channel:'Payment recovered',notes:recoveryNote};
   }
   if(useLocalStorage){lsSave();}
-  else{await api('nurtures?id='+id,{method:'PUT',body:{status:'completed',logs:n.logs}});}
+  else{await api('nurtures?id='+n.id,{method:'PUT',body:{status:'completed',logs:n.logs}});}
+}
+
+// Triggered from the Nurture & Reactivations card
+async function markPaymentRecovered(id){
+  const n=nurtures.find(x=>x.id===id);if(!n||n.type!=='declined-payment')return;
+  if(!confirmPaymentRecoveryReactivation(n.guestName))return;
+  await recoverNurtureInPlace(n);
+  // Also close any matching open change request so it stops appearing as "open"
+  const matchingChange=changes.find(c=>c.guestName.toLowerCase().trim()===n.guestName.toLowerCase().trim()&&c.type==='declined-payment'&&c.status!=='closed');
+  if(matchingChange){
+    matchingChange.status='closed';matchingChange.outcome='resolved';matchingChange.outcomeNotes='Payment recovered';
+    if(useLocalStorage){lsSave();}
+    else{try{await api('changes?id='+matchingChange.id,{method:'PUT',body:{status:'closed',outcome:'resolved',outcomeNotes:'Payment recovered'}});await loadChanges();}catch(e){console.warn('Could not sync change',e.message);}}
+  }
   alert(`🎉 ${n.guestName}'s payment has been marked recovered. The recovery flow is now complete and they're back in good standing.`);
   renderMgrNurture();
-  // Also refresh the manager dashboard alerts in case Mohogany navigates back
+  if(currentView==='manager')setMgrTab(currentMgrTab);
+  if(currentView==='changes')renderChanges();
+}
+
+// Triggered from the Membership Changes card
+async function markPaymentRecoveredFromChange(changeId){
+  const c=changes.find(x=>x.id===changeId);if(!c||c.type!=='declined-payment')return;
+  if(!confirmPaymentRecoveryReactivation(c.guestName))return;
+  // Close the change request itself
+  c.status='closed';c.outcome='resolved';c.outcomeNotes='Payment recovered';
+  if(useLocalStorage){lsSave();}
+  else{await api('changes?id='+c.id,{method:'PUT',body:{status:'closed',outcome:'resolved',outcomeNotes:'Payment recovered'}});await loadChanges();}
+  // Find and complete the auto-created nurture (matched by changeId or by guest name)
+  const lower=c.guestName.toLowerCase().trim();
+  const matchingNurture=nurtures.find(n=>n.type==='declined-payment'&&n.status==='active'&&(n.changeId===c.id||n.guestName.toLowerCase().trim()===lower));
+  if(matchingNurture){
+    await recoverNurtureInPlace(matchingNurture);
+    if(!useLocalStorage)await loadNurtures();
+  }
+  alert(`🎉 ${c.guestName}'s payment has been marked recovered. The recovery flow is now complete and they're back in good standing.`);
+  refreshChanges();
   if(currentView==='manager')setMgrTab(currentMgrTab);
 }
 let reassignNurtureId=null;
@@ -3113,10 +3148,27 @@ function openReassignNurture(nid){
 }
 
 async function removeNurture(id){
-  if(!confirm('Remove this nurture record?'))return;
-  if(useLocalStorage){nurtures=nurtures.filter(x=>x.id!==id);lsSave();}
-  else{await api('nurtures?id='+id,{method:'DELETE'});await loadNurtures();}
-  renderMgrNurture();
+  const n=nurtures.find(x=>x.id===id);if(!n)return;
+  // Find any related membership change (matched by changeId or by guest name)
+  const lower=n.guestName.toLowerCase().trim();
+  const relatedChange=changes.find(c=>c.id===n.changeId||c.guestName.toLowerCase().trim()===lower);
+  let extra='';
+  if(relatedChange)extra=`\n\nThis will also delete the matching ${relatedChange.type} request for ${n.guestName} on the Membership Changes page to keep things in sync.`;
+  if(!confirm(`Remove this nurture record for ${n.guestName}?${extra}`))return;
+  // Delete nurture
+  if(useLocalStorage){nurtures=nurtures.filter(x=>x.id!==id);}
+  else{await api('nurtures?id='+id,{method:'DELETE'});}
+  // Cascade-delete related change
+  if(relatedChange){
+    if(useLocalStorage){changes=changes.filter(x=>x.id!==relatedChange.id);}
+    else{try{await api('changes?id='+relatedChange.id,{method:'DELETE'});}catch(e){console.warn('Could not cascade-delete change',e.message);}}
+  }
+  if(useLocalStorage)lsSave();
+  else{await Promise.all([loadNurtures(),loadChanges()]);}
+  // Refresh whichever views are open
+  if(currentView==='manager')setMgrTab(currentMgrTab);
+  if(currentView==='changes')renderChanges();
+  if(currentView==='guests')renderGuests();
 }
 
 // ── ACTIONS ───────────────────────────────────────────────────────────────
