@@ -326,6 +326,7 @@
       <option value="needs">Needs outreach now</option>
       <option value="upcoming">Upcoming</option>
       <option value="active">All active</option>
+      <option value="completed">Completed</option>
       <option value="deactivated">Deactivated</option>
       <option value="all">All (active + deactivated)</option>
     </select>
@@ -2334,7 +2335,8 @@ function renderGuests(){
   if(stat==='deactivated')mine=mineAll.filter(c=>c.deactivated);
   else if(stat==='all')mine=mineAll;
   else if(stat==='needs')mine=mineAll.filter(c=>!c.deactivated&&(guestStatus(c)==='overdue'||guestStatus(c)==='due-now'));
-  else if(stat==='upcoming')mine=mineAll.filter(c=>!c.deactivated&&guestStatus(c)!=='overdue'&&guestStatus(c)!=='due-now');
+  else if(stat==='upcoming')mine=mineAll.filter(c=>!c.deactivated&&guestStatus(c)!=='overdue'&&guestStatus(c)!=='due-now'&&guestStatus(c)!=='complete');
+  else if(stat==='completed')mine=mineAll.filter(c=>!c.deactivated&&guestStatus(c)==='complete');
   else mine=mineAll.filter(c=>!c.deactivated);
   const active=mineAll.filter(c=>!c.deactivated);
   const ov=active.filter(c=>guestStatus(c)==='overdue').length;
@@ -2376,6 +2378,7 @@ function renderGuests(){
   // Build unified list of guest cards + nurture cards
   let myNurtures;
   if(stat==='deactivated')myNurtures=[];
+  else if(stat==='completed')myNurtures=nurtures.filter(n=>n.status==='completed'&&(sid==='all'||(n.assignedStaff||'mohogany')===sid));
   else{
     myNurtures=nurtures.filter(n=>n.status==='active'&&(sid==='all'||(n.assignedStaff||'mohogany')===sid));
     if(stat==='needs')myNurtures=myNurtures.filter(nurtureNeedsOutreach);
