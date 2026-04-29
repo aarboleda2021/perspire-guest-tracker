@@ -306,7 +306,7 @@
   <div class="hdr-title">Perspire <em>PTC</em> Dashboard</div>
   <div class="vtog">
     <button class="vbtn active" onclick="setView('daily')" id="btn-daily">Daily Hub</button>
-    <button class="vbtn" onclick="setView('guests')" id="btn-guests">New Guests</button>
+    <button class="vbtn" onclick="setView('guests')" id="btn-guests">New Guests &amp; Outreach</button>
     <button class="vbtn" onclick="setView('changes')" id="btn-changes">Membership Changes</button>
     <button class="vbtn" onclick="setView('manager')" id="btn-manager">Manager View</button>
     <button class="vbtn" onclick="openModal('help-modal')" id="btn-help" title="Quick reference guide" style="padding-left:14px;padding-right:14px;">?</button>
@@ -317,10 +317,18 @@
 
 <!-- ══ NEW GUESTS ══════════════════════════════════════════════════════════ -->
 <div id="view-guests" style="display:none;">
-  <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Track new members and package holders through their first 90 days with guided touchpoints and visit milestones.</div>
-  <div class="toolbar">
+  <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Track new members and package holders through their first 90 days, plus any tier-change nurtures or reactivation reminders assigned to that staff member.</div>
+  <div class="toolbar" style="flex-wrap:wrap;">
     <span class="tlbl">Viewing as</span>
     <select id="staff-sel" onchange="renderGuests()"></select>
+    <span class="tlbl" style="margin-left:6px;">Status</span>
+    <select id="status-sel" onchange="renderGuests()">
+      <option value="needs">Needs outreach now</option>
+      <option value="upcoming">Upcoming</option>
+      <option value="active">All active</option>
+      <option value="deactivated">Deactivated</option>
+      <option value="all">All (active + deactivated)</option>
+    </select>
     <span class="tlbl" style="margin-left:6px;">Filter</span>
     <select id="filter-sel" onchange="renderGuests()">
       <option value="all">All clients</option>
@@ -329,7 +337,6 @@
       <option value="due-soon">Due this week</option>
       <option value="between">Between touchpoints</option>
       <option value="milestones">Approaching milestones</option>
-      <option value="deactivated">Deactivated</option>
     </select>
     <button class="btn btn-p" onclick="toggleAddGuest()">+ Add client</button>
   </div>
@@ -2155,6 +2162,28 @@ async function loadAll(){
     announcements=lsGet(LS_ANNOUNCE,[]);
     recordings=lsGet(LS_RECORDINGS,[]);
   }
+  // One-time auto-reassign for existing tier-change nurtures whose guest's
+  // assigned staff doesn't match. Fires once per page load. Reactivations
+  // intentionally stay with mohogany.
+  await autoReassignTierChangeNurtures();
+}
+
+let _autoReassignDone=false;
+async function autoReassignTierChangeNurtures(){
+  if(_autoReassignDone)return;
+  _autoReassignDone=true;
+  if(!nurtures||!nurtures.length)return;
+  for(const n of nurtures){
+    if(n.status!=='active')continue;
+    if(n.type!=='downgrade'&&n.type!=='upgrade')continue;
+    const matchingGuest=guests.find(g=>g.name.toLowerCase().trim()===(n.guestName||'').toLowerCase().trim());
+    if(!matchingGuest||!matchingGuest.assignedStaff)continue;
+    if(n.assignedStaff===matchingGuest.assignedStaff)continue;
+    // Mismatch — reassign
+    n.assignedStaff=matchingGuest.assignedStaff;
+    if(useLocalStorage){lsSave();}
+    else{try{await api('nurtures?id='+n.id,{method:'PUT',body:{assignedStaff:n.assignedStaff}});}catch(e){console.warn('Could not auto-reassign nurture',n.id,e.message);}}
+  }
 }
 
 // ── HELPERS ───────────────────────────────────────────────────────────────
@@ -2225,7 +2254,7 @@ function updateEditTierOpts(){
   const opts=(t==='member'?MEMBER_TIERS:PACKAGE_TIERS);
   document.getElementById('eg-tier').innerHTML=opts.map(x=>`<option value="${x}" ${x===cur?'selected':''}>${x}</option>`).join('');
 }
-function fillAll(){fillStaff('staff-sel');fillStaff('ng-staff');updateTierOpts();}
+function fillAll(){fillStaff('staff-sel');fillStaff('ng-staff');updateTierOpts();const ss=document.getElementById('status-sel');if(ss){const v=localStorage.getItem('psp-v7-guests-status');if(v)ss.value=v;}}
 
 // ── FORM LOGIC ────────────────────────────────────────────────────────────
 
@@ -2290,8 +2319,16 @@ function cardScript(cid,key,type,btn){
 function renderGuests(){
   const sid=document.getElementById('staff-sel').value;
   const fil=document.getElementById('filter-sel').value;
+  const statusSel=document.getElementById('status-sel');
+  const stat=statusSel?statusSel.value:'needs';
+  if(statusSel)localStorage.setItem('psp-v7-guests-status',stat);
   const mineAll=sid==='all'?guests:guests.filter(c=>c.assignedStaff===sid);
-  const mine=fil==='deactivated'?mineAll.filter(c=>c.deactivated):mineAll.filter(c=>!c.deactivated);
+  let mine;
+  if(stat==='deactivated')mine=mineAll.filter(c=>c.deactivated);
+  else if(stat==='all')mine=mineAll;
+  else if(stat==='needs')mine=mineAll.filter(c=>!c.deactivated&&(guestStatus(c)==='overdue'||guestStatus(c)==='due-now'));
+  else if(stat==='upcoming')mine=mineAll.filter(c=>!c.deactivated&&guestStatus(c)!=='overdue'&&guestStatus(c)!=='due-now');
+  else mine=mineAll.filter(c=>!c.deactivated);
   const active=mineAll.filter(c=>!c.deactivated);
   const ov=active.filter(c=>guestStatus(c)==='overdue').length;
   const dn=active.filter(c=>guestStatus(c)==='due-now').length;
@@ -2308,8 +2345,7 @@ function renderGuests(){
     <div class="sc"><div class="scl">Welcome emails needed</div><div class="scv ${needWelcome>0?'w':''}">${needWelcome}</div></div>
     <div class="sc"><div class="scl">Membership agreements needed</div><div class="scv ${needAgreement>0?'w':''}">${needAgreement}</div></div>`;
   let list=mine;
-  if(fil==='deactivated')list=mine;
-  else if(fil==='overdue')list=mine.filter(c=>guestStatus(c)==='overdue');
+  if(fil==='overdue')list=mine.filter(c=>guestStatus(c)==='overdue');
   else if(fil==='at-risk')list=mine.filter(c=>c.visitStatus==='at-risk');
   else if(fil==='due-soon')list=mine.filter(c=>guestStatus(c)==='due-now');
   else if(fil==='between')list=mine.filter(c=>{const s=guestStatus(c);return(s==='on-track'||s==='complete')&&daysSince(c.contractStartDate)<=95;});
@@ -2331,7 +2367,13 @@ function renderGuests(){
     return nextTpUrgency(b)-nextTpUrgency(a);// within same status, most urgent first
   });
   // Build unified list of guest cards + nurture cards
-  const myNurtures=(fil==='deactivated')?[]:nurtures.filter(n=>n.status==='active'&&(sid==='all'||(n.assignedStaff||'mohogany')===sid));
+  let myNurtures;
+  if(stat==='deactivated')myNurtures=[];
+  else{
+    myNurtures=nurtures.filter(n=>n.status==='active'&&(sid==='all'||(n.assignedStaff||'mohogany')===sid));
+    if(stat==='needs')myNurtures=myNurtures.filter(nurtureNeedsOutreach);
+    else if(stat==='upcoming')myNurtures=myNurtures.filter(nurtureIsUpcoming);
+  }
 
   function nurtureStatusGroup(n){
     const hasOverdue=getNurtureTPs(n).some((_,i)=>nurtureStatus(n,i)==='overdue');
@@ -4670,11 +4712,16 @@ async function toggleClose(id){
   c.status=c.status==='closed'?'open':'closed';
   if(useLocalStorage){lsSave();}
   else{await api('changes?id='+id,{method:'PUT',body:{status:c.status}});await loadChanges();}
-  // Auto-create nurture record when a downgrade or upgrade is marked processed
+  // Auto-create nurture record when a downgrade or upgrade is marked processed.
+  // Tier-change nurtures go to the staff member who manages the guest in the
+  // New Guests tracker (so they can do the follow-up themselves). Falls back
+  // to Mohogany if the guest isn't currently in the tracker.
   if(wasOpen&&c.status==='closed'&&(c.type==='downgrade'||c.type==='upgrade')){
     const existing=nurtures.find(n=>n.changeId===c.id);
     if(!existing){
-      const rec={id:Date.now().toString(),changeId:c.id,guestName:c.guestName,type:c.type,oldTier:c.currentTier,newTier:c.newTier||'',startDate:new Date().toISOString().split('T')[0],logs:{},status:'active',assignedStaff:'mohogany',createdAt:new Date().toISOString()};
+      const matchingGuest=guests.find(g=>g.name.toLowerCase().trim()===c.guestName.toLowerCase().trim());
+      const assignTo=matchingGuest&&matchingGuest.assignedStaff?matchingGuest.assignedStaff:'mohogany';
+      const rec={id:Date.now().toString(),changeId:c.id,guestName:c.guestName,type:c.type,oldTier:c.currentTier,newTier:c.newTier||'',startDate:new Date().toISOString().split('T')[0],logs:{},status:'active',assignedStaff:assignTo,createdAt:new Date().toISOString()};
       if(useLocalStorage){nurtures.push(rec);lsSave();}
       else{await api('nurtures',{method:'POST',body:rec});await loadNurtures();}
     }
