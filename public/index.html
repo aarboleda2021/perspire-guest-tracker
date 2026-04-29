@@ -328,7 +328,7 @@
       <option value="active">All active</option>
       <option value="completed">Completed</option>
       <option value="deactivated">Deactivated</option>
-      <option value="all">All (active + deactivated)</option>
+      <option value="all">All (active + completed + deactivated)</option>
     </select>
     <span class="tlbl" style="margin-left:6px;">Filter</span>
     <select id="filter-sel" onchange="renderGuests()">
@@ -2379,6 +2379,7 @@ function renderGuests(){
   let myNurtures;
   if(stat==='deactivated')myNurtures=[];
   else if(stat==='completed')myNurtures=nurtures.filter(n=>n.status==='completed'&&(sid==='all'||(n.assignedStaff||'mohogany')===sid));
+  else if(stat==='all')myNurtures=nurtures.filter(n=>(n.status==='active'||n.status==='completed')&&(sid==='all'||(n.assignedStaff||'mohogany')===sid));
   else{
     myNurtures=nurtures.filter(n=>n.status==='active'&&(sid==='all'||(n.assignedStaff||'mohogany')===sid));
     if(stat==='needs')myNurtures=myNurtures.filter(nurtureNeedsOutreach);
