@@ -999,6 +999,7 @@
     <div class="modal-title" id="ms-title">Session milestone</div>
     <div class="modal-sub" id="ms-sub"></div>
     <div class="ms-action-box"><div class="ms-action-title">Celebration action</div><div class="ms-action-text" id="ms-action"></div></div>
+    <div id="ms-script-wrap" style="display:none;margin-top:12px;background:var(--sand);border-left:3px solid var(--info);border-radius:6px;padding:10px 14px;"><div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">✏️ Suggested card message</div><div id="ms-script" style="font-size:13px;color:var(--mid);white-space:pre-wrap;line-height:1.5;"></div></div>
     <div id="ms-status" style="margin-top:14px;font-size:13px;"></div>
     <div class="modal-actions">
       <button class="btn btn-g" onclick="closeModal('milestone-modal')">Close</button>
@@ -1384,7 +1385,8 @@ const MEMBER_TRACKING_START_DATE='2026-04-22';
 // Session milestones — only apply to new MEMBERS (not packages or nurtures)
 const MILESTONES=[
   {n:3, action:'Leave an LMNT packet on the shelf in their suite, or hand it to them at the front desk.'},
-  {n:5, action:'Leave a motivational card on the shelf in their suite, or hand it to them at the front desk.'},
+  {n:5, action:'Leave a motivational card on the shelf in their suite, or hand it to them at the front desk.',
+    script:`Hi [Name],\n\nFive sessions in — you're officially building a habit! 🧡 We love seeing you here and can't wait to watch you keep going.\n\nKeep showing up for yourself.\n\n— [Your Name] & the Perspire Peachtree Corners team`},
   {n:8, action:'Let them know at check-in that a complimentary guest pass has been loaded on their account and is ready to use.'},
   {n:10,action:'Have a PATH water with their name written on it ready at the front desk, or place it on the shelf in their suite.'},
   {n:15,action:'Offer an elemental superfood bar — place it on the shelf in their suite or hand it to them at the front desk.'},
@@ -4043,6 +4045,9 @@ function openMilestone(guestId,n){
   document.getElementById('ms-title').textContent=`Session ${n} milestone — ${c.name}`;
   document.getElementById('ms-sub').textContent=`Currently at ${v} visits`;
   document.getElementById('ms-action').textContent=m.action;
+  const scriptWrap=document.getElementById('ms-script-wrap');
+  if(m.script){scriptWrap.style.display='block';document.getElementById('ms-script').textContent=m.script.replace(/\[Name\]/g,c.name);}
+  else{scriptWrap.style.display='none';}
   let statusHtml='';
   if(status==='completed'){
     const d=completed.date?new Date(completed.date).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'}):'';
