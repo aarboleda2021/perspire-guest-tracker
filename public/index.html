@@ -3059,10 +3059,29 @@ const TEAM_LEAD_TASKS=[
       'Double check that comms have delivered as scheduled through Axle',
       'For any manual messages, review when upcoming dates are'
     ]},
-  {key:'tl-milestone-outreach',freq:'weekly',title:'Milestone update outreach',placeholder:true,
+  {key:'tl-milestone-outreach',freq:'weekly',title:'Milestone update outreach',
     steps:[
-      'Coming soon — Amanda + Claude will design this step together',
-      'Placeholder for now so the slot is reserved on the weekly checklist'
+      'In Mindbody, go to Insights / Reports and open "Attendance Analysis"',
+      'Section 1 — Date range: use the "Quick date setting" dropdown and select Last 365 days',
+      'Section 2 — Service categories: click the dropdown, then under "IR Sauna Session" select IR Sauna Session',
+      'Section 3 — Analysis: set "Analysis by" → Guest, click Detail report, then in "Show clients with [x] or more visits" enter 20',
+      'Review every active client (members + package holders) approaching a milestone band: 25, 50, 75, 100, 150, 200, 250, 300, 350, 400, 450, 500+',
+      'For anyone within ~3 sessions of the next milestone, reach out with the encouraging script below to push them across the line',
+      'For anyone who just crossed a milestone since last week, send a celebration message (use the "milestone reached" script)'
+    ],
+    scripts:[
+      {label:'🎯 Approaching milestone — encouragement (within 3 sessions of 25/50/75/100/etc.)',channels:{
+        call:`Hi [Name], it's [Your Name] from Perspire Peachtree Corners! I was looking at our member milestones and saw something exciting — you're only [X] session${''} away from hitting your [N]th sauna session with us! That is such a big deal.\n\nI just wanted to call and personally cheer you on. The members who hit these big numbers are the ones who really start to feel the long-term benefits — better sleep, better recovery, more energy. You are right on the edge of that.\n\nWant me to help you book your next couple of sessions so we can get you across that line?`,
+        voicemail:`Hi [Name], it's [Your Name] from Perspire! Just wanted to give you a quick shout-out — you are only a few sessions away from your [N]th visit with us, which is a huge milestone! We'd love to help you get there. Call us back at 404-947-8084 whenever you have a sec — would love to celebrate with you!`,
+        text:`Hi [Name]! It's [Your Name] from Perspire 🧡 You are only [X] session${''} away from your [N]th sauna visit with us — that is a HUGE milestone and we are so proud of your consistency! Want help booking your next couple of sessions so we can celebrate together? 🎉`,
+        email:`Hi [Name],\n\nI was reviewing our member milestones today and I had to reach out — you are only [X] session${''} away from your [N]th sauna session with Perspire! That is a real accomplishment and a sign of the kind of consistency that pays off long-term.\n\nThe members who reach these milestones tend to be the ones who feel the deepest benefits — better sleep, faster recovery, steadier energy. You're right on the edge of that next chapter.\n\nIf it would help, I'd love to assist you in getting your next couple of sessions on the calendar so we can celebrate hitting [N] together.\n\nReply anytime or call us at 404-947-8084. So proud of you!\n\nWarmly,\n[Your Name]\nPerspire Sauna Studio Peachtree Corners`
+      }},
+      {label:'🎉 Milestone reached — celebration (just crossed 25/50/75/100/etc.)',channels:{
+        call:`Hi [Name], it's [Your Name] from Perspire Peachtree Corners! I just had to call and personally congratulate you — you officially hit your [N]th sauna session with us! That is incredible.\n\nThe consistency it takes to reach [N] sessions is genuinely rare, and it tells me you've built something really meaningful with your wellness routine. We are so honored to be part of that.\n\nNext stop is [Next Milestone] — and I have no doubt you'll get there. If there's ever anything we can do to keep you supported and motivated, just let us know. Thank you for being such an amazing part of the Perspire family!`,
+        voicemail:`Hi [Name], it's [Your Name] from Perspire! I just wanted to call and say a huge congratulations — you officially hit your [N]th sauna session with us! That's a real milestone and we are so grateful for your consistency. Give us a call at 404-947-8084 if you'd like — we'd love to celebrate with you in person next time you're in!`,
+        text:`Hi [Name]! It's [Your Name] from Perspire 🧡 HUGE congrats — you officially hit your [N]th sauna session with us! 🎉 The consistency it takes to get here is so rare and we are honored to be part of your wellness journey. Next stop: [Next Milestone] 💪`,
+        email:`Hi [Name],\n\nI just had to send a personal note — you officially hit your [N]th sauna session with Perspire! 🎉\n\nThe consistency it takes to reach [N] sessions is genuinely rare, and it speaks to the kind of intentional self-care you've built into your life. We are so honored to be part of that journey.\n\nThe next milestone is [Next Milestone], and based on your rhythm, I have no doubt you'll get there. If there's ever anything we can do to keep you supported and motivated, just let us know.\n\nThank you for being such an amazing part of the Perspire family.\n\nWarmly,\n[Your Name]\nPerspire Sauna Studio Peachtree Corners`
+      }}
     ]},
 
   // STAFF DEVELOPMENT — long-term capability that compounds
