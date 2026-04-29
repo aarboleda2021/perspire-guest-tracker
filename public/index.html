@@ -2225,7 +2225,7 @@ function getWins(t){return t==='member'?MEMBER_WINS:PACKAGE_WINS;}
 function sName(id){const s=staffList.find(x=>x.id===id);return s?s.name:id;}
 function activeStaff(){return[...staffList].filter(s=>s.active).sort((a,b)=>a.name.localeCompare(b.name));}
 // Resolve a task's sub-items, expanding subItemsFromStaff:true into the live active-staff list.
-function taskSubs(t){if(!t)return null;if(t.subItems&&t.subItems.length)return t.subItems;if(t.subItemsFromStaff)return activeStaff().map(s=>s.name);return null;}
+function taskSubs(t){if(!t)return null;if(t.subItems&&t.subItems.length)return t.subItems;if(t.subItemsFromStaff){const ex=t.subItemsExcludeStaff||[];return activeStaff().filter(s=>!ex.includes(s.id)).map(s=>s.name);}return null;}
 
 function billUrgency(bs){
   const du=daysUntil(bs);if(du===null)return'normal';
@@ -3088,7 +3088,7 @@ const TEAM_LEAD_TASKS=[
 
   // STAFF DEVELOPMENT — long-term capability that compounds
   {key:'tl-staff-coaching',freq:'weekly',title:'Staff coaching',
-    subItemsFromStaff:true,
+    subItemsFromStaff:true,subItemsExcludeStaff:['mohogany'],
     steps:[
       'Update each staff member\'s "Upskilling/Training" spreadsheet — note any progress from the current week',
       'Plan upskilling/training topic for staff member for the next week & set a date for the following week to complete the task',
