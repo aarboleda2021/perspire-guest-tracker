@@ -406,6 +406,12 @@
       <div class="fg"><label class="fl" id="mc-bill-date-lbl">Bill date<span class="req">*</span></label><input type="date" class="fi" id="mc-bill-date"></div>
     </div>
 
+    <div class="fg">
+      <label class="fl">Submitted by<span class="req">*</span></label>
+      <select class="fi" id="mc-submitter"></select>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">For upgrades/downgrades, this staff member will be auto-assigned the follow-up nurture and (if needed) the new client card.</div>
+    </div>
+
     <!-- Current tier (always shown) + New tier (downgrade / upgrade only) -->
     <div class="frow">
       <div class="fg"><label class="fl">Current tier<span class="req">*</span></label>
@@ -951,6 +957,7 @@
       </select>
     </div>
     <div class="fg" id="ec-freeze-other-wrap" style="display:none;"><label class="fl">If "other" — special circumstance</label><textarea class="fi" id="ec-freeze-other" placeholder="e.g. until member calls back"></textarea></div>
+    <div class="fg"><label class="fl">Submitted by</label><select class="fi" id="ec-submitter"></select></div>
     <div class="fg"><label class="fl">Notes</label><textarea class="fi" id="ec-notes"></textarea></div>
     <div class="modal-actions">
       <button class="btn btn-g" onclick="closeModal('edit-change-modal')">Cancel</button>
@@ -2254,7 +2261,7 @@ function updateEditTierOpts(){
   const opts=(t==='member'?MEMBER_TIERS:PACKAGE_TIERS);
   document.getElementById('eg-tier').innerHTML=opts.map(x=>`<option value="${x}" ${x===cur?'selected':''}>${x}</option>`).join('');
 }
-function fillAll(){fillStaff('staff-sel');fillStaff('ng-staff');updateTierOpts();const ss=document.getElementById('status-sel');if(ss){const v=localStorage.getItem('psp-v7-guests-status');if(v)ss.value=v;}}
+function fillAll(){fillStaff('staff-sel');fillStaff('ng-staff');fillStaff('mc-submitter');fillStaff('ec-submitter');updateTierOpts();const ss=document.getElementById('status-sel');if(ss){const v=localStorage.getItem('psp-v7-guests-status');if(v)ss.value=v;}}
 
 // ── FORM LOGIC ────────────────────────────────────────────────────────────
 
@@ -4572,6 +4579,9 @@ function toggleAddChange(){
   // Reset all form checkboxes
   ['chk-mb','chk-out','chk-mb-tc','chk-mb-susp','chk-decl-deact','chk-decl-mb','chk-decl-out'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   const dr=document.getElementById('mc-decline-reason');if(dr)dr.value='';
+  // Default Submitted by to last-used staff (or first active)
+  const sub=document.getElementById('mc-submitter');
+  if(sub){const last=localStorage.getItem('psp-v7-last-submitter');if(last&&[...sub.options].some(o=>o.value===last))sub.value=last;}
   onTypeChange();
   initFrmScript();
 }
@@ -4590,6 +4600,7 @@ async function submitChange(){
   const curTier=document.getElementById('mc-cur-tier').value;
   const newTier=(type==='downgrade'||type==='upgrade')?document.getElementById('mc-new-tier').value:null;
   const notes=document.getElementById('mc-notes').value.trim();
+  const submittedBy=document.getElementById('mc-submitter')?.value||null;
   // Duplicate check (skip if editing an existing record)
   if(!editingChangeId&&name){
     const dup=changes.find(c=>c.guestName.toLowerCase()===name.toLowerCase()&&c.status!=='closed');
@@ -4598,6 +4609,7 @@ async function submitChange(){
   const errs=[];
   if(!name)errs.push('Guest name');
   if(!parseDate(billDate))errs.push('Bill date');
+  if(!submittedBy)errs.push('Submitted by');
 
   let outreachOutcome=null,needsFollowup=false,freezeDuration=null,freezeOtherNote=null,finalType=type,finalNewTier=newTier;
 
@@ -4655,11 +4667,11 @@ async function submitChange(){
   if(editingChangeId){
     const c=changes.find(x=>x.id===editingChangeId);
     if(!c){alert('Change request not found.');return;}
-    c.guestName=name;c.type=finalType;c.dateRequested=useLocalStorage?parseDate(dateRequestedStr).toISOString():dateRequestedStr;c.billDate=useLocalStorage?parseDate(billDateStr).toISOString():billDateStr;c.currentTier=curTier;c.newTier=finalNewTier;c.notes=notes;c.freezeDuration=freezeDuration||c.freezeDuration;c.freezeOtherNote=freezeOtherNote||c.freezeOtherNote;if(outreachOutcome)c.outreachOutcome=outreachOutcome;if(needsFollowup)c.needsFollowup=needsFollowup;
+    c.guestName=name;c.type=finalType;c.dateRequested=useLocalStorage?parseDate(dateRequestedStr).toISOString():dateRequestedStr;c.billDate=useLocalStorage?parseDate(billDateStr).toISOString():billDateStr;c.currentTier=curTier;c.newTier=finalNewTier;c.notes=notes;c.freezeDuration=freezeDuration||c.freezeDuration;c.freezeOtherNote=freezeOtherNote||c.freezeOtherNote;c.submittedBy=submittedBy;if(outreachOutcome)c.outreachOutcome=outreachOutcome;if(needsFollowup)c.needsFollowup=needsFollowup;
     if(useLocalStorage){lsSave();}
-    else{await api('changes?id='+editingChangeId,{method:'PUT',body:{guestName:name,type:finalType,dateRequested:dateRequestedStr,billDate:billDateStr,currentTier:curTier,newTier:finalNewTier,notes,freezeDuration:c.freezeDuration,freezeOtherNote:c.freezeOtherNote,outreachOutcome:c.outreachOutcome,needsFollowup:c.needsFollowup}});await loadChanges();}
+    else{await api('changes?id='+editingChangeId,{method:'PUT',body:{guestName:name,type:finalType,dateRequested:dateRequestedStr,billDate:billDateStr,currentTier:curTier,newTier:finalNewTier,notes,freezeDuration:c.freezeDuration,freezeOtherNote:c.freezeOtherNote,outreachOutcome:c.outreachOutcome,needsFollowup:c.needsFollowup,submittedBy}});await loadChanges();}
   } else {
-    const rec={id:Date.now().toString(),guestName:name,type:finalType,dateRequested:useLocalStorage?parseDate(dateRequestedStr)?.toISOString()||new Date().toISOString():dateRequestedStr,billDate:useLocalStorage?parseDate(billDateStr).toISOString():billDateStr,currentTier:curTier,newTier:finalNewTier,freezeDuration,freezeOtherNote,notes,status:'open',outcome:'pending',outcomeNotes:'',checklist:{},freezeOverride:false,needsFollowup,outreachOutcome,createdAt:new Date().toISOString()};
+    const rec={id:Date.now().toString(),guestName:name,type:finalType,dateRequested:useLocalStorage?parseDate(dateRequestedStr)?.toISOString()||new Date().toISOString():dateRequestedStr,billDate:useLocalStorage?parseDate(billDateStr).toISOString():billDateStr,currentTier:curTier,newTier:finalNewTier,freezeDuration,freezeOtherNote,notes,status:'open',outcome:'pending',outcomeNotes:'',checklist:{},freezeOverride:false,needsFollowup,outreachOutcome,submittedBy,createdAt:new Date().toISOString()};
     if(useLocalStorage){changes.push(rec);lsSave();}
     else{await api('changes',{method:'POST',body:{...rec}});await loadChanges();}
     // Auto-create the declined-payment recovery nurture immediately on logging
@@ -4671,6 +4683,7 @@ async function submitChange(){
       else{await api('nurtures',{method:'POST',body:nrec});await loadNurtures();}
     }
   }
+  if(submittedBy)localStorage.setItem('psp-v7-last-submitter',submittedBy);
   cancelChangeForm();refreshChanges();
 }
 
@@ -4712,15 +4725,40 @@ async function toggleClose(id){
   c.status=c.status==='closed'?'open':'closed';
   if(useLocalStorage){lsSave();}
   else{await api('changes?id='+id,{method:'PUT',body:{status:c.status}});await loadChanges();}
-  // Auto-create nurture record when a downgrade or upgrade is marked processed.
-  // Tier-change nurtures go to the staff member who manages the guest in the
-  // New Guests tracker (so they can do the follow-up themselves). Falls back
-  // to Mohogany if the guest isn't currently in the tracker.
+  // Auto-create nurture + upsert New Guest card when a downgrade or upgrade is
+  // marked processed. The submitter (captured on the change form) gets both the
+  // follow-up nurture AND the new client card so they own the 90-day journey
+  // on the new tier. If a guest card already exists, refresh it: update tier,
+  // reset contract start date to bill date, reassign to submitter, and clear
+  // touchpoint logs so the clock restarts.
   if(wasOpen&&c.status==='closed'&&(c.type==='downgrade'||c.type==='upgrade')){
+    const assignTo=c.submittedBy||'mohogany';
+    const billDateStr=c.billDate?(typeof c.billDate==='string'?c.billDate.slice(0,10):new Date(c.billDate).toISOString().slice(0,10)):new Date().toISOString().slice(0,10);
+    const matchingGuest=guests.find(g=>g.name.toLowerCase().trim()===c.guestName.toLowerCase().trim());
+    if(matchingGuest){
+      // Refresh existing card: new tier, restart 90-day clock, reassign to submitter
+      matchingGuest.tier=c.newTier||matchingGuest.tier;
+      matchingGuest.contractStartDate=billDateStr;
+      matchingGuest.assignedStaff=assignTo;
+      matchingGuest.deactivated=false;
+      matchingGuest.deactivatedReason=null;
+      matchingGuest.deactivatedNotes=null;
+      matchingGuest.logs={};
+      if(useLocalStorage){lsSave();}
+      else{
+        await api('guests?id='+matchingGuest.id,{method:'PUT',body:{tier:matchingGuest.tier,contractStartDate:billDateStr,assignedStaff:assignTo,deactivated:false,deactivatedReason:null,deactivatedNotes:null}});
+        try{await api('logs?guestId='+matchingGuest.id,{method:'DELETE'});}catch(e){console.warn('Could not clear touchpoint logs',e.message);}
+        await loadGuests();
+      }
+    } else {
+      // No existing card — create one for the submitter
+      const grec={id:Date.now().toString()+'-g',name:c.guestName,type:'member',tier:c.newTier||c.currentTier,contractStartDate:billDateStr,assignedStaff:assignTo,visitStatus:'healthy',welcomeEmailSent:false,agreementSigned:false,notes:`Auto-created from ${c.type} processed on ${new Date().toLocaleDateString('en-US')}`,createdAt:new Date().toISOString()};
+      if(useLocalStorage){guests.push(grec);lsSave();}
+      else{await api('guests',{method:'POST',body:grec});await loadGuests();}
+    }
+    // Auto-create the nurture (only if one doesn't already exist for this change)
     const existing=nurtures.find(n=>n.changeId===c.id);
     if(!existing){
-      const matchingGuest=guests.find(g=>g.name.toLowerCase().trim()===c.guestName.toLowerCase().trim());
-      const assignTo=matchingGuest&&matchingGuest.assignedStaff?matchingGuest.assignedStaff:'mohogany';
       const rec={id:Date.now().toString(),changeId:c.id,guestName:c.guestName,type:c.type,oldTier:c.currentTier,newTier:c.newTier||'',startDate:new Date().toISOString().split('T')[0],logs:{},status:'active',assignedStaff:assignTo,createdAt:new Date().toISOString()};
       if(useLocalStorage){nurtures.push(rec);lsSave();}
       else{await api('nurtures',{method:'POST',body:rec});await loadNurtures();}
@@ -4751,8 +4789,9 @@ async function toggleClose(id){
       else{await api('nurtures',{method:'POST',body:rec});await loadNurtures();}
     }
   }
-  // Auto-prompt to deactivate matching guest from New Guests when a change is processed
-  if(wasOpen&&c.status==='closed'){
+  // Auto-prompt to deactivate matching guest from New Guests when a change is processed.
+  // Skip for tier-changes — those refresh the existing card instead of deactivating it.
+  if(wasOpen&&c.status==='closed'&&c.type!=='downgrade'&&c.type!=='upgrade'){
     const match=guests.find(g=>!g.deactivated&&g.name.toLowerCase()===c.guestName.toLowerCase());
     if(match){
       const reasonMap={termination:'membership-change',suspension:'membership-change',downgrade:'membership-change',upgrade:'membership-change'};
@@ -4864,6 +4903,7 @@ function openEditChangeFull(id){
   document.getElementById('ec-freeze-other').value=c.freezeOtherNote||'';
   document.getElementById('ec-freeze-other-wrap').style.display=c.freezeDuration==='other'?'block':'none';
   document.getElementById('ec-notes').value=c.notes||'';
+  const ecSub=document.getElementById('ec-submitter');if(ecSub&&c.submittedBy)ecSub.value=c.submittedBy;
   document.getElementById('edit-change-modal').classList.add('open');
 }
 async function saveEditChange(){
@@ -4878,8 +4918,9 @@ async function saveEditChange(){
   const fd=document.getElementById('ec-freeze-dur').value;c.freezeDuration=fd||null;
   c.freezeOtherNote=fd==='other'?document.getElementById('ec-freeze-other').value.trim()||null:null;
   c.notes=document.getElementById('ec-notes').value.trim();
+  const ecSub2=document.getElementById('ec-submitter');if(ecSub2)c.submittedBy=ecSub2.value||null;
   if(useLocalStorage){lsSave();}
-  else{await api('changes?id='+editChangeId,{method:'PUT',body:{guestName:c.guestName,dateRequested:c.dateRequested,billDate:c.billDate,currentTier:c.currentTier,newTier:c.newTier,freezeDuration:c.freezeDuration,freezeOtherNote:c.freezeOtherNote,notes:c.notes}});await loadChanges();}
+  else{await api('changes?id='+editChangeId,{method:'PUT',body:{guestName:c.guestName,dateRequested:c.dateRequested,billDate:c.billDate,currentTier:c.currentTier,newTier:c.newTier,freezeDuration:c.freezeDuration,freezeOtherNote:c.freezeOtherNote,notes:c.notes,submittedBy:c.submittedBy}});await loadChanges();}
   closeModal('edit-change-modal');refreshChanges();
 }
 

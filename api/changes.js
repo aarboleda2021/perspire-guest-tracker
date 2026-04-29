@@ -32,6 +32,7 @@ module.exports = async function handler(req, res) {
       needsFollowup: c.needs_followup,
       outreachOutcome: c.outreach_outcome,
       checklist: c.checklist || {},
+      submittedBy: c.submitted_by || null,
       createdAt: c.created_at
     }));
 
@@ -57,7 +58,8 @@ module.exports = async function handler(req, res) {
       freeze_override: b.freezeOverride || false,
       needs_followup: b.needsFollowup || false,
       outreach_outcome: b.outreachOutcome || null,
-      checklist: b.checklist || {}
+      checklist: b.checklist || {},
+      submitted_by: b.submittedBy || null
     });
     if (error) return res.status(500).json({ error: error.message });
     return res.status(201).json({ ok: true });
@@ -83,6 +85,7 @@ module.exports = async function handler(req, res) {
     if (b.needsFollowup !== undefined) updates.needs_followup = b.needsFollowup;
     if (b.outreachOutcome !== undefined) updates.outreach_outcome = b.outreachOutcome;
     if (b.checklist !== undefined) updates.checklist = b.checklist;
+    if (b.submittedBy !== undefined) updates.submitted_by = b.submittedBy;
 
     const { error } = await supabase.from('changes').update(updates).eq('id', id);
     if (error) return res.status(500).json({ error: error.message });
