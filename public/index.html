@@ -2224,6 +2224,8 @@ function getTPs(t){return t==='member'?MEMBER_TPS:PACKAGE_TPS;}
 function getWins(t){return t==='member'?MEMBER_WINS:PACKAGE_WINS;}
 function sName(id){const s=staffList.find(x=>x.id===id);return s?s.name:id;}
 function activeStaff(){return[...staffList].filter(s=>s.active).sort((a,b)=>a.name.localeCompare(b.name));}
+// Resolve a task's sub-items, expanding subItemsFromStaff:true into the live active-staff list.
+function taskSubs(t){if(!t)return null;if(t.subItems&&t.subItems.length)return t.subItems;if(t.subItemsFromStaff)return activeStaff().map(s=>s.name);return null;}
 
 function billUrgency(bs){
   const du=daysUntil(bs);if(du===null)return'normal';
@@ -2839,7 +2841,7 @@ async function renderMgrDashboard(){
     const weeklyDoneCount=weeklyTasks.filter(t=>{
       const c=weeklyCompletions.find(x=>x.taskKey===t.key);
       if(!c)return false;
-      if(t.subItems&&t.subItems.length){const data=c.taskData||{};return t.subItems.every((_,i)=>data[i]);}
+      const subs=taskSubs(t);if(subs&&subs.length){const data=c.taskData||{};return subs.every((_,i)=>data[i]);}
       return true;
     }).length;
     const pct=weeklyTasks.length?Math.round((weeklyDoneCount/weeklyTasks.length)*100):0;
@@ -3086,9 +3088,11 @@ const TEAM_LEAD_TASKS=[
 
   // STAFF DEVELOPMENT — long-term capability that compounds
   {key:'tl-staff-coaching',freq:'weekly',title:'Staff coaching',
+    subItemsFromStaff:true,
     steps:[
       'Update each staff member\'s "Upskilling/Training" spreadsheet — note any progress from the current week',
-      'Plan upskilling/training topic for staff member for the next week & set a date for the following week to complete the task'
+      'Plan upskilling/training topic for staff member for the next week & set a date for the following week to complete the task',
+      'Check off each staff member below as you complete their coaching for the week'
     ],
     examples:[
       'Conduct mock phone calls to staff (act as a lead inquiring, act as member wanting to cancel, act as member asking studio policies questions)',
@@ -3317,9 +3321,10 @@ async function renderMgrTeamLead(){
   // Helper: true if a task is fully complete (handles sub-item tasks)
   const isTaskFullyComplete=(task,completionRow)=>{
     if(!completionRow)return false;
-    if(task.subItems&&task.subItems.length){
+    const subs=taskSubs(task);
+    if(subs&&subs.length){
       const data=completionRow.taskData||{};
-      return task.subItems.every((_,i)=>data[i]);
+      return subs.every((_,i)=>data[i]);
     }
     return true;
   };
@@ -3375,8 +3380,9 @@ function renderTeamLeadTask(task,completions,periodDate){
   const completionRow=completions.find(c=>c.taskKey===task.key);
   const taskData=completionRow?.taskData||{};
   // Compute "done" considering sub-items
-  const hasSubItems=task.subItems&&task.subItems.length;
-  const done=hasSubItems?(completionRow&&task.subItems.every((_,i)=>taskData[i])):!!completionRow;
+  const subs=taskSubs(task);
+  const hasSubItems=!!(subs&&subs.length);
+  const done=hasSubItems?(completionRow&&subs.every((_,i)=>taskData[i])):!!completionRow;
   const completedTime=done&&completionRow?new Date(completionRow.completedAt).toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric'}):'';
   const isPlaceholder=task.placeholder;
   const checkColor=done?'var(--ok)':'var(--border)';
@@ -3386,8 +3392,8 @@ function renderTeamLeadTask(task,completions,periodDate){
   // Sub-items progress badge (e.g. "3/6 done")
   let subItemsBadge='';
   if(hasSubItems){
-    const completedCount=task.subItems.filter((_,i)=>taskData[i]).length;
-    subItemsBadge=`<span class="badge ${done?'bhlt':'bdu'}" style="font-size:9px;margin-left:6px;">${completedCount}/${task.subItems.length} done</span>`;
+    const completedCount=subs.filter((_,i)=>taskData[i]).length;
+    subItemsBadge=`<span class="badge ${done?'bhlt':'bdu'}" style="font-size:9px;margin-left:6px;">${completedCount}/${subs.length} done</span>`;
   }
   // Only show "View instructions" if the task has steps or scripts
   const hasInstructions=(task.steps&&task.steps.length)||(task.scripts&&task.scripts.length);
@@ -3395,7 +3401,7 @@ function renderTeamLeadTask(task,completions,periodDate){
   // Sub-items inline — checkbox per sub-item
   let subItemsHtml='';
   if(hasSubItems){
-    subItemsHtml=`<div style="margin-top:8px;padding:8px 10px;background:var(--sand);border-radius:6px;display:flex;flex-direction:column;gap:4px;">${task.subItems.map((label,i)=>{
+    subItemsHtml=`<div style="margin-top:8px;padding:8px 10px;background:var(--sand);border-radius:6px;display:flex;flex-direction:column;gap:4px;">${subs.map((label,i)=>{
       const subDone=!!taskData[i];
       const subTime=subDone?` <span style="font-size:10px;color:var(--muted);">· ${new Date(taskData[i].date).toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric'})}</span>`:'';
       return `<div style="display:flex;align-items:center;gap:8px;cursor:pointer;${subDone?'opacity:.65;':''}" onclick="event.stopPropagation();toggleTeamLeadSubItem('${task.key}',${i},'${periodDate}')">
@@ -3445,7 +3451,7 @@ async function toggleTeamLeadTask(taskKey,periodDate){
 
 // Toggle a single sub-item on a task that has subItems (e.g. Suite 1, Suite 2, ...)
 async function toggleTeamLeadSubItem(taskKey,subIdx,periodDate){
-  const task=TEAM_LEAD_TASKS.find(t=>t.key===taskKey);if(!task||!task.subItems)return;
+  const task=TEAM_LEAD_TASKS.find(t=>t.key===taskKey);const subs=taskSubs(task);if(!task||!subs)return;
   const completions=await loadTeamLeadCompletions(periodDate);
   const existing=completions.find(c=>c.taskKey===taskKey);
   const currentData=existing?.taskData||{};
@@ -3453,7 +3459,7 @@ async function toggleTeamLeadSubItem(taskKey,subIdx,periodDate){
   if(currentData[subIdx]){delete currentData[subIdx];}
   else{currentData[subIdx]={date:new Date().toISOString()};}
   // Determine if any sub-items remain checked
-  const anyChecked=task.subItems.some((_,i)=>currentData[i]);
+  const anyChecked=subs.some((_,i)=>currentData[i]);
   if(!anyChecked){
     // No sub-items checked — remove the parent row entirely
     if(useLocalStorage){
@@ -3478,7 +3484,7 @@ async function toggleTeamLeadSubItem(taskKey,subIdx,periodDate){
 
 // When the parent checkbox of a sub-item task is clicked, toggle ALL sub-items at once
 async function toggleAllTeamLeadSubItems(taskKey,periodDate,checkAll){
-  const task=TEAM_LEAD_TASKS.find(t=>t.key===taskKey);if(!task||!task.subItems)return;
+  const task=TEAM_LEAD_TASKS.find(t=>t.key===taskKey);const subs=taskSubs(task);if(!task||!subs)return;
   const completions=await loadTeamLeadCompletions(periodDate);
   if(!checkAll){
     // Uncheck all — remove the parent row entirely
@@ -3491,7 +3497,7 @@ async function toggleAllTeamLeadSubItems(taskKey,periodDate,checkAll){
   } else {
     // Check all sub-items
     const data={};const ts=new Date().toISOString();
-    task.subItems.forEach((_,i)=>{data[i]={date:ts};});
+    subs.forEach((_,i)=>{data[i]={date:ts};});
     const rec={date:periodDate,taskKey,completedBy:'mohogany',completedAt:ts,taskData:data};
     if(useLocalStorage){
       const others=completions.filter(c=>c.taskKey!==taskKey);
