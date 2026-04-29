@@ -3791,10 +3791,16 @@ async function saveLog(){
 
 async function completeNurture(id){
   const n=nurtures.find(x=>x.id===id);if(!n)return;
+  const tps=getNurtureTPs(n);
+  const unlogged=tps.filter((_,i)=>!n.logs?.[i]?.date).length;
+  if(unlogged>0){
+    const msg=`"${n.guestName}" still has ${unlogged} unlogged touchpoint${unlogged!==1?'s':''} on this nurture.\n\nMarking complete here will hide this nurture from the New Guests & Outreach page even though the follow-up isn't done.\n\nIf you're trying to mark the membership change request as processed, do that on the Membership Change Requests page instead — that's a separate action.\n\nMark this nurture complete anyway?`;
+    if(!confirm(msg))return;
+  }
   n.status='completed';
   if(useLocalStorage){lsSave();}
   else{await api('nurtures?id='+id,{method:'PUT',body:{status:'completed'}});}
-  renderMgrNurture();
+  renderMgrNurture();renderGuests();
 }
 async function reopenNurture(id){
   const n=nurtures.find(x=>x.id===id);if(!n)return;
