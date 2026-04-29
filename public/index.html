@@ -1013,6 +1013,7 @@
   <div class="modal" style="max-width:600px;">
     <div class="modal-title">Upload visits report</div>
     <div class="modal-sub">Upload the Mindbody Attendance Analysis Excel file (.xls or .xlsx). The "Signed-In Visits" column will be used to update visit counts.</div>
+    <div style="margin-bottom:10px;"><a href="#" onclick="event.preventDefault();closeModal('upload-modal');openModal('upload-instructions-modal');" style="font-size:12px;color:var(--info);text-decoration:underline;">📖 How to pull the Attendance Analysis report from Mindbody</a></div>
     <label class="upload-zone" id="upload-zone">
       <input type="file" id="upload-file" accept=".xls,.xlsx" onchange="handleVisitsUpload(event)">
       <div style="font-size:14px;color:var(--mid);">📤 Click to choose file or drop here</div>
@@ -1031,6 +1032,7 @@
   <div class="modal" style="max-width:680px;">
     <div class="modal-title">Upload member roster from Mindbody</div>
     <div class="modal-sub">Upload your Mindbody member/client report (.xls, .xlsx, or .csv). We'll compare it against the New Guest tracker and show any members that aren't here yet so you can add them.</div>
+    <div style="margin-bottom:10px;"><a href="#" onclick="event.preventDefault();closeModal('member-upload-modal');openModal('member-instructions-modal');" style="font-size:12px;color:var(--info);text-decoration:underline;">📖 How to pull the New Members report from Mindbody</a></div>
     <label class="upload-zone">
       <input type="file" id="member-upload-file" accept=".xls,.xlsx,.csv" onchange="handleMembersUpload(event)">
       <div style="font-size:14px;color:var(--mid);">📤 Click to choose file or drop here</div>
