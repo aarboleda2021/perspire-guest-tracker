@@ -1118,9 +1118,10 @@
       <div style="margin-bottom:12px;"><strong>3. Section 2 — Service categories:</strong><br>Click the dropdown, then under "IR Sauna Session" select <strong>IR Sauna Session</strong></div>
       <div style="margin-bottom:12px;"><strong>4. Section 3 — Analysis:</strong><br>
         • "Analysis by" dropdown → select <strong>Guest</strong><br>
-        • Click <strong>Detail</strong> report<br>
+        • Click <strong>Detail</strong> report &nbsp;<span style="background:var(--errp);color:var(--err);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">⚠ NOT "Summary"</span><br>
         • In "Show clients with [x] or more visits," enter <strong>1</strong>
       </div>
+      <div style="background:var(--warnp);border-left:3px solid var(--warn);padding:10px 12px;border-radius:6px;margin-bottom:12px;font-size:12px;line-height:1.5;"><strong>⚠ Common mistake:</strong> If you click <strong>"Summary"</strong> by accident, the file will have columns like "Visiting Clients" and "Total Clients" — those won't work. The <strong>Detail</strong> report has a row for each member with a "Signed-In Visits" column.</div>
       <div style="margin-bottom:12px;"><strong>5. Section 4:</strong> Click <strong>Go</strong> to run the report</div>
       <div style="margin-bottom:12px;"><strong>6.</strong> Click <strong>Export to Excel (XLS)</strong> and save the file to your computer</div>
       <div><strong>7.</strong> Come back here and click "Upload report below" to import it</div>
@@ -3068,7 +3069,7 @@ const TEAM_LEAD_TASKS=[
       'In Mindbody, go to Insights / Reports and open "Attendance Analysis"',
       'Section 1 — Date range: use the "Quick date setting" dropdown and select Last 365 days',
       'Section 2 — Service categories: click the dropdown, then under "IR Sauna Session" select IR Sauna Session',
-      'Section 3 — Analysis: set "Analysis by" → Guest, click Detail report, then in "Show clients with [x] or more visits" enter 20',
+      'Section 3 — Analysis: set "Analysis by" → Guest, click Detail report (NOT Summary — Summary will give the wrong columns), then in "Show clients with [x] or more visits" enter 20',
       'Review every active client (members + package holders) approaching a milestone band: 25, 50, 75, 100, 150, 200, 250, 300, 350, 400, 450, 500+',
       'For anyone within ~3 sessions of the next milestone, reach out with the encouraging script below to push them across the line',
       'For anyone who just crossed a milestone since last week, send a celebration message (use the "milestone reached" script)'
@@ -4134,7 +4135,13 @@ function processUploadRows(rows){
   const guestCol=cols.find(k=>/guest|name/i.test(k));
   const visitsCol=cols.find(k=>/signed.?in/i.test(k))||cols.find(k=>/total.?visits/i.test(k));
   if(!guestCol||!visitsCol){
-    document.getElementById('upload-result').innerHTML=`<div style="color:var(--err);padding:10px;">Could not find Guest or Signed-In Visits columns. Found columns: ${cols.join(', ')}</div>`;
+    // The "Visiting Clients / Total Clients / Percent of Total Visits" columns are the telltale
+    // sign of the SUMMARY report (the wrong one). Detect that and give a specific, actionable fix.
+    const looksLikeSummary=cols.some(k=>/visiting clients/i.test(k))||cols.some(k=>/percent of total/i.test(k));
+    const tip=looksLikeSummary
+      ?`<div style="background:var(--errp);border-left:3px solid var(--err);padding:12px 14px;border-radius:6px;margin-bottom:10px;line-height:1.5;"><strong>It looks like you pulled the <u>Summary</u> report by mistake.</strong><br><br>To fix this, go back to Mindbody → Attendance Analysis and:<br>1. In <strong>Section 3 — Analysis</strong>, set <strong>"Analysis by"</strong> to <strong>Guest</strong><br>2. Click the <strong>Detail report</strong> button (NOT "Summary")<br>3. Re-run the report and re-export to Excel<br><br>The Detail report has a row for each member with their Signed-In Visits — that's what we need.</div>`
+      :`<div style="background:var(--errp);border-left:3px solid var(--err);padding:12px 14px;border-radius:6px;margin-bottom:10px;line-height:1.5;"><strong>This file doesn't look like the right report.</strong><br><br>We need the <strong>Attendance Analysis → Detail report by Guest</strong>, which has columns named "Guest" and "Signed-In Visits". Click the "📖 How to pull the Attendance Analysis report" link above for the full step-by-step.</div>`;
+    document.getElementById('upload-result').innerHTML=`${tip}<div style="font-size:11px;color:var(--muted);padding:6px 10px;">Columns we found in your file: ${cols.join(', ')}</div>`;
     return;
   }
 
