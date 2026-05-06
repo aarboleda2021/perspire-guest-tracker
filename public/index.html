@@ -644,6 +644,7 @@
     <button class="tab" onclick="setMgrTab('changes')" id="tab-chg">All Membership Changes</button>
     <button class="tab" onclick="setMgrTab('nurture')" id="tab-nur">Nurture & Reactivations</button>
     <button class="tab" onclick="setMgrTab('graduated')" id="tab-grad">Graduated</button>
+    <button class="tab" onclick="setMgrTab('giftcerts')" id="tab-gc">Gift Certificates</button>
     <button class="tab" onclick="setMgrTab('staff')" id="tab-st">Staff Management</button>
   </div>
   <div id="mgr-teamlead"><div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Mohogany's master checklist — daily reminders auto-update, weekly tasks reset every Sunday at midnight, and monthly tasks reset on the 1st. Complete in any order, on whichever days you're working.</div><div id="teamlead-content"></div></div>
@@ -652,6 +653,58 @@
   <div id="mgr-chg" style="display:none;"><div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Full view of all membership change requests — open, urgent, and processed.</div><div class="srow" id="mgr-chg-stats"></div><div id="mgr-chg-list"></div></div>
   <div id="mgr-nurture" style="display:none;"><div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Follow-up touchpoints for tier changes and reactivation reminders for returning members after a freeze.</div><div class="srow" id="mgr-nur-stats"></div><div id="mgr-nur-list"></div></div>
   <div id="mgr-graduated" style="display:none;"><div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Members who completed their 90-day journey — celebrate them with a personal outreach and Mindbody contact log.</div><div class="srow" id="mgr-grad-stats"></div><div id="mgr-grad-list"></div></div>
+  <div id="mgr-giftcerts" style="display:none;">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Track gift certificates donated to businesses, auctions, charities, and other partners. Issue new certs, log redemptions, and monitor ROI.</div>
+    <div class="srow" id="mgr-gc-stats"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+      <button class="btn btn-p btn-sm" onclick="toggleAddGiftCert()">+ Issue gift certificate</button>
+      <span class="tlbl" style="margin-left:6px;">Status</span>
+      <select class="fi" id="gc-status-sel" style="width:auto;padding:6px 10px;font-size:12px;" onchange="renderGiftCerts()">
+        <option value="active">Active (with remaining quantity)</option>
+        <option value="expiring">Expiring soon (≤ 30 days)</option>
+        <option value="redeemed">Fully redeemed</option>
+        <option value="expired">Expired (with unredeemed)</option>
+        <option value="voided">Voided</option>
+        <option value="all">All</option>
+      </select>
+    </div>
+    <div class="aform" id="add-giftcert-form">
+      <div class="aft">Issue a new gift certificate</div>
+      <div class="frow">
+        <div class="fg"><label class="fl">Gifted to<span class="req">*</span></label><input type="text" class="fi" id="gc-gifted-to" placeholder="Person, business, or auction name"></div>
+        <div class="fg"><label class="fl">Purpose</label>
+          <select class="fi" id="gc-purpose">
+            <option value="">— Select —</option>
+            <option value="donation">Donation</option>
+            <option value="auction">Auction</option>
+            <option value="sponsorship">Sponsorship</option>
+            <option value="gift">Gift</option>
+            <option value="referral-thank-you">Referral thank-you</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="fg"><label class="fl">Redeemable for<span class="req">*</span></label>
+        <textarea class="fi" id="gc-redeemable-for" placeholder='Be specific! e.g. "1 single 40-min IR sauna session" or "1 month of IRelax 4x membership"'></textarea>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">⚠ Be specific to avoid confusion at redemption — exactly what is the cert good for? Include session count, tier, and any add-ons.</div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label class="fl">Redeemable until<span class="req">*</span></label><input type="date" class="fi" id="gc-redeemable-until"></div>
+        <div class="fg"><label class="fl">Issued date</label><input type="date" class="fi" id="gc-issued-date"></div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label class="fl">Quantity issued<span class="req">*</span></label><input type="number" class="fi" id="gc-qty" min="1" value="1"></div>
+        <div class="fg"><label class="fl">Estimated $ value (each)</label><input type="number" class="fi" id="gc-value" min="0" step="0.01" placeholder="e.g. 35.00"></div>
+      </div>
+      <div class="fg"><label class="fl">Issued by<span class="req">*</span></label><select class="fi" id="gc-issued-by"></select></div>
+      <div class="fg"><label class="fl">Notes</label><textarea class="fi" id="gc-notes" placeholder="Optional context — auction event, recipient contact info, etc."></textarea></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
+        <button class="btn btn-g" onclick="cancelGiftCertForm()">Cancel</button>
+        <button class="btn btn-p" id="gc-submit-btn" onclick="submitGiftCert()">Issue certificate</button>
+      </div>
+    </div>
+    <div id="mgr-gc-list"></div>
+  </div>
   <div id="mgr-staff" style="display:none;"><div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Manage your team roster, set individual monthly goals, and download data backups.</div>
     <div class="smp">
       <div class="smpt">Staff roster</div>
@@ -1101,6 +1154,24 @@
       <button class="btn btn-g" onclick="closeModal('milestone-modal')">Close</button>
       <button class="btn btn-p" id="ms-complete-btn" onclick="completeMilestone()">Mark celebrated ✓</button>
       <button class="btn btn-g" id="ms-uncomplete-btn" onclick="uncompleteMilestone()" style="display:none;">Undo celebration</button>
+    </div>
+  </div>
+</div>
+
+<!-- GIFT CERT REDEMPTION MODAL -->
+<div class="modal-ov" id="redeem-modal">
+  <div class="modal">
+    <div class="modal-title">🎁 Redeem gift certificate</div>
+    <div id="rd-cert-info" style="font-size:13px;margin-bottom:14px;"></div>
+    <div class="frow">
+      <div class="fg"><label class="fl">Quantity to redeem<span class="req">*</span></label><input type="number" class="fi" id="rd-qty" min="1" value="1"></div>
+      <div class="fg"><label class="fl">Processed by<span class="req">*</span></label><select class="fi" id="rd-staff"></select></div>
+    </div>
+    <div class="fg"><label class="fl">Redeemed by (member name)</label><input type="text" class="fi" id="rd-member" placeholder="Optional — name of person redeeming"></div>
+    <div class="fg"><label class="fl">Notes</label><textarea class="fi" id="rd-notes" placeholder="Anything worth noting about this redemption"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-g" onclick="closeModal('redeem-modal')">Cancel</button>
+      <button class="btn btn-p" onclick="submitRedemption()">Log redemption</button>
     </div>
   </div>
 </div>
@@ -2176,7 +2247,7 @@ function showChangeScript(key,ch,btn){
 
 // ── STATE ─────────────────────────────────────────────────────────────────
 
-let guests=[],changes=[],staffList=[],nurtures=[],shiftNotes=[],events=[],announcements=[],recordings=[];
+let guests=[],changes=[],staffList=[],nurtures=[],shiftNotes=[],events=[],announcements=[],recordings=[],giftCerts=[];
 
 const DEFAULT_STAFF=[
   {id:'crystal', name:'Crystal', active:true, membershipGoal:10, packageGoal:5},
@@ -2189,7 +2260,7 @@ const DEFAULT_STAFF=[
 ];
 
 // Storage keys for local fallback mode
-const LS_GUESTS='psp-v7-guests',LS_CHANGES='psp-v7-changes',LS_STAFF='psp-v7-staff',LS_NURTURES='psp-v7-nurtures',LS_NOTES='psp-v7-notes',LS_EVENTS='psp-v7-events',LS_ANNOUNCE='psp-v7-announce',LS_RECORDINGS='psp-v7-recordings';
+const LS_GUESTS='psp-v7-guests',LS_CHANGES='psp-v7-changes',LS_STAFF='psp-v7-staff',LS_NURTURES='psp-v7-nurtures',LS_NOTES='psp-v7-notes',LS_EVENTS='psp-v7-events',LS_ANNOUNCE='psp-v7-announce',LS_RECORDINGS='psp-v7-recordings',LS_GIFTCERTS='psp-v7-giftcerts';
 let useLocalStorage=false;
 
 // ── API HELPERS ───────────────────────────────────────────────────────────
@@ -2221,6 +2292,7 @@ function lsSave(){
     localStorage.setItem(LS_EVENTS,JSON.stringify(events));
     localStorage.setItem(LS_ANNOUNCE,JSON.stringify(announcements));
     localStorage.setItem(LS_RECORDINGS,JSON.stringify(recordings));
+    localStorage.setItem(LS_GIFTCERTS,JSON.stringify(giftCerts));
   }catch(e){}
 }
 
@@ -2256,9 +2328,13 @@ async function loadRecordings(){
   if(useLocalStorage){recordings=lsGet(LS_RECORDINGS,[]);return;}
   recordings=await api('recordings');
 }
+async function loadGiftCerts(){
+  if(useLocalStorage){giftCerts=lsGet(LS_GIFTCERTS,[]);return;}
+  giftCerts=await api('gift-certs');
+}
 async function loadAll(){
   try{
-    await Promise.all([loadGuests(),loadChanges(),loadStaff(),loadNurtures(),loadShiftNotes(),loadEvents(),loadAnnouncements(),loadRecordings()]);
+    await Promise.all([loadGuests(),loadChanges(),loadStaff(),loadNurtures(),loadShiftNotes(),loadEvents(),loadAnnouncements(),loadRecordings(),loadGiftCerts()]);
   }catch(e){
     console.warn('API unavailable, using local storage fallback.',e.message);
     useLocalStorage=true;
@@ -2270,6 +2346,7 @@ async function loadAll(){
     events=lsGet(LS_EVENTS,[]);
     announcements=lsGet(LS_ANNOUNCE,[]);
     recordings=lsGet(LS_RECORDINGS,[]);
+    giftCerts=lsGet(LS_GIFTCERTS,[]);
   }
   // One-time auto-reassign for existing tier-change nurtures whose guest's
   // assigned staff doesn't match. Fires once per page load. Reactivations
@@ -2365,7 +2442,7 @@ function updateEditTierOpts(){
   const opts=(t==='member'?MEMBER_TIERS:PACKAGE_TIERS);
   document.getElementById('eg-tier').innerHTML=opts.map(x=>`<option value="${x}" ${x===cur?'selected':''}>${x}</option>`).join('');
 }
-function fillAll(){fillStaff('staff-sel');fillStaff('ng-staff');fillStaff('mc-submitter');fillStaff('ec-submitter');updateTierOpts();const ss=document.getElementById('status-sel');if(ss){const v=localStorage.getItem('psp-v7-guests-status');if(v)ss.value=v;}}
+function fillAll(){fillStaff('staff-sel');fillStaff('ng-staff');fillStaff('mc-submitter');fillStaff('ec-submitter');fillStaff('gc-issued-by');fillStaff('rd-staff');updateTierOpts();const ss=document.getElementById('status-sel');if(ss){const v=localStorage.getItem('psp-v7-guests-status');if(v)ss.value=v;}}
 
 // ── FORM LOGIC ────────────────────────────────────────────────────────────
 
@@ -6900,13 +6977,256 @@ function setView(v){
   else renderGuests();
   saveViewState();
 }
+// ── GIFT CERTIFICATES ─────────────────────────────────────────────────────
+
+function gcStatus(c){
+  if(c.voided)return 'voided';
+  const remaining=c.quantityRemaining??(c.quantityIssued-(c.quantityRedeemed||0));
+  const today=new Date();today.setHours(0,0,0,0);
+  const exp=parseDate(c.redeemableUntil);
+  const expired=exp&&exp<today;
+  if(remaining<=0)return 'redeemed';
+  if(expired)return 'expired';
+  if(exp){const days=Math.floor((exp-today)/86400000);if(days<=30)return 'expiring';}
+  return 'active';
+}
+
+function toggleAddGiftCert(){
+  const f=document.getElementById('add-giftcert-form');
+  if(f.classList.contains('open')){cancelGiftCertForm();return;}
+  editingGiftCertId=null;
+  document.getElementById('gc-submit-btn').textContent='Issue certificate';
+  f.classList.add('open');
+  document.getElementById('gc-gifted-to').value='';
+  document.getElementById('gc-redeemable-for').value='';
+  document.getElementById('gc-redeemable-until').value='';
+  document.getElementById('gc-issued-date').value=toInputDate(new Date());
+  document.getElementById('gc-qty').value=1;
+  document.getElementById('gc-value').value='';
+  document.getElementById('gc-purpose').value='';
+  document.getElementById('gc-notes').value='';
+  // Default issued-by to last-used staff (reuses change-form key)
+  const last=localStorage.getItem('psp-v7-last-submitter');
+  const sel=document.getElementById('gc-issued-by');
+  if(last&&[...sel.options].some(o=>o.value===last))sel.value=last;
+}
+
+function cancelGiftCertForm(){
+  document.getElementById('add-giftcert-form').classList.remove('open');
+  editingGiftCertId=null;
+}
+
+let editingGiftCertId=null;
+
+async function submitGiftCert(){
+  const giftedTo=document.getElementById('gc-gifted-to').value.trim();
+  const redeemableFor=document.getElementById('gc-redeemable-for').value.trim();
+  const redeemableUntil=document.getElementById('gc-redeemable-until').value;
+  const issuedDate=document.getElementById('gc-issued-date').value||new Date().toISOString().slice(0,10);
+  const qty=parseInt(document.getElementById('gc-qty').value)||1;
+  const valueRaw=document.getElementById('gc-value').value;
+  const value=valueRaw?parseFloat(valueRaw):null;
+  const purpose=document.getElementById('gc-purpose').value||null;
+  const notes=document.getElementById('gc-notes').value.trim();
+  const issuedBy=document.getElementById('gc-issued-by').value;
+  const errs=[];
+  if(!giftedTo)errs.push('Gifted to');
+  if(!redeemableFor)errs.push('Redeemable for');
+  if(!redeemableUntil)errs.push('Redeemable until');
+  if(!qty||qty<1)errs.push('Quantity (must be ≥ 1)');
+  if(!issuedBy)errs.push('Issued by');
+  if(errs.length){alert('Please complete:\n• '+errs.join('\n• '));return;}
+  if(issuedBy)localStorage.setItem('psp-v7-last-submitter',issuedBy);
+  if(editingGiftCertId){
+    const c=giftCerts.find(x=>x.id===editingGiftCertId);if(!c){alert('Cert not found');return;}
+    Object.assign(c,{giftedTo,redeemableFor,redeemableUntil,quantityIssued:qty,estimatedValueEach:value,purpose,notes,issuedBy,issuedDate});
+    if(useLocalStorage){lsSave();}
+    else{await api('gift-certs?id='+editingGiftCertId,{method:'PUT',body:{giftedTo,redeemableFor,redeemableUntil,quantityIssued:qty,estimatedValueEach:value,purpose,notes,issuedBy,issuedDate}});await loadGiftCerts();}
+  } else {
+    const rec={id:Date.now().toString(),giftedTo,redeemableFor,redeemableUntil,quantityIssued:qty,estimatedValueEach:value,purpose,notes,issuedBy,issuedDate,quantityRedeemed:0,quantityRemaining:qty,redemptions:[],voided:false,createdAt:new Date().toISOString()};
+    if(useLocalStorage){giftCerts.unshift(rec);lsSave();}
+    else{await api('gift-certs',{method:'POST',body:rec});await loadGiftCerts();}
+  }
+  cancelGiftCertForm();renderGiftCerts();
+}
+
+function openEditGiftCert(id){
+  const c=giftCerts.find(x=>x.id===id);if(!c)return;
+  editingGiftCertId=id;
+  document.getElementById('add-giftcert-form').classList.add('open');
+  document.getElementById('gc-submit-btn').textContent='Save changes';
+  document.getElementById('gc-gifted-to').value=c.giftedTo||'';
+  document.getElementById('gc-redeemable-for').value=c.redeemableFor||'';
+  document.getElementById('gc-redeemable-until').value=c.redeemableUntil||'';
+  document.getElementById('gc-issued-date').value=c.issuedDate||toInputDate(new Date());
+  document.getElementById('gc-qty').value=c.quantityIssued||1;
+  document.getElementById('gc-value').value=c.estimatedValueEach||'';
+  document.getElementById('gc-purpose').value=c.purpose||'';
+  document.getElementById('gc-notes').value=c.notes||'';
+  if(c.issuedBy)document.getElementById('gc-issued-by').value=c.issuedBy;
+  document.getElementById('add-giftcert-form').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+async function removeGiftCert(id){
+  const c=giftCerts.find(x=>x.id===id);if(!c)return;
+  if(!confirm(`Delete this gift certificate (gifted to ${c.giftedTo})?\n\nThis also removes ${c.redemptions?.length||0} redemption record${c.redemptions?.length===1?'':'s'}.`))return;
+  if(useLocalStorage){giftCerts=giftCerts.filter(x=>x.id!==id);lsSave();}
+  else{await api('gift-certs?id='+id,{method:'DELETE'});await loadGiftCerts();}
+  renderGiftCerts();
+}
+
+async function voidGiftCert(id){
+  const c=giftCerts.find(x=>x.id===id);if(!c)return;
+  const reason=prompt(`Why are you voiding this certificate (gifted to ${c.giftedTo})?\n\n(e.g. lost, replaced, never delivered)`);
+  if(reason===null)return;
+  c.voided=true;c.voidedReason=reason;
+  if(useLocalStorage){lsSave();}
+  else{await api('gift-certs?id='+id,{method:'PUT',body:{voided:true,voidedReason:reason}});await loadGiftCerts();}
+  renderGiftCerts();
+}
+
+async function unvoidGiftCert(id){
+  const c=giftCerts.find(x=>x.id===id);if(!c)return;
+  c.voided=false;c.voidedReason=null;
+  if(useLocalStorage){lsSave();}
+  else{await api('gift-certs?id='+id,{method:'PUT',body:{voided:false,voidedReason:null}});await loadGiftCerts();}
+  renderGiftCerts();
+}
+
+let _redeemCertId=null;
+function openRedeemModal(id){
+  const c=giftCerts.find(x=>x.id===id);if(!c)return;
+  _redeemCertId=id;
+  const remaining=c.quantityRemaining??(c.quantityIssued-(c.quantityRedeemed||0));
+  document.getElementById('rd-cert-info').innerHTML=`<strong>${c.giftedTo}</strong> · <span style="color:var(--muted);">${remaining} of ${c.quantityIssued} remaining</span><div style="margin-top:6px;font-size:13px;background:var(--sand);border-left:3px solid var(--info);padding:8px 12px;border-radius:4px;"><strong>Redeemable for:</strong> ${c.redeemableFor}</div>`;
+  document.getElementById('rd-qty').value=1;document.getElementById('rd-qty').max=remaining;
+  document.getElementById('rd-member').value='';
+  document.getElementById('rd-notes').value='';
+  const last=localStorage.getItem('psp-v7-last-submitter');
+  const sel=document.getElementById('rd-staff');if(last&&[...sel.options].some(o=>o.value===last))sel.value=last;
+  document.getElementById('redeem-modal').classList.add('open');
+}
+
+async function submitRedemption(){
+  const c=giftCerts.find(x=>x.id===_redeemCertId);if(!c)return;
+  const qty=parseInt(document.getElementById('rd-qty').value)||1;
+  const member=document.getElementById('rd-member').value.trim();
+  const staff=document.getElementById('rd-staff').value;
+  const notes=document.getElementById('rd-notes').value.trim();
+  const remaining=c.quantityRemaining??(c.quantityIssued-(c.quantityRedeemed||0));
+  if(qty<1||qty>remaining){alert(`Quantity must be between 1 and ${remaining}.`);return;}
+  if(!staff){alert('Please select the staff member processing this redemption.');return;}
+  if(staff)localStorage.setItem('psp-v7-last-submitter',staff);
+  const rec={quantity:qty,redeemedByMember:member||null,redeemedStaff:staff,notes};
+  if(useLocalStorage){
+    if(!c.redemptions)c.redemptions=[];
+    c.redemptions.unshift({...rec,id:Date.now(),certId:c.id,redeemedAt:new Date().toISOString()});
+    c.quantityRedeemed=(c.quantityRedeemed||0)+qty;
+    c.quantityRemaining=Math.max(0,c.quantityIssued-c.quantityRedeemed);
+    lsSave();
+  } else {
+    await api('gift-certs?id='+c.id+'&action=redeem',{method:'POST',body:rec});
+    await loadGiftCerts();
+  }
+  closeModal('redeem-modal');_redeemCertId=null;renderGiftCerts();
+}
+
+async function undoRedemption(certId,redemptionId){
+  if(!confirm('Undo this redemption? The quantity will be returned to "remaining".'))return;
+  if(useLocalStorage){
+    const c=giftCerts.find(x=>x.id===certId);if(!c)return;
+    const r=c.redemptions.find(x=>x.id===redemptionId);if(!r)return;
+    c.redemptions=c.redemptions.filter(x=>x.id!==redemptionId);
+    c.quantityRedeemed=Math.max(0,(c.quantityRedeemed||0)-r.quantity);
+    c.quantityRemaining=Math.max(0,c.quantityIssued-c.quantityRedeemed);
+    lsSave();
+  } else {
+    await api('gift-certs?id='+certId+'&action=redemption&redemptionId='+redemptionId,{method:'DELETE'});
+    await loadGiftCerts();
+  }
+  renderGiftCerts();
+}
+
+function renderGiftCerts(){
+  const stEl=document.getElementById('gc-status-sel');const stat=stEl?stEl.value:'active';
+  // ROI summary
+  const totalIssued=giftCerts.reduce((s,c)=>s+(c.quantityIssued||0),0);
+  const totalRedeemed=giftCerts.reduce((s,c)=>s+(c.quantityRedeemed||0),0);
+  const totalValueIssued=giftCerts.reduce((s,c)=>s+((c.estimatedValueEach||0)*(c.quantityIssued||0)),0);
+  const totalValueRedeemed=giftCerts.reduce((s,c)=>s+((c.estimatedValueEach||0)*(c.quantityRedeemed||0)),0);
+  const expiringSoon=giftCerts.filter(c=>!c.voided&&gcStatus(c)==='expiring').length;
+  const expiredOpen=giftCerts.filter(c=>!c.voided&&gcStatus(c)==='expired').length;
+  const fmtUSD=v=>'$'+(v||0).toFixed(0);
+  document.getElementById('mgr-gc-stats').innerHTML=`
+    <div class="sc"><div class="scl">Total certs issued</div><div class="scv">${totalIssued}</div></div>
+    <div class="sc"><div class="scl">Total redeemed</div><div class="scv">${totalRedeemed}</div></div>
+    <div class="sc"><div class="scl">Redemption rate</div><div class="scv">${totalIssued?Math.round((totalRedeemed/totalIssued)*100):0}%</div></div>
+    <div class="sc"><div class="scl">Est. $ value issued</div><div class="scv">${fmtUSD(totalValueIssued)}</div></div>
+    <div class="sc"><div class="scl">Est. $ value redeemed</div><div class="scv">${fmtUSD(totalValueRedeemed)}</div></div>
+    <div class="sc"><div class="scl">Expiring ≤ 30 days</div><div class="scv ${expiringSoon>0?'w':''}">${expiringSoon}</div></div>
+    <div class="sc"><div class="scl">Expired (unredeemed)</div><div class="scv ${expiredOpen>0?'d':''}">${expiredOpen}</div></div>`;
+  // Filter
+  let list=giftCerts;
+  if(stat==='active')list=list.filter(c=>!c.voided&&['active','expiring'].includes(gcStatus(c)));
+  else if(stat==='expiring')list=list.filter(c=>!c.voided&&gcStatus(c)==='expiring');
+  else if(stat==='redeemed')list=list.filter(c=>!c.voided&&gcStatus(c)==='redeemed');
+  else if(stat==='expired')list=list.filter(c=>!c.voided&&gcStatus(c)==='expired');
+  else if(stat==='voided')list=list.filter(c=>c.voided);
+  const el=document.getElementById('mgr-gc-list');
+  if(!list.length){el.innerHTML=`<div class="empty"><div class="empty-icon">🎁</div><p>No gift certificates match this filter.<br>Use "+ Issue gift certificate" to add one.</p></div>`;return;}
+  el.innerHTML=`<div class="sec-hdr"><div class="sec-title">${list.length} certificate${list.length!==1?'s':''}</div></div>${list.map(renderGiftCertCard).join('')}`;
+}
+
+function renderGiftCertCard(c){
+  const s=gcStatus(c);
+  const remaining=c.quantityRemaining??(c.quantityIssued-(c.quantityRedeemed||0));
+  const stBadge={
+    active:`<span class="badge bot">Active</span>`,
+    expiring:`<span class="badge bdu">Expiring soon</span>`,
+    redeemed:`<span class="badge bhlt">Fully redeemed</span>`,
+    expired:`<span class="badge bod">Expired</span>`,
+    voided:`<span class="badge bia">Voided</span>`
+  }[s]||'';
+  const expDate=c.redeemableUntil?fmtDate(c.redeemableUntil):'—';
+  const exp=parseDate(c.redeemableUntil);const today=new Date();today.setHours(0,0,0,0);
+  const daysToExp=exp?Math.floor((exp-today)/86400000):null;
+  const expNote=daysToExp!==null?(daysToExp<0?` <span style="color:var(--err);">(${Math.abs(daysToExp)} days ago)</span>`:` <span style="color:var(--muted);">(in ${daysToExp} day${daysToExp!==1?'s':''})</span>`):'';
+  const valEach=c.estimatedValueEach?` · $${c.estimatedValueEach.toFixed(0)} each`:'';
+  const issuedByName=c.issuedBy?sName(c.issuedBy):'—';
+  const purposeBadge=c.purpose?`<span class="badge bia" style="margin-left:6px;">${c.purpose}</span>`:'';
+  const canRedeem=!c.voided&&remaining>0&&s!=='expired';
+  const redemptionsHtml=(c.redemptions&&c.redemptions.length)?`<details style="margin-top:10px;"><summary style="cursor:pointer;font-size:12px;color:var(--info);">View ${c.redemptions.length} redemption${c.redemptions.length!==1?'s':''}</summary><div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;">${c.redemptions.map(r=>`<div style="background:var(--sand);padding:8px 12px;border-radius:6px;font-size:12px;"><div><strong>${r.quantity} redeemed</strong> · ${r.redeemedByMember||'<em style="color:var(--muted);">no member name</em>'} · by ${r.redeemedStaff?sName(r.redeemedStaff):'—'} · ${new Date(r.redeemedAt).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'})}</div>${r.notes?`<div style="margin-top:3px;color:var(--mid);font-style:italic;">"${r.notes}"</div>`:''}<button class="btn btn-g btn-sm" style="font-size:10px;margin-top:4px;" onclick="undoRedemption('${c.id}',${r.id})">Undo</button></div>`).join('')}</div></details>`:'';
+  return `<div class="ccard" style="${c.voided?'opacity:.6;':''}padding:14px 18px;margin-bottom:10px;">
+    <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:240px;">
+        <div style="font-size:15px;font-weight:600;color:var(--dark);">${c.giftedTo}${purposeBadge}</div>
+        <div style="font-size:13px;color:var(--mid);margin-top:4px;background:var(--sand);border-left:3px solid var(--info);padding:8px 12px;border-radius:4px;"><strong>Redeemable for:</strong> ${c.redeemableFor}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;">Issued ${c.issuedDate?fmtDate(c.issuedDate):'—'} by ${issuedByName} · Expires ${expDate}${expNote}${valEach}</div>
+        ${c.notes?`<div style="font-size:12px;color:var(--mid);margin-top:6px;font-style:italic;">📝 ${c.notes}</div>`:''}
+        ${c.voided&&c.voidedReason?`<div style="font-size:12px;color:var(--err);margin-top:6px;">⊘ Voided: ${c.voidedReason}</div>`:''}
+        ${redemptionsHtml}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+        ${stBadge}
+        <div style="font-size:12px;color:var(--muted);">${remaining} of ${c.quantityIssued} remaining</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+          ${canRedeem?`<button class="btn btn-p btn-sm" onclick="openRedeemModal('${c.id}')">Redeem</button>`:''}
+          <button class="btn btn-g btn-sm" onclick="openEditGiftCert('${c.id}')">Edit</button>
+          ${c.voided?`<button class="btn btn-g btn-sm" onclick="unvoidGiftCert('${c.id}')">Un-void</button>`:`<button class="btn btn-g btn-sm" onclick="voidGiftCert('${c.id}')">Void</button>`}
+          <button class="btn btn-sm btn-do" onclick="removeGiftCert('${c.id}')">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
 function setMgrTab(tab){
   if(tab==='history')tab='dashboard'; // legacy — history tab removed
   currentMgrTab=tab;
-  const map={dashboard:'mgr-dashboard',teamlead:'mgr-teamlead',overview:'mgr-ov',changes:'mgr-chg',nurture:'mgr-nurture',graduated:'mgr-graduated',staff:'mgr-staff'};
+  const map={dashboard:'mgr-dashboard',teamlead:'mgr-teamlead',overview:'mgr-ov',changes:'mgr-chg',nurture:'mgr-nurture',graduated:'mgr-graduated',giftcerts:'mgr-giftcerts',staff:'mgr-staff'};
   Object.entries(map).forEach(([k,id])=>document.getElementById(id).style.display=k===tab?'block':'none');
-  const tabKeys=['dashboard','teamlead','overview','changes','nurture','graduated','staff'];
-  const tabIds=['dash','tl','ov','chg','nur','grad','st'];
+  const tabKeys=['dashboard','teamlead','overview','changes','nurture','graduated','giftcerts','staff'];
+  const tabIds=['dash','tl','ov','chg','nur','grad','gc','st'];
   tabIds.forEach((s,i)=>document.getElementById('tab-'+s).classList.toggle('active',tabKeys[i]===tab));
   if(tab==='dashboard')renderMgrDashboard();
   else if(tab==='teamlead')renderMgrTeamLead();
@@ -6914,6 +7234,7 @@ function setMgrTab(tab){
   else if(tab==='changes')renderMgrChanges();
   else if(tab==='nurture')renderMgrNurture();
   else if(tab==='graduated')renderMgrGraduated();
+  else if(tab==='giftcerts')renderGiftCerts();
   else renderRoster();
   saveViewState();
 }
@@ -6921,7 +7242,7 @@ function setMgrTab(tab){
 // Escape key closes modals
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
-    ['log-modal','edit-guest-modal','edit-change-modal','rassign-modal','tp-script-modal','deactivate-modal','milestone-modal','upload-modal','graduation-modal','task-complete-modal','cintas-modal','contact-log-template-modal','upload-instructions-modal','member-upload-modal','member-quickadd-modal','member-instructions-modal','help-modal','decline-deact-modal'].forEach(id=>{
+    ['log-modal','edit-guest-modal','edit-change-modal','rassign-modal','tp-script-modal','deactivate-modal','milestone-modal','upload-modal','graduation-modal','task-complete-modal','cintas-modal','contact-log-template-modal','upload-instructions-modal','member-upload-modal','member-quickadd-modal','member-instructions-modal','help-modal','decline-deact-modal','redeem-modal'].forEach(id=>{
       const el=document.getElementById(id);if(el&&el.classList.contains('open'))closeModal(id);
     });
   }
