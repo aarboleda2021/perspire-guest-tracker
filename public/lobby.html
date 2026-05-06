@@ -158,7 +158,7 @@
 // ============================================================
 
 let overrides = {}; // { [suiteNum]: { status, guest_first_name, moved, for_slot } }
-let supabase = null;
+let sb = null;
 
 function initSupabase() {
   const cfg = window.PERSPIRE_SUPABASE;
@@ -167,12 +167,12 @@ function initSupabase() {
       '<div class="config-warning">⚠️ Supabase not configured yet. Open <code>public/supabase-config.js</code> and paste your Supabase URL + anon key.</div>');
     return false;
   }
-  supabase = window.supabase.createClient(cfg.url, cfg.anonKey);
+  sb = window.supabase.createClient(cfg.url, cfg.anonKey);
   return true;
 }
 
 async function loadOverrides() {
-  const { data, error } = await supabase.from('suite_status').select('*');
+  const { data, error } = await sb.from('suite_status').select('*');
   if (error) {
     console.error('suite_status load error', error);
     document.body.insertAdjacentHTML('afterbegin',
@@ -191,7 +191,7 @@ async function loadOverrides() {
 }
 
 function subscribeToChanges() {
-  supabase
+  sb
     .channel('suite_status_changes')
     .on('postgres_changes',
       { event: '*', schema: 'public', table: 'suite_status' },
