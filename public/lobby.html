@@ -173,7 +173,12 @@ function initSupabase() {
 
 async function loadOverrides() {
   const { data, error } = await supabase.from('suite_status').select('*');
-  if (error) { console.error(error); return; }
+  if (error) {
+    console.error('suite_status load error', error);
+    document.body.insertAdjacentHTML('afterbegin',
+      '<div class="config-warning">⚠️ Couldn\'t load live status (showing default). If this persists, make sure the suite_status table exists in Supabase. Detail: ' + (error.message || error) + '</div>');
+    return;
+  }
   overrides = {};
   data.forEach(row => {
     overrides[row.suite_num] = {
@@ -183,7 +188,6 @@ async function loadOverrides() {
       for_slot: row.for_slot ? new Date(row.for_slot) : null
     };
   });
-  render();
 }
 
 function subscribeToChanges() {
@@ -269,8 +273,12 @@ function render() {
 
 // Boot
 window.addEventListener('DOMContentLoaded', async () => {
-  if (!initSupabase()) { render(); return; }
+  // Always render the schedule-based cards immediately, even before any data loads.
+  // This way the screen never sits blank, even if Supabase has a problem.
+  render();
+  if (!initSupabase()) return;
   await loadOverrides();
+  render();
   subscribeToChanges();
   // Re-render every 30s so status transitions on time even without DB changes
   setInterval(render, 30000);
