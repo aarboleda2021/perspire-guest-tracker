@@ -692,11 +692,7 @@
         <div class="fg"><label class="fl">Redeemable until<span class="req">*</span></label><input type="date" class="fi" id="gc-redeemable-until"></div>
         <div class="fg"><label class="fl">Issued date</label><input type="date" class="fi" id="gc-issued-date"></div>
       </div>
-      <div class="frow">
-        <div class="fg"><label class="fl">Quantity issued<span class="req">*</span></label><input type="number" class="fi" id="gc-qty" min="1" value="1"></div>
-        <div class="fg"><label class="fl">Estimated $ value (each)</label><input type="number" class="fi" id="gc-value" min="0" step="0.01" placeholder="e.g. 35.00"></div>
-      </div>
-      <div class="fg"><label class="fl">Issued by<span class="req">*</span></label><select class="fi" id="gc-issued-by"></select></div>
+      <div class="fg"><label class="fl">Quantity issued<span class="req">*</span></label><input type="number" class="fi" id="gc-qty" min="1" value="1"></div>
       <div class="fg"><label class="fl">Notes</label><textarea class="fi" id="gc-notes" placeholder="Optional context — auction event, recipient contact info, etc."></textarea></div>
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
         <button class="btn btn-g" onclick="cancelGiftCertForm()">Cancel</button>
@@ -774,12 +770,15 @@
 
 <!-- ══ DAILY HUB ══════════════════════════════════════════════════════════ -->
 <div id="view-daily">
-  <div class="tabs">
-    <button class="tab active" onclick="setDailyTab('notes')" id="tab-notes">Shift Notes</button>
-    <button class="tab" onclick="setDailyTab('today')" id="tab-today">Today's Tasks</button>
-    <button class="tab" onclick="setDailyTab('events')" id="tab-events">Events & Promos</button>
-    <button class="tab" onclick="setDailyTab('learning')" id="tab-learning">Learning Library</button>
-    <button class="tab" onclick="setDailyTab('perf')" id="tab-perf">Monthly Team Performance</button>
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div class="tabs" style="margin-bottom:0;">
+      <button class="tab active" onclick="setDailyTab('notes')" id="tab-notes">Shift Notes</button>
+      <button class="tab" onclick="setDailyTab('today')" id="tab-today">Today's Tasks</button>
+      <button class="tab" onclick="setDailyTab('events')" id="tab-events">Events & Promos</button>
+      <button class="tab" onclick="setDailyTab('learning')" id="tab-learning">Learning Library</button>
+      <button class="tab" onclick="setDailyTab('perf')" id="tab-perf">Monthly Team Performance</button>
+    </div>
+    <button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);margin-bottom:14px;" onclick="openQuickRedeem()" title="Look up and redeem a gift certificate">🎁 Redeem gift certificate</button>
   </div>
 
   <div id="daily-notes">
@@ -1158,6 +1157,19 @@
   </div>
 </div>
 
+<!-- QUICK REDEEM PICKER (staff-facing) -->
+<div class="modal-ov" id="quick-redeem-modal">
+  <div class="modal" style="max-width:680px;">
+    <div class="modal-title">🎁 Redeem a gift certificate</div>
+    <div class="modal-sub">Find the certificate the guest brought in. Verify the recipient name and what it's redeemable for before processing.</div>
+    <div class="fg"><label class="fl">Search</label><input type="text" class="fi" id="qr-search" placeholder="Type a name or what the cert is for..." oninput="renderQuickRedeemList()"></div>
+    <div id="qr-list" style="max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-g" onclick="closeModal('quick-redeem-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- GIFT CERT REDEMPTION MODAL -->
 <div class="modal-ov" id="redeem-modal">
   <div class="modal">
@@ -1167,7 +1179,7 @@
       <div class="fg"><label class="fl">Quantity to redeem<span class="req">*</span></label><input type="number" class="fi" id="rd-qty" min="1" value="1"></div>
       <div class="fg"><label class="fl">Processed by<span class="req">*</span></label><select class="fi" id="rd-staff"></select></div>
     </div>
-    <div class="fg"><label class="fl">Redeemed by (member name)</label><input type="text" class="fi" id="rd-member" placeholder="Optional — name of person redeeming"></div>
+    <div class="fg"><label class="fl">Guest name<span class="req">*</span></label><input type="text" class="fi" id="rd-guest" placeholder="Name of the person redeeming"></div>
     <div class="fg"><label class="fl">Notes</label><textarea class="fi" id="rd-notes" placeholder="Anything worth noting about this redemption"></textarea></div>
     <div class="modal-actions">
       <button class="btn btn-g" onclick="closeModal('redeem-modal')">Cancel</button>
@@ -2442,7 +2454,7 @@ function updateEditTierOpts(){
   const opts=(t==='member'?MEMBER_TIERS:PACKAGE_TIERS);
   document.getElementById('eg-tier').innerHTML=opts.map(x=>`<option value="${x}" ${x===cur?'selected':''}>${x}</option>`).join('');
 }
-function fillAll(){fillStaff('staff-sel');fillStaff('ng-staff');fillStaff('mc-submitter');fillStaff('ec-submitter');fillStaff('gc-issued-by');fillStaff('rd-staff');updateTierOpts();const ss=document.getElementById('status-sel');if(ss){const v=localStorage.getItem('psp-v7-guests-status');if(v)ss.value=v;}}
+function fillAll(){fillStaff('staff-sel');fillStaff('ng-staff');fillStaff('mc-submitter');fillStaff('ec-submitter');fillStaff('rd-staff');updateTierOpts();const ss=document.getElementById('status-sel');if(ss){const v=localStorage.getItem('psp-v7-guests-status');if(v)ss.value=v;}}
 
 // ── FORM LOGIC ────────────────────────────────────────────────────────────
 
@@ -7002,13 +7014,8 @@ function toggleAddGiftCert(){
   document.getElementById('gc-redeemable-until').value='';
   document.getElementById('gc-issued-date').value=toInputDate(new Date());
   document.getElementById('gc-qty').value=1;
-  document.getElementById('gc-value').value='';
   document.getElementById('gc-purpose').value='';
   document.getElementById('gc-notes').value='';
-  // Default issued-by to last-used staff (reuses change-form key)
-  const last=localStorage.getItem('psp-v7-last-submitter');
-  const sel=document.getElementById('gc-issued-by');
-  if(last&&[...sel.options].some(o=>o.value===last))sel.value=last;
 }
 
 function cancelGiftCertForm(){
@@ -7024,26 +7031,23 @@ async function submitGiftCert(){
   const redeemableUntil=document.getElementById('gc-redeemable-until').value;
   const issuedDate=document.getElementById('gc-issued-date').value||new Date().toISOString().slice(0,10);
   const qty=parseInt(document.getElementById('gc-qty').value)||1;
-  const valueRaw=document.getElementById('gc-value').value;
-  const value=valueRaw?parseFloat(valueRaw):null;
   const purpose=document.getElementById('gc-purpose').value||null;
   const notes=document.getElementById('gc-notes').value.trim();
-  const issuedBy=document.getElementById('gc-issued-by').value;
+  // Issued-by is always Mohogany — it's her workflow, no need to ask
+  const issuedBy='mohogany';
   const errs=[];
   if(!giftedTo)errs.push('Gifted to');
   if(!redeemableFor)errs.push('Redeemable for');
   if(!redeemableUntil)errs.push('Redeemable until');
   if(!qty||qty<1)errs.push('Quantity (must be ≥ 1)');
-  if(!issuedBy)errs.push('Issued by');
   if(errs.length){alert('Please complete:\n• '+errs.join('\n• '));return;}
-  if(issuedBy)localStorage.setItem('psp-v7-last-submitter',issuedBy);
   if(editingGiftCertId){
     const c=giftCerts.find(x=>x.id===editingGiftCertId);if(!c){alert('Cert not found');return;}
-    Object.assign(c,{giftedTo,redeemableFor,redeemableUntil,quantityIssued:qty,estimatedValueEach:value,purpose,notes,issuedBy,issuedDate});
+    Object.assign(c,{giftedTo,redeemableFor,redeemableUntil,quantityIssued:qty,purpose,notes,issuedBy,issuedDate});
     if(useLocalStorage){lsSave();}
-    else{await api('gift-certs?id='+editingGiftCertId,{method:'PUT',body:{giftedTo,redeemableFor,redeemableUntil,quantityIssued:qty,estimatedValueEach:value,purpose,notes,issuedBy,issuedDate}});await loadGiftCerts();}
+    else{await api('gift-certs?id='+editingGiftCertId,{method:'PUT',body:{giftedTo,redeemableFor,redeemableUntil,quantityIssued:qty,purpose,notes,issuedBy,issuedDate}});await loadGiftCerts();}
   } else {
-    const rec={id:Date.now().toString(),giftedTo,redeemableFor,redeemableUntil,quantityIssued:qty,estimatedValueEach:value,purpose,notes,issuedBy,issuedDate,quantityRedeemed:0,quantityRemaining:qty,redemptions:[],voided:false,createdAt:new Date().toISOString()};
+    const rec={id:Date.now().toString(),giftedTo,redeemableFor,redeemableUntil,quantityIssued:qty,purpose,notes,issuedBy,issuedDate,quantityRedeemed:0,quantityRemaining:qty,redemptions:[],voided:false,createdAt:new Date().toISOString()};
     if(useLocalStorage){giftCerts.unshift(rec);lsSave();}
     else{await api('gift-certs',{method:'POST',body:rec});await loadGiftCerts();}
   }
@@ -7060,10 +7064,8 @@ function openEditGiftCert(id){
   document.getElementById('gc-redeemable-until').value=c.redeemableUntil||'';
   document.getElementById('gc-issued-date').value=c.issuedDate||toInputDate(new Date());
   document.getElementById('gc-qty').value=c.quantityIssued||1;
-  document.getElementById('gc-value').value=c.estimatedValueEach||'';
   document.getElementById('gc-purpose').value=c.purpose||'';
   document.getElementById('gc-notes').value=c.notes||'';
-  if(c.issuedBy)document.getElementById('gc-issued-by').value=c.issuedBy;
   document.getElementById('add-giftcert-form').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
@@ -7100,7 +7102,7 @@ function openRedeemModal(id){
   const remaining=c.quantityRemaining??(c.quantityIssued-(c.quantityRedeemed||0));
   document.getElementById('rd-cert-info').innerHTML=`<strong>${c.giftedTo}</strong> · <span style="color:var(--muted);">${remaining} of ${c.quantityIssued} remaining</span><div style="margin-top:6px;font-size:13px;background:var(--sand);border-left:3px solid var(--info);padding:8px 12px;border-radius:4px;"><strong>Redeemable for:</strong> ${c.redeemableFor}</div>`;
   document.getElementById('rd-qty').value=1;document.getElementById('rd-qty').max=remaining;
-  document.getElementById('rd-member').value='';
+  document.getElementById('rd-guest').value='';
   document.getElementById('rd-notes').value='';
   const last=localStorage.getItem('psp-v7-last-submitter');
   const sel=document.getElementById('rd-staff');if(last&&[...sel.options].some(o=>o.value===last))sel.value=last;
@@ -7110,14 +7112,15 @@ function openRedeemModal(id){
 async function submitRedemption(){
   const c=giftCerts.find(x=>x.id===_redeemCertId);if(!c)return;
   const qty=parseInt(document.getElementById('rd-qty').value)||1;
-  const member=document.getElementById('rd-member').value.trim();
+  const guest=document.getElementById('rd-guest').value.trim();
   const staff=document.getElementById('rd-staff').value;
   const notes=document.getElementById('rd-notes').value.trim();
   const remaining=c.quantityRemaining??(c.quantityIssued-(c.quantityRedeemed||0));
   if(qty<1||qty>remaining){alert(`Quantity must be between 1 and ${remaining}.`);return;}
+  if(!guest){alert('Please enter the guest name (whoever is redeeming this certificate).');return;}
   if(!staff){alert('Please select the staff member processing this redemption.');return;}
   if(staff)localStorage.setItem('psp-v7-last-submitter',staff);
-  const rec={quantity:qty,redeemedByMember:member||null,redeemedStaff:staff,notes};
+  const rec={quantity:qty,redeemedByMember:guest,redeemedStaff:staff,notes};
   if(useLocalStorage){
     if(!c.redemptions)c.redemptions=[];
     c.redemptions.unshift({...rec,id:Date.now(),certId:c.id,redeemedAt:new Date().toISOString()});
@@ -7152,17 +7155,12 @@ function renderGiftCerts(){
   // ROI summary
   const totalIssued=giftCerts.reduce((s,c)=>s+(c.quantityIssued||0),0);
   const totalRedeemed=giftCerts.reduce((s,c)=>s+(c.quantityRedeemed||0),0);
-  const totalValueIssued=giftCerts.reduce((s,c)=>s+((c.estimatedValueEach||0)*(c.quantityIssued||0)),0);
-  const totalValueRedeemed=giftCerts.reduce((s,c)=>s+((c.estimatedValueEach||0)*(c.quantityRedeemed||0)),0);
   const expiringSoon=giftCerts.filter(c=>!c.voided&&gcStatus(c)==='expiring').length;
   const expiredOpen=giftCerts.filter(c=>!c.voided&&gcStatus(c)==='expired').length;
-  const fmtUSD=v=>'$'+(v||0).toFixed(0);
   document.getElementById('mgr-gc-stats').innerHTML=`
     <div class="sc"><div class="scl">Total certs issued</div><div class="scv">${totalIssued}</div></div>
     <div class="sc"><div class="scl">Total redeemed</div><div class="scv">${totalRedeemed}</div></div>
     <div class="sc"><div class="scl">Redemption rate</div><div class="scv">${totalIssued?Math.round((totalRedeemed/totalIssued)*100):0}%</div></div>
-    <div class="sc"><div class="scl">Est. $ value issued</div><div class="scv">${fmtUSD(totalValueIssued)}</div></div>
-    <div class="sc"><div class="scl">Est. $ value redeemed</div><div class="scv">${fmtUSD(totalValueRedeemed)}</div></div>
     <div class="sc"><div class="scl">Expiring ≤ 30 days</div><div class="scv ${expiringSoon>0?'w':''}">${expiringSoon}</div></div>
     <div class="sc"><div class="scl">Expired (unredeemed)</div><div class="scv ${expiredOpen>0?'d':''}">${expiredOpen}</div></div>`;
   // Filter
@@ -7191,17 +7189,15 @@ function renderGiftCertCard(c){
   const exp=parseDate(c.redeemableUntil);const today=new Date();today.setHours(0,0,0,0);
   const daysToExp=exp?Math.floor((exp-today)/86400000):null;
   const expNote=daysToExp!==null?(daysToExp<0?` <span style="color:var(--err);">(${Math.abs(daysToExp)} days ago)</span>`:` <span style="color:var(--muted);">(in ${daysToExp} day${daysToExp!==1?'s':''})</span>`):'';
-  const valEach=c.estimatedValueEach?` · $${c.estimatedValueEach.toFixed(0)} each`:'';
-  const issuedByName=c.issuedBy?sName(c.issuedBy):'—';
   const purposeBadge=c.purpose?`<span class="badge bia" style="margin-left:6px;">${c.purpose}</span>`:'';
   const canRedeem=!c.voided&&remaining>0&&s!=='expired';
-  const redemptionsHtml=(c.redemptions&&c.redemptions.length)?`<details style="margin-top:10px;"><summary style="cursor:pointer;font-size:12px;color:var(--info);">View ${c.redemptions.length} redemption${c.redemptions.length!==1?'s':''}</summary><div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;">${c.redemptions.map(r=>`<div style="background:var(--sand);padding:8px 12px;border-radius:6px;font-size:12px;"><div><strong>${r.quantity} redeemed</strong> · ${r.redeemedByMember||'<em style="color:var(--muted);">no member name</em>'} · by ${r.redeemedStaff?sName(r.redeemedStaff):'—'} · ${new Date(r.redeemedAt).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'})}</div>${r.notes?`<div style="margin-top:3px;color:var(--mid);font-style:italic;">"${r.notes}"</div>`:''}<button class="btn btn-g btn-sm" style="font-size:10px;margin-top:4px;" onclick="undoRedemption('${c.id}',${r.id})">Undo</button></div>`).join('')}</div></details>`:'';
+  const redemptionsHtml=(c.redemptions&&c.redemptions.length)?`<details style="margin-top:10px;"><summary style="cursor:pointer;font-size:12px;color:var(--info);">View ${c.redemptions.length} redemption${c.redemptions.length!==1?'s':''}</summary><div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;">${c.redemptions.map(r=>`<div style="background:var(--sand);padding:8px 12px;border-radius:6px;font-size:12px;"><div><strong>${r.quantity} redeemed</strong> · ${r.redeemedByMember||'—'} · by ${r.redeemedStaff?sName(r.redeemedStaff):'—'} · ${new Date(r.redeemedAt).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'})}</div>${r.notes?`<div style="margin-top:3px;color:var(--mid);font-style:italic;">"${r.notes}"</div>`:''}<button class="btn btn-g btn-sm" style="font-size:10px;margin-top:4px;" onclick="undoRedemption('${c.id}',${r.id})">Undo</button></div>`).join('')}</div></details>`:'';
   return `<div class="ccard" style="${c.voided?'opacity:.6;':''}padding:14px 18px;margin-bottom:10px;">
     <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;">
       <div style="flex:1;min-width:240px;">
         <div style="font-size:15px;font-weight:600;color:var(--dark);">${c.giftedTo}${purposeBadge}</div>
         <div style="font-size:13px;color:var(--mid);margin-top:4px;background:var(--sand);border-left:3px solid var(--info);padding:8px 12px;border-radius:4px;"><strong>Redeemable for:</strong> ${c.redeemableFor}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:6px;">Issued ${c.issuedDate?fmtDate(c.issuedDate):'—'} by ${issuedByName} · Expires ${expDate}${expNote}${valEach}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;">Issued ${c.issuedDate?fmtDate(c.issuedDate):'—'} · Expires ${expDate}${expNote}</div>
         ${c.notes?`<div style="font-size:12px;color:var(--mid);margin-top:6px;font-style:italic;">📝 ${c.notes}</div>`:''}
         ${c.voided&&c.voidedReason?`<div style="font-size:12px;color:var(--err);margin-top:6px;">⊘ Voided: ${c.voidedReason}</div>`:''}
         ${redemptionsHtml}
@@ -7218,6 +7214,39 @@ function renderGiftCertCard(c){
       </div>
     </div>
   </div>`;
+}
+
+// Staff-facing quick redeem flow — list active certs, click to open the redeem modal
+function openQuickRedeem(){
+  document.getElementById('qr-search').value='';
+  renderQuickRedeemList();
+  document.getElementById('quick-redeem-modal').classList.add('open');
+}
+
+function renderQuickRedeemList(){
+  const q=(document.getElementById('qr-search')?.value||'').toLowerCase().trim();
+  const eligible=giftCerts.filter(c=>!c.voided&&(c.quantityRemaining??(c.quantityIssued-(c.quantityRedeemed||0)))>0&&gcStatus(c)!=='expired');
+  const filtered=q?eligible.filter(c=>(c.giftedTo||'').toLowerCase().includes(q)||(c.redeemableFor||'').toLowerCase().includes(q)):eligible;
+  const el=document.getElementById('qr-list');
+  if(!filtered.length){
+    el.innerHTML=`<div style="text-align:center;padding:30px 12px;color:var(--muted);font-size:13px;">${eligible.length?'No certificates match that search.':'No active gift certificates available to redeem.'}</div>`;
+    return;
+  }
+  el.innerHTML=filtered.map(c=>{
+    const remaining=c.quantityRemaining??(c.quantityIssued-(c.quantityRedeemed||0));
+    const exp=parseDate(c.redeemableUntil);const today=new Date();today.setHours(0,0,0,0);
+    const days=exp?Math.floor((exp-today)/86400000):null;
+    const expCls=days!==null&&days<=30?'color:var(--warn);font-weight:600;':'color:var(--muted);';
+    return `<div style="border:1.5px solid var(--border);border-radius:8px;padding:12px 14px;cursor:pointer;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--info)'" onmouseout="this.style.borderColor='var(--border)'" onclick="closeModal('quick-redeem-modal');openRedeemModal('${c.id}')">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <div style="font-weight:600;font-size:14px;color:var(--dark);">${c.giftedTo}</div>
+          <div style="font-size:12px;color:var(--mid);margin-top:4px;background:var(--sand);border-left:3px solid var(--info);padding:6px 10px;border-radius:4px;"><strong>Redeemable for:</strong> ${c.redeemableFor}</div>
+        </div>
+        <div style="text-align:right;font-size:11px;${expCls}">${remaining} of ${c.quantityIssued} left<br>Exp ${exp?fmtDate(c.redeemableUntil):'—'}${days!==null?` (in ${days}d)`:''}</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function setMgrTab(tab){
@@ -7242,7 +7271,7 @@ function setMgrTab(tab){
 // Escape key closes modals
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
-    ['log-modal','edit-guest-modal','edit-change-modal','rassign-modal','tp-script-modal','deactivate-modal','milestone-modal','upload-modal','graduation-modal','task-complete-modal','cintas-modal','contact-log-template-modal','upload-instructions-modal','member-upload-modal','member-quickadd-modal','member-instructions-modal','help-modal','decline-deact-modal','redeem-modal'].forEach(id=>{
+    ['log-modal','edit-guest-modal','edit-change-modal','rassign-modal','tp-script-modal','deactivate-modal','milestone-modal','upload-modal','graduation-modal','task-complete-modal','cintas-modal','contact-log-template-modal','upload-instructions-modal','member-upload-modal','member-quickadd-modal','member-instructions-modal','help-modal','decline-deact-modal','redeem-modal','quick-redeem-modal'].forEach(id=>{
       const el=document.getElementById(id);if(el&&el.classList.contains('open'))closeModal(id);
     });
   }
