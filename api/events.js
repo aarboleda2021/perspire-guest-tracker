@@ -25,7 +25,7 @@ module.exports = async function handler(req, res) {
       volunteerNeeded: e.volunteer_needed,
       assignedStaff: e.assigned_staff,
       assignedStaff2: e.assigned_staff_2 || null,
-      volunteersCount: e.volunteers_count || 1,
+      volunteersCount: (e.volunteers_count ?? 1),
       createdBy: e.created_by,
       createdAt: e.created_at
     }));
@@ -46,7 +46,7 @@ module.exports = async function handler(req, res) {
       volunteer_needed: b.volunteerNeeded || false,
       assigned_staff: b.assignedStaff || null,
       assigned_staff_2: b.assignedStaff2 || null,
-      volunteers_count: b.volunteersCount || 1,
+      volunteers_count: (b.volunteersCount ?? 1),
       created_by: b.createdBy || null
     });
     if (error) return res.status(500).json({ error: error.message });
