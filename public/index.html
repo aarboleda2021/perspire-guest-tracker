@@ -971,9 +971,17 @@
 
   <div id="daily-learning" style="display:none;">
     <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Watch Perspire corporate sales training recordings and log your biggest takeaway from each. Everyone sees who has completed what.</div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
       <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Training recordings</div>
-      <button class="btn btn-p btn-sm" onclick="toggleAddRecording()">+ Add recording</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span class="tlbl">Show</span>
+        <select class="fi" id="rec-filter" style="width:auto;padding:6px 10px;font-size:12px;" onchange="renderRecordings()">
+          <option value="active">Active (still has team members to watch)</option>
+          <option value="completed">Completed (everyone has watched)</option>
+          <option value="all">All recordings</option>
+        </select>
+        <button class="btn btn-p btn-sm" onclick="toggleAddRecording()">+ Add recording</button>
+      </div>
     </div>
     <div class="aform" id="add-recording-form">
       <div class="aft">Add a training recording</div>
@@ -5795,9 +5803,22 @@ function renderRecordings(){
   const teamStaff=activeStaff().filter(s=>s.id!=='mohogany');
   const allStaff=activeStaff();
 
-  // Summary grid: staff x recordings
-  if(recordings.length&&allStaff.length){
-    const sortedRecs=[...recordings].sort((a,b)=>new Date(b.weekOf)-new Date(a.weekOf));
+  // Filter dropdown — default to active (still has people to watch)
+  const filterEl=document.getElementById('rec-filter');
+  const savedFilter=localStorage.getItem('psp-v7-rec-filter');
+  if(filterEl&&savedFilter&&[...filterEl.options].some(o=>o.value===savedFilter))filterEl.value=savedFilter;
+  const filter=filterEl?filterEl.value:'active';
+  if(filterEl)localStorage.setItem('psp-v7-rec-filter',filter);
+  const isFullyComplete=r=>allStaff.length>0&&allStaff.every(s=>r.completions&&r.completions[s.id]);
+  const visibleRecs=recordings.filter(r=>{
+    if(filter==='all')return true;
+    if(filter==='completed')return isFullyComplete(r);
+    return !isFullyComplete(r); // active
+  });
+
+  // Summary grid: staff x recordings (filtered to match cards below)
+  if(visibleRecs.length&&allStaff.length){
+    const sortedRecs=[...visibleRecs].sort((a,b)=>new Date(b.weekOf)-new Date(a.weekOf));
     const headers=sortedRecs.map(r=>`<th style="min-width:80px;font-size:11px;text-align:center;">${r.title.replace(/^Session /i,'S')}<div style="font-weight:400;font-size:9px;color:var(--muted);margin-top:2px;">${fmtWeekOf(r.weekOf)}</div></th>`).join('');
     const rows=allStaff.map(s=>{
       const cells=sortedRecs.map(r=>{
@@ -5818,8 +5839,12 @@ function renderRecordings(){
   }
 
   if(!recordings.length){el.innerHTML=`<div class="empty" style="padding:24px;"><div class="empty-icon">📹</div><p>No training recordings yet. Click "+ Add recording" to post the first one.</p></div>`;return;}
+  if(!visibleRecs.length){
+    const msg=filter==='completed'?'No recordings have been completed by the whole team yet.':filter==='active'?'🎉 Every recording has been watched by the whole team! Switch the filter to "Completed" or "All" to see them.':'No recordings.';
+    el.innerHTML=`<div class="empty" style="padding:24px;"><div class="empty-icon">📹</div><p>${msg}</p></div>`;return;
+  }
 
-  const sortedList=[...recordings].sort((a,b)=>new Date(b.weekOf)-new Date(a.weekOf));
+  const sortedList=[...visibleRecs].sort((a,b)=>new Date(b.weekOf)-new Date(a.weekOf));
   el.innerHTML=sortedList.map(r=>{
     const completedCount=Object.keys(r.completions||{}).length;
     const totalStaff=allStaff.length;
