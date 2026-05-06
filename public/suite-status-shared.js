@@ -65,16 +65,30 @@
       return { type: 'closed', label: 'Closed for today', time: null };
     }
 
-    let contextSlot = null;
+    // Find the time-based ("natural") context slot
+    let naturalSlotIdx = -1;
     for (let i = 0; i < slots.length; i++) {
       const winStart = new Date(slots[i].getTime() - WARMUP_LEAD_MIN * 60000);
       const winEnd = i < slots.length - 1
         ? new Date(slots[i + 1].getTime() - WARMUP_LEAD_MIN * 60000)
         : new Date(slots[i].getTime() + SESSION_LENGTH_MIN * 60000);
-      if (now >= winStart && now < winEnd) { contextSlot = slots[i]; break; }
+      if (now >= winStart && now < winEnd) { naturalSlotIdx = i; break; }
+    }
+    if (naturalSlotIdx === -1) return { type: 'closed', label: 'Closed for today', time: null };
+
+    const naturalSlot = slots[naturalSlotIdx];
+
+    // If override.for_slot points to a later slot in today's schedule, the suite
+    // has been manually "skipped ahead" (e.g. an early-arriving guest). Honor it.
+    let contextSlot = naturalSlot;
+    let isAdvanced = false;
+    if (override && override.for_slot && override.for_slot.getTime() > naturalSlot.getTime()) {
+      const isRealSlot = slots.some(s => s.getTime() === override.for_slot.getTime());
+      if (isRealSlot) { contextSlot = override.for_slot; isAdvanced = true; }
     }
 
-    if (!contextSlot) return { type: 'closed', label: 'Closed for today', time: null };
+    const ctxIdx = slots.findIndex(s => s.getTime() === contextSlot.getTime());
+    const nextSlot = ctxIdx >= 0 && ctxIdx < slots.length - 1 ? slots[ctxIdx + 1] : null;
 
     let status = 'warming-up';
     let guestName = '';
@@ -86,7 +100,7 @@
       if (override.moved) moved = override.moved;
     }
 
-    return { type: 'active', time: contextSlot, status, guestName, moved };
+    return { type: 'active', time: contextSlot, status, guestName, moved, naturalSlot, nextSlot, isAdvanced };
   }
 
   window.PerspireSuiteStatus = {

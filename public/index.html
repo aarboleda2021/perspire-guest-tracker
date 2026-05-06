@@ -349,7 +349,13 @@
   .ss-name-clear:hover{background:var(--sand);}
   .ss-moved-toggle{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mid);cursor:pointer;user-select:none;}
   .ss-moved-toggle input{width:16px;height:16px;accent-color:var(--tc);cursor:pointer;}
-  .ss-row.closed .ss-buttons,.ss-row.closed .ss-fields{display:none;}
+  .ss-skip-row{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);}
+  .ss-advanced-tag{font-size:11px;color:var(--tc);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-right:auto;}
+  .ss-skip-btn{background:transparent;border:1.5px solid var(--border);color:var(--mid);padding:7px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+  .ss-skip-btn:hover{border-color:var(--tc);color:var(--tc);background:var(--tcp);}
+  .ss-back-btn{background:var(--tcp);border:1.5px solid var(--tc);color:var(--tc);padding:7px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+  .ss-back-btn:hover{background:var(--tc);color:white;}
+  .ss-row.closed .ss-buttons,.ss-row.closed .ss-fields,.ss-row.closed .ss-skip-row{display:none;}
 </style>
 </head>
 <body>
@@ -7437,9 +7443,33 @@ function _ssRender(){
       movedLabel.appendChild(cbText);
       fields.appendChild(movedLabel);
       row.appendChild(fields);
+
+      // Skip-ahead / back row (only meaningful for active sessions)
+      if(state.type==='active' && (state.nextSlot || state.isAdvanced)){
+        const skipRow=document.createElement('div');skipRow.className='ss-skip-row';
+        if(state.isAdvanced){
+          const tag=document.createElement('span');tag.className='ss-advanced-tag';tag.textContent='Skipped ahead';
+          skipRow.appendChild(tag);
+          const back=document.createElement('button');back.className='ss-back-btn';back.textContent='← Back to current session';
+          back.onclick=()=>_ssSkipTo(i,state.naturalSlot);
+          skipRow.appendChild(back);
+        }
+        if(state.nextSlot){
+          const skip=document.createElement('button');skip.className='ss-skip-btn';skip.textContent='Skip to next session →';
+          skip.onclick=()=>_ssSkipTo(i,state.nextSlot);
+          skipRow.appendChild(skip);
+        }
+        row.appendChild(skipRow);
+      }
     }
     grid.appendChild(row);
   }
+}
+
+function _ssSkipTo(suiteNum,targetSlot){
+  // Skipping or going back resets the suite's status, name, and moved flag
+  // — those are tied to the slot being left behind.
+  _ssUpdate(suiteNum,{status:null,guest_first_name:'',moved:false},targetSlot);
 }
 
 function _ssSetStatus(suiteNum,status,contextSlot){
