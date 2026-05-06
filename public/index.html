@@ -508,6 +508,17 @@
       <textarea class="fi" id="mc-freeze-other" placeholder="e.g. pregnancy, surgery recovery — open-ended freeze requires Mohogany approval"></textarea>
     </div>
 
+    <!-- Session access during freeze (suspension only) -->
+    <div class="fg" id="mc-access-wrap" style="display:none;">
+      <label class="fl">Retain access to accumulated sessions during the freeze?<span class="req">*</span></label>
+      <select class="fi" id="mc-access" onchange="onAccessChange('mc-access','mc-access-info')">
+        <option value="">— Ask the member which they prefer —</option>
+        <option value="retain">Yes — keep sessions active (more flexibility, but 90-day clock keeps running)</option>
+        <option value="pause">No — pause sessions (will be deactivated in Mindbody, 90-day clock extends past the freeze)</option>
+      </select>
+      <div id="mc-access-info" style="margin-top:8px;font-size:12px;line-height:1.5;display:none;background:var(--sand);border-left:3px solid var(--info);padding:10px 12px;border-radius:4px;"></div>
+    </div>
+
     <!-- TERMINATION: required steps + outreach outcome + scripts -->
     <div id="mc-term-section" style="display:none;">
       <div class="fcs">
@@ -550,6 +561,15 @@
       <div class="fg" id="mc-si-other-wrap" style="display:none;">
         <label class="fl">Describe the special circumstance</label>
         <textarea class="fi" id="mc-si-other" placeholder="e.g. pregnancy, surgery recovery"></textarea>
+      </div>
+      <div class="fg" id="mc-si-access-wrap" style="display:none;">
+        <label class="fl">Retain access to accumulated sessions during the freeze?<span class="req">*</span></label>
+        <select class="fi" id="mc-si-access" onchange="onAccessChange('mc-si-access','mc-si-access-info')">
+          <option value="">— Ask the member which they prefer —</option>
+          <option value="retain">Yes — keep sessions active (more flexibility, but 90-day clock keeps running)</option>
+          <option value="pause">No — pause sessions (will be deactivated in Mindbody, 90-day clock extends past the freeze)</option>
+        </select>
+        <div id="mc-si-access-info" style="margin-top:8px;font-size:12px;line-height:1.5;display:none;background:var(--sand);border-left:3px solid var(--info);padding:10px 12px;border-radius:4px;"></div>
       </div>
 
       <!-- If downgrade-instead -->
@@ -1121,6 +1141,13 @@
       </select>
     </div>
     <div class="fg" id="ec-freeze-other-wrap" style="display:none;"><label class="fl">If "other" — special circumstance</label><textarea class="fi" id="ec-freeze-other" placeholder="e.g. until member calls back"></textarea></div>
+    <div class="fg"><label class="fl">Retain session access during freeze (suspensions only)</label>
+      <select class="fi" id="ec-access">
+        <option value="">— N/A or not applicable —</option>
+        <option value="retain">Yes — sessions stay active (90-day clock keeps running)</option>
+        <option value="pause">No — sessions paused (90-day clock extends past freeze)</option>
+      </select>
+    </div>
     <div class="fg"><label class="fl">Submitted by</label><select class="fi" id="ec-submitter"></select></div>
     <div class="fg"><label class="fl">Notes</label><textarea class="fi" id="ec-notes"></textarea></div>
     <div class="modal-actions">
@@ -2149,7 +2176,7 @@ const NURTURE_SCRIPTS_REACTIVATION=[
     call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners! I'm calling because your membership freeze is ending soon and your [Tier] membership will be reactivating. We're excited to welcome you back!\n\nI wanted to make sure you're all set and help you get your first session back on the books. Do you have a few minutes?`,
     voicemail:`Hi [Name], it's [Your Name] from Perspire Peachtree Corners! Your membership freeze is ending soon and we're excited to welcome you back! I'd love to help you get your first session booked. Give us a call at 404-947-8084 or text us back anytime!`,
     text:`Hi [Name]! It's [Your Name] from Perspire 🧡 Your membership freeze is ending soon and we can't wait to welcome you back! Ready to get your first session booked? Call or text us anytime!`,
-    email:`Hi [Name],\n\nWe hope you've been well! This is a friendly reminder that your membership freeze is ending soon and your [Tier] membership will be reactivating.\n\nWe're so excited to welcome you back to Perspire! Here are a few things to know:\n\n• Your membership rate has stayed locked in — no changes to your pricing.\n• Any rollover sessions from before your freeze have been preserved.\n• We recommend getting back to your routine of [frequency] to maximize your benefits.\n\nWould you like to book your first session back? Just reply to this email or call us at 404-947-8084 and we'll get you set up!\n\nWelcome back 🧡\n\n[Your Name]\nPerspire Sauna Studio Peachtree Corners`
+    email:`Hi [Name],\n\nWe hope you've been well! This is a friendly reminder that your membership freeze is ending soon and your [Tier] membership will be reactivating.\n\nWe're so excited to welcome you back to Perspire! Here are a few things to know:\n\n• Your membership rate has stayed locked in — no changes to your pricing.\n• Your accumulated sessions are protected, and your 90-day session-use window has been extended so you'll have the full 90 days to use them.\n• We recommend getting back to your routine of [frequency] to maximize your benefits.\n\nWould you like to book your first session back? Just reply to this email or call us at 404-947-8084 and we'll get you set up!\n\nWelcome back 🧡\n\n[Your Name]\nPerspire Sauna Studio Peachtree Corners`
   },
   {// TP 2 — follow-up call (3 days before reactivation)
     call:`Hi [Name], it's [Your Name] from Perspire! I'm following up — your membership is reactivating in just a few days and I wanted to make sure you saw our welcome-back message.\n\nHave you had a chance to think about when you'd like to come in for your first session? I'd love to help you get back into your routine!`,
@@ -2481,14 +2508,15 @@ function onTypeChange(){
   document.getElementById('mc-new-tier-wrap').style.display=(t==='downgrade'||t==='upgrade')?'block':'none';
   const isSusp=t==='suspension';
   document.getElementById('mc-freeze-wrap').style.display=isSusp?'block':'none';
-  hide('mc-freeze-other-wrap');
+  document.getElementById('mc-access-wrap').style.display=isSusp?'block':'none';
+  hide('mc-freeze-other-wrap');hide('mc-access-info');
   document.getElementById('mc-term-section').style.display=t==='termination'?'block':'none';
   document.getElementById('mc-tierchange-section').style.display=(t==='downgrade'||t==='upgrade')?'block':'none';
   document.getElementById('mc-susp-section').style.display=t==='suspension'?'block':'none';
   const declSec=document.getElementById('mc-decline-section');
   if(declSec)declSec.style.display=t==='declined-payment'?'block':'none';
   if(t==='termination') initFrmScript();
-  hide('mc-si-wrap');hide('mc-si-other-wrap');hide('mc-di-wrap');
+  hide('mc-si-wrap');hide('mc-si-other-wrap');hide('mc-si-access-wrap');hide('mc-si-access-info');hide('mc-di-wrap');
   const oo=document.getElementById('mc-out-outcome');if(oo)oo.value='';
   // Date label switching for declined payments — "Date of declined charge"
   // makes more sense than "Bill date" in that context.
@@ -2513,8 +2541,28 @@ function onFreezeDurChange(selId,wrapId){
 function onOutcomeChange(){
   const v=document.getElementById('mc-out-outcome').value;
   document.getElementById('mc-si-wrap').style.display=v==='suspend-instead'?'block':'none';
+  document.getElementById('mc-si-access-wrap').style.display=v==='suspend-instead'?'block':'none';
   document.getElementById('mc-di-wrap').style.display=v==='downgrade-instead'?'block':'none';
-  if(v!=='suspend-instead'){hide('mc-si-other-wrap');}
+  if(v!=='suspend-instead'){hide('mc-si-other-wrap');hide('mc-si-access-info');}
+}
+
+// Show a contextual disclaimer for the staff once they pick retain vs pause
+function onAccessChange(selId,infoId){
+  const v=document.getElementById(selId).value;
+  const info=document.getElementById(infoId);
+  if(!v){info.style.display='none';return;}
+  if(v==='retain'){
+    info.innerHTML=`<strong>✅ Sessions stay active during the freeze.</strong><br>
+      • Make sure their pricing options stay <strong>Active</strong> in Mindbody so they can book.<br>
+      • <strong>Important reminder for the member:</strong> the 90-day session-use clock keeps running. Any sessions they don't use within 90 days of when they were granted will expire — even if they're frozen.<br>
+      • No clock extension applied.`;
+  } else {
+    info.innerHTML=`<strong>⏸ Sessions paused during the freeze.</strong><br>
+      • <strong>Deactivate</strong> their active pricing options in Mindbody so they can't book during the freeze (Client profile → Account details → Active section → 3-dot menu → Edit → uncheck "Active pricing option").<br>
+      • Once the freeze ends, <strong>re-activate</strong> their pricing options and <strong>extend the 90-day session-use window</strong> by the freeze duration so they get the full 90 days of usage.<br>
+      • Mention this to the member so they know their sessions are protected and the clock stops while they're frozen.`;
+  }
+  info.style.display='block';
 }
 
 function initFrmScript(){/* no-op — scripts now use popup modals */}
@@ -2790,12 +2838,18 @@ function renderChangeCard(c,prefix=''){
   let freezeHtml='';
   if(c.type==='suspension'||(c.outreachOutcome==='suspend-instead')){
     const dur=c.freezeDuration,needsOvr=dur==='90'||dur==='other';
+    const accSet=c.retainSessionAccess===true||c.retainSessionAccess===false;
+    const accLine=accSet
+      ? (c.retainSessionAccess
+        ? `• <strong style="color:var(--ok);">Session access RETAINED during freeze</strong> — keep pricing options Active in Mindbody. ⚠ 90-day session-use clock keeps running, so any unused sessions will expire on their original date.`
+        : `• <strong style="color:var(--warn);">Session access PAUSED during freeze</strong> — deactivate pricing options in Mindbody now, then re-activate AND extend the 90-day session-use window by ${dur&&dur!=='other'?dur+' days':'the freeze duration'} when the freeze ends so the member gets a full 90 days of use.`)
+      : `• <strong style="color:var(--warn);">Session access decision missing</strong> — edit this request to ask the member if they want to retain access during the freeze.`;
     freezeHtml=`<div class="fadv ${needsOvr?'is90':''}">
       <div class="fadv-title">Freeze rules${needsOvr?' — exception required':''}</div>
       <p>• Bill date = freeze start date<br>
       • Standard durations: 30 or 60 days · Max 2 freezes/year · No back-to-back<br>
-      • Members cannot use sessions while frozen<br>
-      ${dur&&dur!=='other'?`• <strong>Requested duration: ${dur} days</strong>`:dur==='other'?`• <strong>Open-ended freeze</strong>${c.freezeOtherNote?` — ${c.freezeOtherNote}`:''}`:''}<br>
+      ${dur&&dur!=='other'?`• <strong>Requested duration: ${dur} days</strong><br>`:dur==='other'?`• <strong>Open-ended freeze</strong>${c.freezeOtherNote?` — ${c.freezeOtherNote}`:''}<br>`:''}
+      ${accLine}<br>
       ${needsOvr?`• <strong>This requires Mohogany approval.</strong>`:''}</p>
       ${needsOvr?`<div class="ovr-row"><input type="checkbox" class="ovr-chk" id="ovr-${c.id}" ${c.freezeOverride?'checked':''} onchange="toggleOverride('${c.id}')"><label class="ovr-lbl" for="ovr-${c.id}">Exception approved by Mohogany — override standard freeze rules</label></div>`:''}
     </div>`;
@@ -2884,6 +2938,16 @@ function buildPostChecklist(c){
   const items=[];
   if(c.type==='termination'&&c.needsFollowup){
     items.push({label:'Second outreach attempt made',desc:'Try again before bill date. Use the follow-up scripts above.'});
+  }
+  // Session-access actions on suspensions — depends on the member's choice
+  if(c.type==='suspension'){
+    if(c.retainSessionAccess===true){
+      items.push({label:'Pricing options remain ACTIVE in Mindbody',desc:'Member chose to retain session access during the freeze. Confirm their pricing options stay Active so they can book. ⚠ 90-day session-use clock keeps running — unused sessions will expire on their original date.'});
+    } else if(c.retainSessionAccess===false){
+      items.push({label:'Deactivate active pricing options in Mindbody (start of freeze)',desc:'Member chose to pause session access. Client profile → Account details → Active section → 3-dot menu → Edit → uncheck "Active pricing option".'});
+      const dur=(c.freezeDuration&&c.freezeDuration!=='other')?` by ${c.freezeDuration} days`:' by the freeze duration';
+      items.push({label:'After freeze ends: re-activate pricing options + extend the 90-day session window'+dur,desc:'Re-activate the pricing options in Mindbody AND push the 90-day session-use deadline out so the member gets a full 90 days of usage.'});
+    }
   }
   return items;
 }
@@ -4860,7 +4924,7 @@ async function submitChange(){
   if(!parseDate(billDate))errs.push('Bill date');
   if(!submittedBy)errs.push('Submitted by');
 
-  let outreachOutcome=null,needsFollowup=false,freezeDuration=null,freezeOtherNote=null,finalType=type,finalNewTier=newTier;
+  let outreachOutcome=null,needsFollowup=false,freezeDuration=null,freezeOtherNote=null,finalType=type,finalNewTier=newTier,retainSessionAccess=null;
 
   if(type==='termination'){
     if(!document.getElementById('chk-mb').checked)errs.push('Mindbody contact log (required checkbox)');
@@ -4873,6 +4937,9 @@ async function submitChange(){
       finalType='suspension';
       freezeDuration=document.getElementById('mc-si-dur').value;
       if(freezeDuration==='other')freezeOtherNote=document.getElementById('mc-si-other').value.trim();
+      const acc=document.getElementById('mc-si-access').value;
+      if(!acc)errs.push('Retain session access during freeze (ask the member)');
+      else retainSessionAccess=(acc==='retain');
     }
     if(oo==='downgrade-instead'){
       finalType='downgrade';
@@ -4895,6 +4962,9 @@ async function submitChange(){
     if(!document.getElementById('chk-mb-susp').checked)errs.push('Mindbody contact log (required checkbox)');
     freezeDuration=document.getElementById('mc-freeze-dur').value;
     if(freezeDuration==='other')freezeOtherNote=document.getElementById('mc-freeze-other').value.trim();
+    const acc=document.getElementById('mc-access').value;
+    if(!acc)errs.push('Retain session access during freeze (ask the member)');
+    else retainSessionAccess=(acc==='retain');
   }
   if(type==='declined-payment'){
     if(!document.getElementById('chk-decl-deact').checked)errs.push('Active sessions deactivated (required checkbox)');
@@ -4916,11 +4986,11 @@ async function submitChange(){
   if(editingChangeId){
     const c=changes.find(x=>x.id===editingChangeId);
     if(!c){alert('Change request not found.');return;}
-    c.guestName=name;c.type=finalType;c.dateRequested=useLocalStorage?parseDate(dateRequestedStr).toISOString():dateRequestedStr;c.billDate=useLocalStorage?parseDate(billDateStr).toISOString():billDateStr;c.currentTier=curTier;c.newTier=finalNewTier;c.notes=notes;c.freezeDuration=freezeDuration||c.freezeDuration;c.freezeOtherNote=freezeOtherNote||c.freezeOtherNote;c.submittedBy=submittedBy;if(outreachOutcome)c.outreachOutcome=outreachOutcome;if(needsFollowup)c.needsFollowup=needsFollowup;
+    c.guestName=name;c.type=finalType;c.dateRequested=useLocalStorage?parseDate(dateRequestedStr).toISOString():dateRequestedStr;c.billDate=useLocalStorage?parseDate(billDateStr).toISOString():billDateStr;c.currentTier=curTier;c.newTier=finalNewTier;c.notes=notes;c.freezeDuration=freezeDuration||c.freezeDuration;c.freezeOtherNote=freezeOtherNote||c.freezeOtherNote;c.submittedBy=submittedBy;if(retainSessionAccess!==null)c.retainSessionAccess=retainSessionAccess;if(outreachOutcome)c.outreachOutcome=outreachOutcome;if(needsFollowup)c.needsFollowup=needsFollowup;
     if(useLocalStorage){lsSave();}
-    else{await api('changes?id='+editingChangeId,{method:'PUT',body:{guestName:name,type:finalType,dateRequested:dateRequestedStr,billDate:billDateStr,currentTier:curTier,newTier:finalNewTier,notes,freezeDuration:c.freezeDuration,freezeOtherNote:c.freezeOtherNote,outreachOutcome:c.outreachOutcome,needsFollowup:c.needsFollowup,submittedBy}});await loadChanges();}
+    else{await api('changes?id='+editingChangeId,{method:'PUT',body:{guestName:name,type:finalType,dateRequested:dateRequestedStr,billDate:billDateStr,currentTier:curTier,newTier:finalNewTier,notes,freezeDuration:c.freezeDuration,freezeOtherNote:c.freezeOtherNote,outreachOutcome:c.outreachOutcome,needsFollowup:c.needsFollowup,submittedBy,retainSessionAccess:c.retainSessionAccess}});await loadChanges();}
   } else {
-    const rec={id:Date.now().toString(),guestName:name,type:finalType,dateRequested:useLocalStorage?parseDate(dateRequestedStr)?.toISOString()||new Date().toISOString():dateRequestedStr,billDate:useLocalStorage?parseDate(billDateStr).toISOString():billDateStr,currentTier:curTier,newTier:finalNewTier,freezeDuration,freezeOtherNote,notes,status:'open',outcome:'pending',outcomeNotes:'',checklist:{},freezeOverride:false,needsFollowup,outreachOutcome,submittedBy,createdAt:new Date().toISOString()};
+    const rec={id:Date.now().toString(),guestName:name,type:finalType,dateRequested:useLocalStorage?parseDate(dateRequestedStr)?.toISOString()||new Date().toISOString():dateRequestedStr,billDate:useLocalStorage?parseDate(billDateStr).toISOString():billDateStr,currentTier:curTier,newTier:finalNewTier,freezeDuration,freezeOtherNote,notes,status:'open',outcome:'pending',outcomeNotes:'',checklist:{},freezeOverride:false,needsFollowup,outreachOutcome,submittedBy,retainSessionAccess,createdAt:new Date().toISOString()};
     if(useLocalStorage){changes.push(rec);lsSave();}
     else{await api('changes',{method:'POST',body:{...rec}});await loadChanges();}
     // Auto-create the declined-payment recovery nurture immediately on logging
@@ -5153,6 +5223,8 @@ function openEditChangeFull(id){
   document.getElementById('ec-freeze-other-wrap').style.display=c.freezeDuration==='other'?'block':'none';
   document.getElementById('ec-notes').value=c.notes||'';
   const ecSub=document.getElementById('ec-submitter');if(ecSub&&c.submittedBy)ecSub.value=c.submittedBy;
+  const ecAcc=document.getElementById('ec-access');
+  if(ecAcc)ecAcc.value=c.retainSessionAccess===true?'retain':c.retainSessionAccess===false?'pause':'';
   document.getElementById('edit-change-modal').classList.add('open');
 }
 async function saveEditChange(){
@@ -5168,8 +5240,10 @@ async function saveEditChange(){
   c.freezeOtherNote=fd==='other'?document.getElementById('ec-freeze-other').value.trim()||null:null;
   c.notes=document.getElementById('ec-notes').value.trim();
   const ecSub2=document.getElementById('ec-submitter');if(ecSub2)c.submittedBy=ecSub2.value||null;
+  const ecAcc2=document.getElementById('ec-access');
+  if(ecAcc2)c.retainSessionAccess=ecAcc2.value==='retain'?true:ecAcc2.value==='pause'?false:null;
   if(useLocalStorage){lsSave();}
-  else{await api('changes?id='+editChangeId,{method:'PUT',body:{guestName:c.guestName,dateRequested:c.dateRequested,billDate:c.billDate,currentTier:c.currentTier,newTier:c.newTier,freezeDuration:c.freezeDuration,freezeOtherNote:c.freezeOtherNote,notes:c.notes,submittedBy:c.submittedBy}});await loadChanges();}
+  else{await api('changes?id='+editChangeId,{method:'PUT',body:{guestName:c.guestName,dateRequested:c.dateRequested,billDate:c.billDate,currentTier:c.currentTier,newTier:c.newTier,freezeDuration:c.freezeDuration,freezeOtherNote:c.freezeOtherNote,notes:c.notes,submittedBy:c.submittedBy,retainSessionAccess:c.retainSessionAccess}});await loadChanges();}
   closeModal('edit-change-modal');refreshChanges();
 }
 

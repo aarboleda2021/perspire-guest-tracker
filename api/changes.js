@@ -33,6 +33,7 @@ module.exports = async function handler(req, res) {
       outreachOutcome: c.outreach_outcome,
       checklist: c.checklist || {},
       submittedBy: c.submitted_by || null,
+      retainSessionAccess: c.retain_session_access,
       createdAt: c.created_at
     }));
 
@@ -59,7 +60,8 @@ module.exports = async function handler(req, res) {
       needs_followup: b.needsFollowup || false,
       outreach_outcome: b.outreachOutcome || null,
       checklist: b.checklist || {},
-      submitted_by: b.submittedBy || null
+      submitted_by: b.submittedBy || null,
+      retain_session_access: (b.retainSessionAccess === undefined ? null : b.retainSessionAccess)
     });
     if (error) return res.status(500).json({ error: error.message });
     return res.status(201).json({ ok: true });
@@ -86,6 +88,7 @@ module.exports = async function handler(req, res) {
     if (b.outreachOutcome !== undefined) updates.outreach_outcome = b.outreachOutcome;
     if (b.checklist !== undefined) updates.checklist = b.checklist;
     if (b.submittedBy !== undefined) updates.submitted_by = b.submittedBy;
+    if (b.retainSessionAccess !== undefined) updates.retain_session_access = b.retainSessionAccess;
 
     const { error } = await supabase.from('changes').update(updates).eq('id', id);
     if (error) return res.status(500).json({ error: error.message });
