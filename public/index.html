@@ -3989,7 +3989,7 @@ async function saveLog(){
     c.visitStatus=vs;
     lsSave();
   } else {
-    await api('logs',{method:'POST',body:{guestId:mId,tpIndex:mIdx,channel,notes}});
+    await api('guests?resource=logs',{method:'POST',body:{guestId:mId,tpIndex:mIdx,channel,notes}});
     if(vs!==c.visitStatus){await api('guests?id='+mId,{method:'PUT',body:{visitStatus:vs}});}
     await loadGuests();
   }
@@ -4969,7 +4969,7 @@ async function toggleClose(id){
       if(useLocalStorage){lsSave();}
       else{
         await api('guests?id='+matchingGuest.id,{method:'PUT',body:{tier:matchingGuest.tier,contractStartDate:billDateStr,assignedStaff:assignTo,deactivated:false,deactivatedReason:null,deactivatedNotes:null}});
-        try{await api('logs?guestId='+matchingGuest.id,{method:'DELETE'});}catch(e){console.warn('Could not clear touchpoint logs',e.message);}
+        try{await api('guests?resource=logs&guestId='+matchingGuest.id,{method:'DELETE'});}catch(e){console.warn('Could not clear touchpoint logs',e.message);}
         await loadGuests();
       }
     } else {
