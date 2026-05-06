@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perspire — Suite Status</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f7f3ee;
+    color: #2a2422;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .lobby {
+    padding: 40px 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .lobby-header {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+  .lobby-header h1 {
+    font-size: 48px;
+    font-weight: 300;
+    letter-spacing: 0.02em;
+  }
+  .lobby-header .subtitle {
+    font-size: 20px;
+    color: #7a6e65;
+    margin-top: 8px;
+    font-weight: 300;
+  }
+
+  .suite-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+    margin-bottom: 40px;
+  }
+  .suite-card {
+    background: white;
+    border-radius: 14px;
+    padding: 28px 26px;
+    box-shadow: 0 2px 14px rgba(42, 36, 34, 0.07);
+    border-left: 7px solid transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 210px;
+  }
+  .suite-card.warming-up { border-left-color: #d4a017; }
+  .suite-card.ready { border-left-color: #4a8c5a; }
+  .suite-card.check-in { border-left-color: #7c5fc7; }
+  .suite-card.closed { border-left-color: #b8aea6; opacity: 0.7; }
+
+  .suite-name { font-size: 30px; font-weight: 600; }
+  .suite-time { font-size: 24px; color: #5a4f48; }
+  .suite-time.dim { color: #a89e95; font-size: 19px; font-style: italic; }
+
+  .suite-guest {
+    font-size: 17px;
+    color: #5a4f48;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .suite-guest-name { font-weight: 500; }
+  .moved-badge {
+    background: #fde9d3;
+    color: #a8531a;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .suite-status {
+    margin-top: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 18px;
+    border-radius: 9px;
+    font-size: 19px;
+    font-weight: 600;
+    align-self: flex-start;
+  }
+  .suite-status .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .suite-status.warming-up { background: #fef3d6; color: #8a6610; }
+  .suite-status.warming-up .dot { background: #d4a017; }
+  .suite-status.ready { background: #dceadf; color: #2d5a39; }
+  .suite-status.ready .dot { background: #4a8c5a; }
+  .suite-status.check-in { background: #e6dcf7; color: #4a3585; }
+  .suite-status.check-in .dot { background: #7c5fc7; }
+  .suite-status.closed { background: #ece8e4; color: #6a5e55; }
+  .suite-status.closed .dot { background: #b8aea6; }
+
+  .lobby-footer {
+    text-align: center;
+    background: white;
+    border-radius: 12px;
+    padding: 26px 32px;
+    box-shadow: 0 2px 12px rgba(42, 36, 34, 0.06);
+    color: #5a4f48;
+    font-size: 17px;
+    line-height: 1.6;
+  }
+  .lobby-footer p { margin: 4px 0; }
+  .lobby-footer p strong { color: #c96f3f; }
+
+  .config-warning {
+    background: #fde9d3;
+    color: #a8531a;
+    border: 1.5px solid #f4b266;
+    padding: 16px 20px;
+    border-radius: 8px;
+    margin: 20px;
+    font-size: 14px;
+    text-align: center;
+  }
+
+  @media (max-width: 768px) {
+    .suite-grid { grid-template-columns: 1fr; }
+    .lobby-header h1 { font-size: 36px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="lobby">
+  <div class="lobby-header">
+    <h1>Welcome to Perspire</h1>
+    <div class="subtitle">Suite Status</div>
+  </div>
+  <div class="suite-grid" id="suiteGrid"></div>
+  <div class="lobby-footer">
+    <p>Not sure which suite is yours? <strong>Check your Perspire app</strong> for your suite assignment.</p>
+    <p>Someone will be with you shortly — feel free to take a seat.</p>
+  </div>
+</div>
+
+<!-- Supabase JS SDK + config -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/supabase-config.js"></script>
+<script src="/suite-status-shared.js"></script>
+
+<script>
+// ============================================================
+// Lobby (guest screen) — read-only, real-time
+// ============================================================
+
+let overrides = {}; // { [suiteNum]: { status, guest_first_name, moved, for_slot } }
+let supabase = null;
+
+function initSupabase() {
+  const cfg = window.PERSPIRE_SUPABASE;
+  if (!cfg || cfg.url.startsWith('PASTE_') || cfg.anonKey.startsWith('PASTE_')) {
+    document.body.insertAdjacentHTML('afterbegin',
+      '<div class="config-warning">⚠️ Supabase not configured yet. Open <code>public/supabase-config.js</code> and paste your Supabase URL + anon key.</div>');
+    return false;
+  }
+  supabase = window.supabase.createClient(cfg.url, cfg.anonKey);
+  return true;
+}
+
+async function loadOverrides() {
+  const { data, error } = await supabase.from('suite_status').select('*');
+  if (error) { console.error(error); return; }
+  overrides = {};
+  data.forEach(row => {
+    overrides[row.suite_num] = {
+      status: row.status,
+      guest_first_name: row.guest_first_name,
+      moved: row.moved,
+      for_slot: row.for_slot ? new Date(row.for_slot) : null
+    };
+  });
+  render();
+}
+
+function subscribeToChanges() {
+  supabase
+    .channel('suite_status_changes')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'suite_status' },
+      (payload) => {
+        const row = payload.new;
+        if (row && row.suite_num) {
+          overrides[row.suite_num] = {
+            status: row.status,
+            guest_first_name: row.guest_first_name,
+            moved: row.moved,
+            for_slot: row.for_slot ? new Date(row.for_slot) : null
+          };
+          render();
+        }
+      })
+    .subscribe();
+}
+
+const STATUS_LABELS = {
+  'warming-up': 'Warming up',
+  'ready': 'Ready',
+  'check-in': 'Check in at desk',
+  'closed': 'Closed'
+};
+
+function render() {
+  const now = new Date();
+  const grid = document.getElementById('suiteGrid');
+  grid.innerHTML = '';
+
+  for (let i = 1; i <= 6; i++) {
+    const state = window.PerspireSuiteStatus.getSuiteState(i, now, overrides[i]);
+    const card = document.createElement('div');
+    const cls = state.type === 'closed' ? 'closed' : state.status;
+    card.className = `suite-card ${cls}`;
+
+    const name = document.createElement('div');
+    name.className = 'suite-name';
+    name.textContent = `Suite ${i}`;
+    card.appendChild(name);
+
+    const time = document.createElement('div');
+    if (state.type === 'closed' || state.type === 'pre-open') {
+      time.className = 'suite-time dim';
+      time.textContent = state.label;
+    } else {
+      time.className = 'suite-time';
+      time.textContent = `Next: ${window.PerspireSuiteStatus.formatTime(state.time)}`;
+    }
+    card.appendChild(time);
+
+    if (state.type === 'active' && (state.guestName || state.moved)) {
+      const guest = document.createElement('div');
+      guest.className = 'suite-guest';
+      if (state.guestName) {
+        const nm = document.createElement('span');
+        nm.className = 'suite-guest-name';
+        nm.textContent = `for ${state.guestName}`;
+        guest.appendChild(nm);
+      }
+      if (state.moved) {
+        const badge = document.createElement('span');
+        badge.className = 'moved-badge';
+        badge.textContent = '↪ Moved';
+        guest.appendChild(badge);
+      }
+      card.appendChild(guest);
+    }
+
+    const status = document.createElement('div');
+    const statusKey = state.type === 'closed' ? 'closed' : state.status;
+    status.className = `suite-status ${statusKey}`;
+    status.innerHTML = `<span class="dot"></span>${STATUS_LABELS[statusKey]}`;
+    card.appendChild(status);
+
+    grid.appendChild(card);
+  }
+}
+
+// Boot
+window.addEventListener('DOMContentLoaded', async () => {
+  if (!initSupabase()) { render(); return; }
+  await loadOverrides();
+  subscribeToChanges();
+  // Re-render every 30s so status transitions on time even without DB changes
+  setInterval(render, 30000);
+});
+</script>
+
+</body>
+</html>

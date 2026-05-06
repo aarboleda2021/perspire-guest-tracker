@@ -1,6 +1,7 @@
 {
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/lobby", "destination": "/lobby.html" },
+    { "source": "/((?!api/|lobby|lobby.html|supabase-config.js|suite-status-shared.js).*)", "destination": "/index.html" }
   ],
   "crons": [
     {

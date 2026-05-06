@@ -6,6 +6,9 @@
 <title>Perspire PTC Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/supabase-config.js"></script>
+<script src="/suite-status-shared.js"></script>
 <style>
   :root{
     --tc:#B85C38;--tcl:#D4714E;--tcp:#F5EDE8;
@@ -298,6 +301,34 @@
     #daily-notes>div:nth-of-type(2){grid-template-columns:1fr !important;}
     .split-col-right{border-left:none;padding-left:0;border-top:1.5px solid var(--border);padding-top:20px;margin-top:8px;}
   }
+
+  /* ══ SUITE STATUS ═══════════════════════════════════════════════════════ */
+  .ss-grid{display:grid;grid-template-columns:1fr;gap:12px;}
+  @media(min-width:600px){.ss-grid{grid-template-columns:1fr 1fr;gap:14px;}}
+  @media(min-width:980px){.ss-grid{grid-template-columns:1fr 1fr 1fr;}}
+  .ss-row{background:white;border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;border-top:4px solid transparent;}
+  .ss-row.warming-up{border-top-color:var(--warn);}
+  .ss-row.ready{border-top-color:var(--ok);}
+  .ss-row.check-in{border-top-color:var(--pur);}
+  .ss-row.closed{border-top-color:var(--muted);opacity:.6;}
+  .ss-row-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .ss-row-name{font-size:16px;font-weight:600;color:var(--dark);}
+  .ss-row-time{font-size:12px;color:var(--muted);}
+  .ss-buttons{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;}
+  .ss-btn{padding:9px 4px;border-radius:6px;border:1.5px solid var(--border);background:white;font-size:12px;font-weight:600;cursor:pointer;color:var(--mid);font-family:'DM Sans',sans-serif;transition:all .15s;}
+  .ss-btn:hover{background:var(--sand);}
+  .ss-btn.active.warming-up{background:var(--warn);border-color:var(--warn);color:white;}
+  .ss-btn.active.ready{background:var(--ok);border-color:var(--ok);color:white;}
+  .ss-btn.active.check-in{background:var(--pur);border-color:var(--pur);color:white;}
+  .ss-fields{border-top:1px dashed var(--border);padding-top:10px;display:flex;flex-direction:column;gap:8px;}
+  .ss-name-row{display:flex;gap:6px;align-items:center;}
+  .ss-name-input{flex:1;padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--sand);color:var(--dark);}
+  .ss-name-input:focus{outline:none;border-color:var(--tc);background:white;}
+  .ss-name-clear{background:transparent;border:1.5px solid var(--border);color:var(--mid);padding:6px 9px;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit;}
+  .ss-name-clear:hover{background:var(--sand);}
+  .ss-moved-toggle{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mid);cursor:pointer;user-select:none;}
+  .ss-moved-toggle input{width:16px;height:16px;accent-color:var(--tc);cursor:pointer;}
+  .ss-row.closed .ss-buttons,.ss-row.closed .ss-fields{display:none;}
 </style>
 </head>
 <body>
@@ -309,6 +340,7 @@
     <button class="vbtn" onclick="setView('guests')" id="btn-guests">New Guests &amp; Outreach</button>
     <button class="vbtn" onclick="setView('changes')" id="btn-changes">Membership Changes</button>
     <button class="vbtn" onclick="setView('manager')" id="btn-manager">Manager View</button>
+    <button class="vbtn" onclick="setView('suites')" id="btn-suites">Suite Status</button>
     <button class="vbtn" onclick="openModal('help-modal')" id="btn-help" title="Quick reference guide" style="padding-left:14px;padding-right:14px;">?</button>
   </div>
 </div>
@@ -621,6 +653,15 @@
       <span id="preview-status" style="font-size:12px;color:var(--muted);margin-left:10px;"></span>
     </div>
   </div>
+</div>
+
+<!-- ══ SUITE STATUS ═══════════════════════════════════════════════════════ -->
+<div id="view-suites" style="display:none;">
+  <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Update each suite's status as guests come and go. The lobby screen updates instantly. Default is "Warming up" — toggle to Ready when prepped, or Check-in when a guest needs the front desk first. All settings auto-reset 15 min before the next appointment. <span id="ss-day-label" style="margin-left:8px;font-style:italic;"></span></div>
+  <div id="ss-config-warning" style="display:none;background:var(--warnp);color:var(--warn);border:1.5px solid var(--warn);padding:14px 18px;border-radius:8px;margin-bottom:14px;font-size:13px;">
+    ⚠️ Supabase not configured yet. Open <code>public/supabase-config.js</code> and paste your Supabase URL + anon key.
+  </div>
+  <div id="ss-grid" class="ss-grid"></div>
 </div>
 
 <!-- ══ DAILY HUB ══════════════════════════════════════════════════════════ -->
@@ -6796,10 +6837,11 @@ function loadViewState(){
 let currentView='daily',currentMgrTab='teamlead';
 function setView(v){
   currentView=v;
-  ['guests','changes','daily','manager'].forEach(x=>{document.getElementById('view-'+x).style.display=x===v?'block':'none';document.getElementById('btn-'+x).classList.toggle('active',x===v);});
+  ['guests','changes','daily','manager','suites'].forEach(x=>{document.getElementById('view-'+x).style.display=x===v?'block':'none';document.getElementById('btn-'+x).classList.toggle('active',x===v);});
   if(v==='manager'){setMgrTab(currentMgrTab);renderRoster();}
   else if(v==='changes')renderChanges();
   else if(v==='daily'){setDailyTab(currentDailyTab);}
+  else if(v==='suites')initSuiteStatusView();
   else renderGuests();
   saveViewState();
 }
@@ -6835,12 +6877,157 @@ loadAll().then(()=>{
   const saved=loadViewState();
   if(saved&&saved.dailyTab)currentDailyTab=saved.dailyTab;
   if(saved&&saved.mgrTab)currentMgrTab=saved.mgrTab;
-  if(saved&&saved.view&&['daily','guests','changes','manager'].includes(saved.view)){
+  if(saved&&saved.view&&['daily','guests','changes','manager','suites'].includes(saved.view)){
     setView(saved.view);
   } else {
     setDailyTab('notes');
   }
 });
+
+// ════ SUITE STATUS ═════════════════════════════════════════════════════════
+// Talks directly to Supabase from the browser (no Vercel function).
+// Lobby page (lobby.html) reads the same table in real-time.
+
+let _ssSupabase=null,_ssOverrides={},_ssInited=false,_ssTickInterval=null;
+
+function _ssInitSupabase(){
+  if(_ssSupabase)return true;
+  const cfg=window.PERSPIRE_SUPABASE;
+  if(!cfg||cfg.url.startsWith('PASTE_')||cfg.anonKey.startsWith('PASTE_')){
+    document.getElementById('ss-config-warning').style.display='block';
+    return false;
+  }
+  document.getElementById('ss-config-warning').style.display='none';
+  _ssSupabase=window.supabase.createClient(cfg.url,cfg.anonKey);
+  return true;
+}
+
+async function _ssLoadOverrides(){
+  const {data,error}=await _ssSupabase.from('suite_status').select('*');
+  if(error){console.error('suite_status load',error);return;}
+  _ssOverrides={};
+  data.forEach(row=>{
+    _ssOverrides[row.suite_num]={
+      status:row.status,
+      guest_first_name:row.guest_first_name,
+      moved:row.moved,
+      for_slot:row.for_slot?new Date(row.for_slot):null
+    };
+  });
+}
+
+function _ssSubscribe(){
+  _ssSupabase.channel('suite_status_changes_staff')
+    .on('postgres_changes',{event:'*',schema:'public',table:'suite_status'},(payload)=>{
+      const row=payload.new;
+      if(row&&row.suite_num){
+        _ssOverrides[row.suite_num]={
+          status:row.status,
+          guest_first_name:row.guest_first_name,
+          moved:row.moved,
+          for_slot:row.for_slot?new Date(row.for_slot):null
+        };
+        if(currentView==='suites')_ssRender();
+      }
+    }).subscribe();
+}
+
+async function _ssUpdate(suiteNum,patch,contextSlot){
+  // Always include the for_slot the patch is being applied to, so stale
+  // overrides naturally get ignored once we move past that appointment window.
+  const update={...patch,for_slot:contextSlot.toISOString(),updated_at:new Date().toISOString()};
+  // Optimistic local update
+  _ssOverrides[suiteNum]={
+    ..._ssOverrides[suiteNum],
+    ...patch,
+    for_slot:contextSlot
+  };
+  _ssRender();
+  const {error}=await _ssSupabase.from('suite_status').update(update).eq('suite_num',suiteNum);
+  if(error){console.error('suite_status update',error);_ssLoadOverrides().then(_ssRender);}
+}
+
+const _SS_LABELS={'warming-up':'Warming up','ready':'Ready','check-in':'Check in at desk','closed':'Closed'};
+
+function _ssRender(){
+  if(!window.PerspireSuiteStatus)return;
+  const now=new Date();
+  const grid=document.getElementById('ss-grid');
+  grid.innerHTML='';
+  document.getElementById('ss-day-label').textContent=
+    window.PerspireSuiteStatus.isWeekend(now)?'(weekend schedule)':'(weekday schedule)';
+
+  for(let i=1;i<=6;i++){
+    const state=window.PerspireSuiteStatus.getSuiteState(i,now,_ssOverrides[i]);
+    const row=document.createElement('div');
+    const cls=state.type==='closed'?'closed':state.status;
+    row.className=`ss-row ${cls}`;
+
+    const top=document.createElement('div');top.className='ss-row-top';
+    const nm=document.createElement('span');nm.className='ss-row-name';nm.textContent=`Suite ${i}`;top.appendChild(nm);
+    const tm=document.createElement('span');tm.className='ss-row-time';
+    if(state.type==='closed')tm.textContent=state.label;
+    else if(state.type==='pre-open')tm.textContent=state.label;
+    else tm.textContent=`Next: ${window.PerspireSuiteStatus.formatTime(state.time)}`;
+    top.appendChild(tm);
+    row.appendChild(top);
+
+    if(state.type!=='closed'){
+      // Status buttons
+      const btns=document.createElement('div');btns.className='ss-buttons';
+      [['warming-up','Warming up'],['ready','Ready'],['check-in','Check-in']].forEach(([key,label])=>{
+        const b=document.createElement('button');
+        b.className='ss-btn'+(state.status===key?' active '+key:'');
+        b.textContent=label;
+        b.onclick=()=>_ssSetStatus(i,key,state.time);
+        btns.appendChild(b);
+      });
+      row.appendChild(btns);
+
+      // Name + moved fields
+      const fields=document.createElement('div');fields.className='ss-fields';
+      const nameRow=document.createElement('div');nameRow.className='ss-name-row';
+      const input=document.createElement('input');
+      input.type='text';input.className='ss-name-input';
+      input.placeholder='Guest first name';
+      input.value=state.guestName||'';
+      input.onblur=(e)=>_ssUpdate(i,{guest_first_name:e.target.value.trim()},state.time);
+      nameRow.appendChild(input);
+      if(state.guestName){
+        const clr=document.createElement('button');clr.className='ss-name-clear';clr.textContent='✕';clr.title='Clear name';
+        clr.onclick=()=>_ssUpdate(i,{guest_first_name:''},state.time);
+        nameRow.appendChild(clr);
+      }
+      fields.appendChild(nameRow);
+      const movedLabel=document.createElement('label');movedLabel.className='ss-moved-toggle';
+      const cb=document.createElement('input');cb.type='checkbox';cb.checked=!!state.moved;
+      cb.onchange=(e)=>_ssUpdate(i,{moved:e.target.checked},state.time);
+      movedLabel.appendChild(cb);
+      const cbText=document.createElement('span');cbText.textContent='Moved from another suite';
+      movedLabel.appendChild(cbText);
+      fields.appendChild(movedLabel);
+      row.appendChild(fields);
+    }
+    grid.appendChild(row);
+  }
+}
+
+function _ssSetStatus(suiteNum,status,contextSlot){
+  if(status==='warming-up')_ssUpdate(suiteNum,{status:null},contextSlot);
+  else _ssUpdate(suiteNum,{status},contextSlot);
+}
+
+async function initSuiteStatusView(){
+  if(!_ssInitSupabase()){_ssRender();return;}
+  if(!_ssInited){
+    await _ssLoadOverrides();
+    _ssSubscribe();
+    _ssInited=true;
+    if(_ssTickInterval)clearInterval(_ssTickInterval);
+    _ssTickInterval=setInterval(()=>{if(currentView==='suites')_ssRender();},30000);
+  }
+  _ssRender();
+}
 </script>
 </body>
 </html>
