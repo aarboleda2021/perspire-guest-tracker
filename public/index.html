@@ -475,7 +475,7 @@
     <!-- Current tier (always shown) + New tier (downgrade / upgrade only) -->
     <div class="frow">
       <div class="fg"><label class="fl">Current tier<span class="req">*</span></label>
-        <select class="fi" id="mc-cur-tier">
+        <select class="fi" id="mc-cur-tier" onchange="onTierChange()">
           <option value="IRevive 2x">IRevive 2x</option>
           <option value="IRelax 4x">IRelax 4x</option>
           <option value="IRecover 8x">IRecover 8x</option>
@@ -508,7 +508,7 @@
       <textarea class="fi" id="mc-freeze-other" placeholder="e.g. pregnancy, surgery recovery — open-ended freeze requires Mohogany approval"></textarea>
     </div>
 
-    <!-- Session access during freeze (suspension only) -->
+    <!-- Session access during freeze (suspension only — not relevant for IRitual Unlimited) -->
     <div class="fg" id="mc-access-wrap" style="display:none;">
       <label class="fl">Retain access to accumulated sessions during the freeze?<span class="req">*</span></label>
       <select class="fi" id="mc-access" onchange="onAccessChange('mc-access','mc-access-info')">
@@ -517,6 +517,9 @@
         <option value="pause">No — pause sessions (will be deactivated in Mindbody, 90-day clock extends past the freeze)</option>
       </select>
       <div id="mc-access-info" style="margin-top:8px;font-size:12px;line-height:1.5;display:none;background:var(--sand);border-left:3px solid var(--info);padding:10px 12px;border-radius:4px;"></div>
+    </div>
+    <div class="fg" id="mc-access-iritual-note" style="display:none;">
+      <div style="font-size:12px;line-height:1.5;background:var(--sand);border-left:3px solid var(--info);padding:10px 12px;border-radius:4px;color:var(--mid);">ℹ️ <strong>IRitual Unlimited</strong> doesn't have accumulated sessions to roll over, so the session-access question doesn't apply here. Just process the freeze normally.</div>
     </div>
 
     <!-- TERMINATION: required steps + outreach outcome + scripts -->
@@ -570,6 +573,9 @@
           <option value="pause">No — pause sessions (will be deactivated in Mindbody, 90-day clock extends past the freeze)</option>
         </select>
         <div id="mc-si-access-info" style="margin-top:8px;font-size:12px;line-height:1.5;display:none;background:var(--sand);border-left:3px solid var(--info);padding:10px 12px;border-radius:4px;"></div>
+      </div>
+      <div class="fg" id="mc-si-access-iritual-note" style="display:none;">
+        <div style="font-size:12px;line-height:1.5;background:var(--sand);border-left:3px solid var(--info);padding:10px 12px;border-radius:4px;color:var(--mid);">ℹ️ <strong>IRitual Unlimited</strong> doesn't have accumulated sessions to roll over, so the session-access question doesn't apply.</div>
       </div>
 
       <!-- If downgrade-instead -->
@@ -2508,15 +2514,15 @@ function onTypeChange(){
   document.getElementById('mc-new-tier-wrap').style.display=(t==='downgrade'||t==='upgrade')?'block':'none';
   const isSusp=t==='suspension';
   document.getElementById('mc-freeze-wrap').style.display=isSusp?'block':'none';
-  document.getElementById('mc-access-wrap').style.display=isSusp?'block':'none';
-  hide('mc-freeze-other-wrap');hide('mc-access-info');
+  hide('mc-freeze-other-wrap');hide('mc-access-info');hide('mc-access-iritual-note');
   document.getElementById('mc-term-section').style.display=t==='termination'?'block':'none';
   document.getElementById('mc-tierchange-section').style.display=(t==='downgrade'||t==='upgrade')?'block':'none';
   document.getElementById('mc-susp-section').style.display=t==='suspension'?'block':'none';
   const declSec=document.getElementById('mc-decline-section');
   if(declSec)declSec.style.display=t==='declined-payment'?'block':'none';
   if(t==='termination') initFrmScript();
-  hide('mc-si-wrap');hide('mc-si-other-wrap');hide('mc-si-access-wrap');hide('mc-si-access-info');hide('mc-di-wrap');
+  hide('mc-si-wrap');hide('mc-si-other-wrap');hide('mc-si-access-wrap');hide('mc-si-access-info');hide('mc-si-access-iritual-note');hide('mc-di-wrap');
+  onTierChange();
   const oo=document.getElementById('mc-out-outcome');if(oo)oo.value='';
   // Date label switching for declined payments — "Date of declined charge"
   // makes more sense than "Bill date" in that context.
@@ -2541,9 +2547,35 @@ function onFreezeDurChange(selId,wrapId){
 function onOutcomeChange(){
   const v=document.getElementById('mc-out-outcome').value;
   document.getElementById('mc-si-wrap').style.display=v==='suspend-instead'?'block':'none';
-  document.getElementById('mc-si-access-wrap').style.display=v==='suspend-instead'?'block':'none';
   document.getElementById('mc-di-wrap').style.display=v==='downgrade-instead'?'block':'none';
-  if(v!=='suspend-instead'){hide('mc-si-other-wrap');hide('mc-si-access-info');}
+  if(v!=='suspend-instead'){hide('mc-si-other-wrap');hide('mc-si-access-info');hide('mc-si-access-wrap');hide('mc-si-access-iritual-note');}
+  else{onTierChange();}
+}
+
+// Hide the session-access question for IRitual Unlimited (no accumulated sessions to roll)
+function onTierChange(){
+  const tier=document.getElementById('mc-cur-tier')?.value||'';
+  const isIritual=tier==='IRitual Unlimited';
+  const type=document.getElementById('mc-type')?.value;
+  const isSusp=type==='suspension';
+  const oo=document.getElementById('mc-out-outcome')?.value;
+  const isSuspInstead=type==='termination'&&oo==='suspend-instead';
+  // Main suspension form
+  const accWrap=document.getElementById('mc-access-wrap');
+  const accNote=document.getElementById('mc-access-iritual-note');
+  if(accWrap&&accNote){
+    accWrap.style.display=(isSusp&&!isIritual)?'block':'none';
+    accNote.style.display=(isSusp&&isIritual)?'block':'none';
+    if(isIritual){const a=document.getElementById('mc-access');if(a)a.value='';hide('mc-access-info');}
+  }
+  // Suspend-instead sub-flow
+  const siWrap=document.getElementById('mc-si-access-wrap');
+  const siNote=document.getElementById('mc-si-access-iritual-note');
+  if(siWrap&&siNote){
+    siWrap.style.display=(isSuspInstead&&!isIritual)?'block':'none';
+    siNote.style.display=(isSuspInstead&&isIritual)?'block':'none';
+    if(isIritual){const a=document.getElementById('mc-si-access');if(a)a.value='';hide('mc-si-access-info');}
+  }
 }
 
 // Show a contextual disclaimer for the staff once they pick retain vs pause
@@ -2838,12 +2870,18 @@ function renderChangeCard(c,prefix=''){
   let freezeHtml='';
   if(c.type==='suspension'||(c.outreachOutcome==='suspend-instead')){
     const dur=c.freezeDuration,needsOvr=dur==='90'||dur==='other';
+    const isIritual=c.currentTier==='IRitual Unlimited';
     const accSet=c.retainSessionAccess===true||c.retainSessionAccess===false;
-    const accLine=accSet
-      ? (c.retainSessionAccess
+    let accLine;
+    if(isIritual){
+      accLine=`• <strong>IRitual Unlimited</strong> — no accumulated sessions to roll over, so the session-access question doesn't apply. Process the freeze normally.`;
+    } else if(accSet){
+      accLine=c.retainSessionAccess
         ? `• <strong style="color:var(--ok);">Session access RETAINED during freeze</strong> — keep pricing options Active in Mindbody. ⚠ 90-day session-use clock keeps running, so any unused sessions will expire on their original date.`
-        : `• <strong style="color:var(--warn);">Session access PAUSED during freeze</strong> — deactivate pricing options in Mindbody now, then re-activate AND extend the 90-day session-use window by ${dur&&dur!=='other'?dur+' days':'the freeze duration'} when the freeze ends so the member gets a full 90 days of use.`)
-      : `• <strong style="color:var(--warn);">Session access decision missing</strong> — edit this request to ask the member if they want to retain access during the freeze.`;
+        : `• <strong style="color:var(--warn);">Session access PAUSED during freeze</strong> — deactivate pricing options in Mindbody now, then re-activate AND extend the 90-day session-use window by ${dur&&dur!=='other'?dur+' days':'the freeze duration'} when the freeze ends so the member gets a full 90 days of use.`;
+    } else {
+      accLine=`• <strong style="color:var(--warn);">Session access decision missing</strong> — edit this request to ask the member if they want to retain access during the freeze.`;
+    }
     freezeHtml=`<div class="fadv ${needsOvr?'is90':''}">
       <div class="fadv-title">Freeze rules${needsOvr?' — exception required':''}</div>
       <p>• Bill date = freeze start date<br>
@@ -2939,8 +2977,9 @@ function buildPostChecklist(c){
   if(c.type==='termination'&&c.needsFollowup){
     items.push({label:'Second outreach attempt made',desc:'Try again before bill date. Use the follow-up scripts above.'});
   }
-  // Session-access actions on suspensions — depends on the member's choice
-  if(c.type==='suspension'){
+  // Session-access actions on suspensions — depends on the member's choice.
+  // IRitual Unlimited has no accumulated sessions, so this section doesn't apply.
+  if(c.type==='suspension'&&c.currentTier!=='IRitual Unlimited'){
     if(c.retainSessionAccess===true){
       items.push({label:'Pricing options remain ACTIVE in Mindbody',desc:'Member chose to retain session access during the freeze. Confirm their pricing options stay Active so they can book. ⚠ 90-day session-use clock keeps running — unused sessions will expire on their original date.'});
     } else if(c.retainSessionAccess===false){
@@ -4891,6 +4930,8 @@ function toggleAddChange(){
   document.getElementById('mc-type').value='termination';
   // Reset all form checkboxes
   ['chk-mb','chk-out','chk-mb-tc','chk-mb-susp','chk-decl-deact','chk-decl-mb','chk-decl-out'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
+  // Reset access dropdowns
+  ['mc-access','mc-si-access'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const dr=document.getElementById('mc-decline-reason');if(dr)dr.value='';
   // Default Submitted by to last-used staff (or first active)
   const sub=document.getElementById('mc-submitter');
@@ -4937,9 +4978,12 @@ async function submitChange(){
       finalType='suspension';
       freezeDuration=document.getElementById('mc-si-dur').value;
       if(freezeDuration==='other')freezeOtherNote=document.getElementById('mc-si-other').value.trim();
-      const acc=document.getElementById('mc-si-access').value;
-      if(!acc)errs.push('Retain session access during freeze (ask the member)');
-      else retainSessionAccess=(acc==='retain');
+      // IRitual Unlimited has no accumulated sessions — skip the access question
+      if(curTier!=='IRitual Unlimited'){
+        const acc=document.getElementById('mc-si-access').value;
+        if(!acc)errs.push('Retain session access during freeze (ask the member)');
+        else retainSessionAccess=(acc==='retain');
+      }
     }
     if(oo==='downgrade-instead'){
       finalType='downgrade';
@@ -4962,9 +5006,12 @@ async function submitChange(){
     if(!document.getElementById('chk-mb-susp').checked)errs.push('Mindbody contact log (required checkbox)');
     freezeDuration=document.getElementById('mc-freeze-dur').value;
     if(freezeDuration==='other')freezeOtherNote=document.getElementById('mc-freeze-other').value.trim();
-    const acc=document.getElementById('mc-access').value;
-    if(!acc)errs.push('Retain session access during freeze (ask the member)');
-    else retainSessionAccess=(acc==='retain');
+    // IRitual Unlimited has no accumulated sessions — skip the access question
+    if(curTier!=='IRitual Unlimited'){
+      const acc=document.getElementById('mc-access').value;
+      if(!acc)errs.push('Retain session access during freeze (ask the member)');
+      else retainSessionAccess=(acc==='retain');
+    }
   }
   if(type==='declined-payment'){
     if(!document.getElementById('chk-decl-deact').checked)errs.push('Active sessions deactivated (required checkbox)');
