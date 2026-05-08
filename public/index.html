@@ -7485,9 +7485,25 @@ function _ssSubscribe(){
           moved:row.moved,
           for_slot:row.for_slot?new Date(row.for_slot):null
         };
-        if(currentView==='suites')_ssRender();
+        if(currentView==='suites'&&!_ssShouldSkipRender())_ssRender();
       }
     }).subscribe();
+}
+
+// Skip auto-renders while staff is typing in a name field — otherwise the
+// 30s tick or a real-time update can wipe their input mid-edit.
+function _ssShouldSkipRender(){
+  const a=document.activeElement;
+  return !!(a&&a.classList&&a.classList.contains('ss-name-input'));
+}
+
+// Re-derive the current context slot at action time. Avoids stale-closure
+// bugs where a button captured `state.time` at render and a slot transition
+// happened before the user clicked, causing the edit to save against the
+// previous slot and disappear seconds later.
+function _ssFreshState(suiteNum){
+  if(!window.PerspireSuiteStatus)return null;
+  return window.PerspireSuiteStatus.getSuiteState(suiteNum,new Date(),_ssOverrides[suiteNum]);
 }
 
 async function _ssUpdate(suiteNum,patch,contextSlot){
@@ -7537,7 +7553,7 @@ function _ssRender(){
         const b=document.createElement('button');
         b.className='ss-btn'+(state.status===key?' active '+key:'');
         b.textContent=label;
-        b.onclick=()=>_ssSetStatus(i,key,state.time);
+        b.onclick=()=>_ssSetStatus(i,key);
         btns.appendChild(b);
       });
       row.appendChild(btns);
@@ -7549,17 +7565,26 @@ function _ssRender(){
       input.type='text';input.className='ss-name-input';
       input.placeholder='Guest first name';
       input.value=state.guestName||'';
-      input.onblur=(e)=>_ssUpdate(i,{guest_first_name:e.target.value.trim()},state.time);
+      input.onblur=(e)=>{
+        const s=_ssFreshState(i);if(!s||s.type==='closed')return;
+        _ssUpdate(i,{guest_first_name:e.target.value.trim()},s.time);
+      };
       nameRow.appendChild(input);
       if(state.guestName){
         const clr=document.createElement('button');clr.className='ss-name-clear';clr.textContent='✕';clr.title='Clear name';
-        clr.onclick=()=>_ssUpdate(i,{guest_first_name:''},state.time);
+        clr.onclick=()=>{
+          const s=_ssFreshState(i);if(!s||s.type==='closed')return;
+          _ssUpdate(i,{guest_first_name:''},s.time);
+        };
         nameRow.appendChild(clr);
       }
       fields.appendChild(nameRow);
       const movedLabel=document.createElement('label');movedLabel.className='ss-moved-toggle';
       const cb=document.createElement('input');cb.type='checkbox';cb.checked=!!state.moved;
-      cb.onchange=(e)=>_ssUpdate(i,{moved:e.target.checked},state.time);
+      cb.onchange=(e)=>{
+        const s=_ssFreshState(i);if(!s||s.type==='closed')return;
+        _ssUpdate(i,{moved:e.target.checked},s.time);
+      };
       movedLabel.appendChild(cb);
       const cbText=document.createElement('span');cbText.textContent='Moved from another suite';
       movedLabel.appendChild(cbText);
@@ -7573,12 +7598,12 @@ function _ssRender(){
           const tag=document.createElement('span');tag.className='ss-advanced-tag';tag.textContent='Skipped ahead';
           skipRow.appendChild(tag);
           const back=document.createElement('button');back.className='ss-back-btn';back.textContent='← Back to current session';
-          back.onclick=()=>_ssSkipTo(i,state.naturalSlot);
+          back.onclick=()=>_ssSkipTo(i,'back');
           skipRow.appendChild(back);
         }
         if(state.nextSlot){
           const skip=document.createElement('button');skip.className='ss-skip-btn';skip.textContent='Skip to next session →';
-          skip.onclick=()=>_ssSkipTo(i,state.nextSlot);
+          skip.onclick=()=>_ssSkipTo(i,'next');
           skipRow.appendChild(skip);
         }
         row.appendChild(skipRow);
@@ -7588,15 +7613,21 @@ function _ssRender(){
   }
 }
 
-function _ssSkipTo(suiteNum,targetSlot){
-  // Skipping or going back resets the suite's status, name, and moved flag
-  // — those are tied to the slot being left behind.
-  _ssUpdate(suiteNum,{status:null,guest_first_name:'',moved:false},targetSlot);
+function _ssSkipTo(suiteNum,direction){
+  // Always derive the target slot from the freshest state so a stale render
+  // can't send us to a slot that's no longer the right one.
+  const s=_ssFreshState(suiteNum);
+  if(!s||s.type!=='active')return;
+  const target=direction==='next'?s.nextSlot:s.naturalSlot;
+  if(!target)return;
+  _ssUpdate(suiteNum,{status:null,guest_first_name:'',moved:false},target);
 }
 
-function _ssSetStatus(suiteNum,status,contextSlot){
-  if(status==='warming-up')_ssUpdate(suiteNum,{status:null},contextSlot);
-  else _ssUpdate(suiteNum,{status},contextSlot);
+function _ssSetStatus(suiteNum,status){
+  const s=_ssFreshState(suiteNum);
+  if(!s||s.type==='closed')return;
+  if(status==='warming-up')_ssUpdate(suiteNum,{status:null},s.time);
+  else _ssUpdate(suiteNum,{status},s.time);
 }
 
 async function initSuiteStatusView(){
@@ -7606,7 +7637,7 @@ async function initSuiteStatusView(){
     _ssSubscribe();
     _ssInited=true;
     if(_ssTickInterval)clearInterval(_ssTickInterval);
-    _ssTickInterval=setInterval(()=>{if(currentView==='suites')_ssRender();},30000);
+    _ssTickInterval=setInterval(()=>{if(currentView==='suites'&&!_ssShouldSkipRender())_ssRender();},30000);
   }
   _ssRender();
 }

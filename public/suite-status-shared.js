@@ -65,13 +65,17 @@
       return { type: 'closed', label: 'Closed for today', time: null };
     }
 
-    // Find the time-based ("natural") context slot
+    // Find the time-based ("natural") context slot.
+    // A slot owns the time from the previous slot's session END (or WARMUP_LEAD_MIN
+    // before the very first slot) all the way through its own session end. This way,
+    // during the cleanup gap between sessions, edits flow to the *upcoming* slot —
+    // not the one that just ended.
     let naturalSlotIdx = -1;
     for (let i = 0; i < slots.length; i++) {
-      const winStart = new Date(slots[i].getTime() - WARMUP_LEAD_MIN * 60000);
-      const winEnd = i < slots.length - 1
-        ? new Date(slots[i + 1].getTime() - WARMUP_LEAD_MIN * 60000)
-        : new Date(slots[i].getTime() + SESSION_LENGTH_MIN * 60000);
+      const winStart = i === 0
+        ? new Date(slots[0].getTime() - WARMUP_LEAD_MIN * 60000)
+        : new Date(slots[i - 1].getTime() + SESSION_LENGTH_MIN * 60000);
+      const winEnd = new Date(slots[i].getTime() + SESSION_LENGTH_MIN * 60000);
       if (now >= winStart && now < winEnd) { naturalSlotIdx = i; break; }
     }
     if (naturalSlotIdx === -1) return { type: 'closed', label: 'Closed for today', time: null };
