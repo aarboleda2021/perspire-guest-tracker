@@ -1186,12 +1186,13 @@
       </select>
     </div>
     <div class="fg" id="ec-freeze-other-wrap" style="display:none;"><label class="fl">If "other" — special circumstance</label><textarea class="fi" id="ec-freeze-other" placeholder="e.g. until member calls back"></textarea></div>
-    <div class="fg"><label class="fl">Retain session access during freeze (suspensions only)</label>
+    <div class="fg"><label class="fl" id="ec-access-lbl">Retain session access during freeze</label>
       <select class="fi" id="ec-access">
         <option value="">— N/A or not applicable —</option>
         <option value="retain">Yes — sessions stay active (90-day clock keeps running)</option>
         <option value="pause">No — sessions paused (90-day clock extends past freeze)</option>
       </select>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;" id="ec-access-hint">Required for suspensions on IRevive, IRelax, and IRecover. Not applicable for IRitual Unlimited (no sessions to roll over).</div>
     </div>
     <div class="fg"><label class="fl">Submitted by</label><select class="fi" id="ec-submitter"></select></div>
     <div class="fg"><label class="fl">Notes</label><textarea class="fi" id="ec-notes"></textarea></div>
@@ -5433,6 +5434,12 @@ function openEditChangeFull(id){
   const ecSub=document.getElementById('ec-submitter');if(ecSub&&c.submittedBy)ecSub.value=c.submittedBy;
   const ecAcc=document.getElementById('ec-access');
   if(ecAcc)ecAcc.value=c.retainSessionAccess===true?'retain':c.retainSessionAccess===false?'pause':'';
+  // Mark the label as required when this is a suspension on a tier with rollover sessions
+  const ecAccLbl=document.getElementById('ec-access-lbl');
+  if(ecAccLbl){
+    const needsAccess=(c.type==='suspension')&&c.currentTier!=='IRitual Unlimited';
+    ecAccLbl.innerHTML=needsAccess?'Retain session access during freeze<span class="req">*</span>':'Retain session access during freeze';
+  }
   document.getElementById('edit-change-modal').classList.add('open');
 }
 async function saveEditChange(){
@@ -5452,6 +5459,12 @@ async function saveEditChange(){
   c.notes=document.getElementById('ec-notes').value.trim();
   const ecSub2=document.getElementById('ec-submitter');if(ecSub2)c.submittedBy=ecSub2.value||null;
   const ecAcc2=document.getElementById('ec-access');
+  // Require the session-access decision for suspensions on tiers that have rollover sessions
+  const needsAccess=(c.type==='suspension')&&c.currentTier!=='IRitual Unlimited';
+  if(needsAccess&&ecAcc2&&!ecAcc2.value){
+    alert('Please pick a session-access option for this suspension — staff should ask the member whether they want to retain or pause their sessions during the freeze.');
+    return;
+  }
   if(ecAcc2)c.retainSessionAccess=ecAcc2.value==='retain'?true:ecAcc2.value==='pause'?false:null;
   if(useLocalStorage){lsSave();}
   else{await api('changes?id='+editChangeId,{method:'PUT',body:{guestName:c.guestName,dateRequested:c.dateRequested,billDate:c.billDate,currentTier:c.currentTier,newTier:c.newTier,freezeDuration:c.freezeDuration,freezeOtherNote:c.freezeOtherNote,notes:c.notes,submittedBy:c.submittedBy,retainSessionAccess:c.retainSessionAccess,effectiveDate:c.effectiveDate}});await loadChanges();}
