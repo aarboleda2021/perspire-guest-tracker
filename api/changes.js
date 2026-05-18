@@ -34,6 +34,7 @@ module.exports = async function handler(req, res) {
       checklist: c.checklist || {},
       submittedBy: c.submitted_by || null,
       retainSessionAccess: c.retain_session_access,
+      effectiveDate: c.effective_date || null,
       createdAt: c.created_at
     }));
 
@@ -61,7 +62,8 @@ module.exports = async function handler(req, res) {
       outreach_outcome: b.outreachOutcome || null,
       checklist: b.checklist || {},
       submitted_by: b.submittedBy || null,
-      retain_session_access: (b.retainSessionAccess === undefined ? null : b.retainSessionAccess)
+      retain_session_access: (b.retainSessionAccess === undefined ? null : b.retainSessionAccess),
+      effective_date: b.effectiveDate || null
     });
     if (error) return res.status(500).json({ error: error.message });
     return res.status(201).json({ ok: true });
@@ -89,6 +91,7 @@ module.exports = async function handler(req, res) {
     if (b.checklist !== undefined) updates.checklist = b.checklist;
     if (b.submittedBy !== undefined) updates.submitted_by = b.submittedBy;
     if (b.retainSessionAccess !== undefined) updates.retain_session_access = b.retainSessionAccess;
+    if (b.effectiveDate !== undefined) updates.effective_date = b.effectiveDate;
 
     const { error } = await supabase.from('changes').update(updates).eq('id', id);
     if (error) return res.status(500).json({ error: error.message });

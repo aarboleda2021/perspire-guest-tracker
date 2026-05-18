@@ -465,7 +465,13 @@
 
     <div class="frow">
       <div class="fg"><label class="fl" id="mc-req-date-lbl">Date requested<span class="req">*</span></label><input type="date" class="fi" id="mc-req-date"></div>
-      <div class="fg"><label class="fl" id="mc-bill-date-lbl">Bill date<span class="req">*</span></label><input type="date" class="fi" id="mc-bill-date"></div>
+      <div class="fg"><label class="fl" id="mc-bill-date-lbl">Bill date<span class="req">*</span></label><input type="date" class="fi" id="mc-bill-date" onchange="suggestEffectiveDate()"></div>
+    </div>
+
+    <div class="fg" id="mc-eff-date-wrap" style="display:none;">
+      <label class="fl">Effective date<span class="req">*</span></label>
+      <input type="date" class="fi" id="mc-eff-date">
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">The day the new tier actually takes effect. Drives when the New Guest card's 90-day clock starts. <strong>Downgrades</strong> usually default to the bill date (the change is scheduled to flip then). <strong>Upgrades</strong> default to today (they typically take effect immediately).</div>
     </div>
 
     <div class="fg">
@@ -1149,6 +1155,7 @@
       <div class="fg"><label class="fl">Date requested</label><input type="date" class="fi" id="ec-req-date"></div>
       <div class="fg"><label class="fl">Bill date</label><input type="date" class="fi" id="ec-bill-date"></div>
     </div>
+    <div class="fg"><label class="fl">Effective date (tier changes only)</label><input type="date" class="fi" id="ec-eff-date"><div style="font-size:11px;color:var(--muted);margin-top:4px;">When the new tier actually takes effect. Drives the 90-day clock and the new-tier nurture start.</div></div>
     <div class="frow">
       <div class="fg"><label class="fl">Current tier</label>
         <select class="fi" id="ec-cur-tier">
@@ -2540,9 +2547,28 @@ function fillAll(){fillStaff('staff-sel');fillStaff('ng-staff');fillStaff('mc-su
 function show(id){document.getElementById(id).style.display='block';}
 function hide(id){document.getElementById(id).style.display='none';}
 
+// Auto-suggest the effective date based on type + bill date.
+// Downgrade → bill date (the change is scheduled for then).
+// Upgrade   → today (changes typically take effect immediately).
+// Only fills the field if it's currently empty so we don't trample a manual edit.
+function suggestEffectiveDate(){
+  const t=document.getElementById('mc-type').value;
+  const eff=document.getElementById('mc-eff-date');
+  if(!eff||eff.value)return; // user already set something — leave it
+  if(t==='downgrade'){
+    const bd=document.getElementById('mc-bill-date').value;
+    if(bd)eff.value=bd;
+  } else if(t==='upgrade'){
+    eff.value=toInputDate(new Date());
+  }
+}
+
 function onTypeChange(){
   const t=document.getElementById('mc-type').value;
   document.getElementById('mc-new-tier-wrap').style.display=(t==='downgrade'||t==='upgrade')?'block':'none';
+  // Effective date is only meaningful for tier changes — show it for upgrades/downgrades only
+  const effWrap=document.getElementById('mc-eff-date-wrap');
+  if(effWrap){effWrap.style.display=(t==='downgrade'||t==='upgrade')?'block':'none';suggestEffectiveDate();}
   const isSusp=t==='suspension';
   document.getElementById('mc-freeze-wrap').style.display=isSusp?'block':'none';
   hide('mc-freeze-other-wrap');hide('mc-access-info');hide('mc-access-iritual-note');
@@ -5007,6 +5033,7 @@ function toggleAddChange(){
   f.classList.remove('editing');f.classList.add('open');
   document.getElementById('mc-req-date').value=toInputDate(new Date());
   document.getElementById('mc-bill-date').value='';
+  const effEl=document.getElementById('mc-eff-date');if(effEl)effEl.value='';
   document.getElementById('mc-name').value='';
   document.getElementById('mc-notes').value='';
   document.getElementById('mc-type').value='termination';
@@ -5037,6 +5064,7 @@ async function submitChange(){
   const newTier=(type==='downgrade'||type==='upgrade')?document.getElementById('mc-new-tier').value:null;
   const notes=document.getElementById('mc-notes').value.trim();
   const submittedBy=document.getElementById('mc-submitter')?.value||null;
+  const effectiveDateRaw=document.getElementById('mc-eff-date')?.value||'';
   // Duplicate check (skip if editing an existing record)
   if(!editingChangeId&&name){
     const dup=changes.find(c=>c.guestName.toLowerCase()===name.toLowerCase()&&c.status!=='closed');
@@ -5074,6 +5102,7 @@ async function submitChange(){
   }
   if(type==='downgrade'||type==='upgrade'){
     if(!document.getElementById('chk-mb-tc').checked)errs.push('Mindbody contact log (required checkbox)');
+    if(!parseDate(effectiveDateRaw))errs.push('Effective date (when the new tier takes effect)');
     // Validate tier direction
     if(!editingChangeId&&finalNewTier&&curTier){
       const tierOrder=['IRevive 2x','IRelax 4x','IRecover 8x','IRitual Unlimited'];
@@ -5111,15 +5140,21 @@ async function submitChange(){
   const bd=parseDate(billDate);
   const dateRequestedStr=rd?`${rd.getFullYear()}-${String(rd.getMonth()+1).padStart(2,'0')}-${String(rd.getDate()).padStart(2,'0')}`:new Date().toISOString().slice(0,10);
   const billDateStr=`${bd.getFullYear()}-${String(bd.getMonth()+1).padStart(2,'0')}-${String(bd.getDate()).padStart(2,'0')}`;
+  // Effective date — only relevant for tier changes. Stored as a plain YYYY-MM-DD date.
+  let effectiveDateStr=null;
+  if((finalType==='downgrade'||finalType==='upgrade')&&effectiveDateRaw){
+    const ed=parseDate(effectiveDateRaw);
+    if(ed)effectiveDateStr=`${ed.getFullYear()}-${String(ed.getMonth()+1).padStart(2,'0')}-${String(ed.getDate()).padStart(2,'0')}`;
+  }
 
   if(editingChangeId){
     const c=changes.find(x=>x.id===editingChangeId);
     if(!c){alert('Change request not found.');return;}
-    c.guestName=name;c.type=finalType;c.dateRequested=useLocalStorage?parseDate(dateRequestedStr).toISOString():dateRequestedStr;c.billDate=useLocalStorage?parseDate(billDateStr).toISOString():billDateStr;c.currentTier=curTier;c.newTier=finalNewTier;c.notes=notes;c.freezeDuration=freezeDuration||c.freezeDuration;c.freezeOtherNote=freezeOtherNote||c.freezeOtherNote;c.submittedBy=submittedBy;if(retainSessionAccess!==null)c.retainSessionAccess=retainSessionAccess;if(outreachOutcome)c.outreachOutcome=outreachOutcome;if(needsFollowup)c.needsFollowup=needsFollowup;
+    c.guestName=name;c.type=finalType;c.dateRequested=useLocalStorage?parseDate(dateRequestedStr).toISOString():dateRequestedStr;c.billDate=useLocalStorage?parseDate(billDateStr).toISOString():billDateStr;c.currentTier=curTier;c.newTier=finalNewTier;c.notes=notes;c.freezeDuration=freezeDuration||c.freezeDuration;c.freezeOtherNote=freezeOtherNote||c.freezeOtherNote;c.submittedBy=submittedBy;c.effectiveDate=effectiveDateStr;if(retainSessionAccess!==null)c.retainSessionAccess=retainSessionAccess;if(outreachOutcome)c.outreachOutcome=outreachOutcome;if(needsFollowup)c.needsFollowup=needsFollowup;
     if(useLocalStorage){lsSave();}
-    else{await api('changes?id='+editingChangeId,{method:'PUT',body:{guestName:name,type:finalType,dateRequested:dateRequestedStr,billDate:billDateStr,currentTier:curTier,newTier:finalNewTier,notes,freezeDuration:c.freezeDuration,freezeOtherNote:c.freezeOtherNote,outreachOutcome:c.outreachOutcome,needsFollowup:c.needsFollowup,submittedBy,retainSessionAccess:c.retainSessionAccess}});await loadChanges();}
+    else{await api('changes?id='+editingChangeId,{method:'PUT',body:{guestName:name,type:finalType,dateRequested:dateRequestedStr,billDate:billDateStr,currentTier:curTier,newTier:finalNewTier,notes,freezeDuration:c.freezeDuration,freezeOtherNote:c.freezeOtherNote,outreachOutcome:c.outreachOutcome,needsFollowup:c.needsFollowup,submittedBy,retainSessionAccess:c.retainSessionAccess,effectiveDate:effectiveDateStr}});await loadChanges();}
   } else {
-    const rec={id:Date.now().toString(),guestName:name,type:finalType,dateRequested:useLocalStorage?parseDate(dateRequestedStr)?.toISOString()||new Date().toISOString():dateRequestedStr,billDate:useLocalStorage?parseDate(billDateStr).toISOString():billDateStr,currentTier:curTier,newTier:finalNewTier,freezeDuration,freezeOtherNote,notes,status:'open',outcome:'pending',outcomeNotes:'',checklist:{},freezeOverride:false,needsFollowup,outreachOutcome,submittedBy,retainSessionAccess,createdAt:new Date().toISOString()};
+    const rec={id:Date.now().toString(),guestName:name,type:finalType,dateRequested:useLocalStorage?parseDate(dateRequestedStr)?.toISOString()||new Date().toISOString():dateRequestedStr,billDate:useLocalStorage?parseDate(billDateStr).toISOString():billDateStr,currentTier:curTier,newTier:finalNewTier,freezeDuration,freezeOtherNote,notes,status:'open',outcome:'pending',outcomeNotes:'',checklist:{},freezeOverride:false,needsFollowup,outreachOutcome,submittedBy,retainSessionAccess,effectiveDate:effectiveDateStr,createdAt:new Date().toISOString()};
     if(useLocalStorage){changes.push(rec);lsSave();}
     else{await api('changes',{method:'POST',body:{...rec}});await loadChanges();}
     // Auto-create the declined-payment recovery nurture immediately on logging
@@ -5181,12 +5216,15 @@ async function toggleClose(id){
   // touchpoint logs so the clock restarts.
   if(wasOpen&&c.status==='closed'&&(c.type==='downgrade'||c.type==='upgrade')){
     const assignTo=c.submittedBy||'mohogany';
-    const billDateStr=c.billDate?(typeof c.billDate==='string'?c.billDate.slice(0,10):new Date(c.billDate).toISOString().slice(0,10)):new Date().toISOString().slice(0,10);
+    // Use effective date (when the new tier actually kicks in) for all downstream timing.
+    // Falls back to bill date for older records that don't have it, then today as a last resort.
+    const effRaw=c.effectiveDate||c.billDate;
+    const effDateStr=effRaw?(typeof effRaw==='string'?effRaw.slice(0,10):new Date(effRaw).toISOString().slice(0,10)):new Date().toISOString().slice(0,10);
     const matchingGuest=guests.find(g=>g.name.toLowerCase().trim()===c.guestName.toLowerCase().trim());
     if(matchingGuest){
-      // Refresh existing card: new tier, restart 90-day clock, reassign to submitter
+      // Refresh existing card: new tier, restart 90-day clock from effective date, reassign to submitter
       matchingGuest.tier=c.newTier||matchingGuest.tier;
-      matchingGuest.contractStartDate=billDateStr;
+      matchingGuest.contractStartDate=effDateStr;
       matchingGuest.assignedStaff=assignTo;
       matchingGuest.deactivated=false;
       matchingGuest.deactivatedReason=null;
@@ -5194,20 +5232,20 @@ async function toggleClose(id){
       matchingGuest.logs={};
       if(useLocalStorage){lsSave();}
       else{
-        await api('guests?id='+matchingGuest.id,{method:'PUT',body:{tier:matchingGuest.tier,contractStartDate:billDateStr,assignedStaff:assignTo,deactivated:false,deactivatedReason:null,deactivatedNotes:null}});
+        await api('guests?id='+matchingGuest.id,{method:'PUT',body:{tier:matchingGuest.tier,contractStartDate:effDateStr,assignedStaff:assignTo,deactivated:false,deactivatedReason:null,deactivatedNotes:null}});
         try{await api('guests?resource=logs&guestId='+matchingGuest.id,{method:'DELETE'});}catch(e){console.warn('Could not clear touchpoint logs',e.message);}
         await loadGuests();
       }
     } else {
-      // No existing card — create one for the submitter
-      const grec={id:Date.now().toString()+'-g',name:c.guestName,type:'member',tier:c.newTier||c.currentTier,contractStartDate:billDateStr,assignedStaff:assignTo,visitStatus:'healthy',welcomeEmailSent:false,agreementSigned:false,notes:`Auto-created from ${c.type} processed on ${new Date().toLocaleDateString('en-US')}`,createdAt:new Date().toISOString()};
+      // No existing card — create one for the submitter starting from the effective date
+      const grec={id:Date.now().toString()+'-g',name:c.guestName,type:'member',tier:c.newTier||c.currentTier,contractStartDate:effDateStr,assignedStaff:assignTo,visitStatus:'healthy',welcomeEmailSent:false,agreementSigned:false,notes:`Auto-created from ${c.type} processed on ${new Date().toLocaleDateString('en-US')}`,createdAt:new Date().toISOString()};
       if(useLocalStorage){guests.push(grec);lsSave();}
       else{await api('guests',{method:'POST',body:grec});await loadGuests();}
     }
-    // Auto-create the nurture (only if one doesn't already exist for this change)
+    // Auto-create the nurture starting from the effective date (so touchpoints line up with the new-tier clock)
     const existing=nurtures.find(n=>n.changeId===c.id);
     if(!existing){
-      const rec={id:Date.now().toString(),changeId:c.id,guestName:c.guestName,type:c.type,oldTier:c.currentTier,newTier:c.newTier||'',startDate:new Date().toISOString().split('T')[0],logs:{},status:'active',assignedStaff:assignTo,createdAt:new Date().toISOString()};
+      const rec={id:Date.now().toString(),changeId:c.id,guestName:c.guestName,type:c.type,oldTier:c.currentTier,newTier:c.newTier||'',startDate:effDateStr,logs:{},status:'active',assignedStaff:assignTo,createdAt:new Date().toISOString()};
       if(useLocalStorage){nurtures.push(rec);lsSave();}
       else{await api('nurtures',{method:'POST',body:rec});await loadNurtures();}
     }
@@ -5345,6 +5383,7 @@ function openEditChangeFull(id){
   document.getElementById('ec-name').value=c.guestName;
   document.getElementById('ec-req-date').value=toInputDate(c.dateRequested);
   document.getElementById('ec-bill-date').value=toInputDate(c.billDate);
+  const ecEff=document.getElementById('ec-eff-date');if(ecEff)ecEff.value=c.effectiveDate?toInputDate(c.effectiveDate):'';
   document.getElementById('ec-cur-tier').value=c.currentTier||'IRelax 4x';
   document.getElementById('ec-new-tier').value=c.newTier||'';
   document.getElementById('ec-freeze-dur').value=c.freezeDuration||'';
@@ -5363,6 +5402,9 @@ async function saveEditChange(){
   const rd=document.getElementById('ec-req-date').value,bd=document.getElementById('ec-bill-date').value;
   const rdp=parseDate(rd);if(rdp)c.dateRequested=useLocalStorage?rdp.toISOString():`${rdp.getFullYear()}-${String(rdp.getMonth()+1).padStart(2,'0')}-${String(rdp.getDate()).padStart(2,'0')}`;
   const bdp=parseDate(bd);if(bdp)c.billDate=useLocalStorage?bdp.toISOString():`${bdp.getFullYear()}-${String(bdp.getMonth()+1).padStart(2,'0')}-${String(bdp.getDate()).padStart(2,'0')}`;
+  const ed=document.getElementById('ec-eff-date')?.value;
+  if(ed){const edp=parseDate(ed);if(edp)c.effectiveDate=`${edp.getFullYear()}-${String(edp.getMonth()+1).padStart(2,'0')}-${String(edp.getDate()).padStart(2,'0')}`;}
+  else c.effectiveDate=null;
   c.currentTier=document.getElementById('ec-cur-tier').value;
   const nt=document.getElementById('ec-new-tier').value;c.newTier=nt||null;
   const fd=document.getElementById('ec-freeze-dur').value;c.freezeDuration=fd||null;
@@ -5372,7 +5414,7 @@ async function saveEditChange(){
   const ecAcc2=document.getElementById('ec-access');
   if(ecAcc2)c.retainSessionAccess=ecAcc2.value==='retain'?true:ecAcc2.value==='pause'?false:null;
   if(useLocalStorage){lsSave();}
-  else{await api('changes?id='+editChangeId,{method:'PUT',body:{guestName:c.guestName,dateRequested:c.dateRequested,billDate:c.billDate,currentTier:c.currentTier,newTier:c.newTier,freezeDuration:c.freezeDuration,freezeOtherNote:c.freezeOtherNote,notes:c.notes,submittedBy:c.submittedBy,retainSessionAccess:c.retainSessionAccess}});await loadChanges();}
+  else{await api('changes?id='+editChangeId,{method:'PUT',body:{guestName:c.guestName,dateRequested:c.dateRequested,billDate:c.billDate,currentTier:c.currentTier,newTier:c.newTier,freezeDuration:c.freezeDuration,freezeOtherNote:c.freezeOtherNote,notes:c.notes,submittedBy:c.submittedBy,retainSessionAccess:c.retainSessionAccess,effectiveDate:c.effectiveDate}});await loadChanges();}
   closeModal('edit-change-modal');refreshChanges();
 }
 
