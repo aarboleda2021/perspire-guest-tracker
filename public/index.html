@@ -5857,18 +5857,37 @@ async function acknowledgeAnnouncement(id){
   const by=sel?sel.value:'';
   if(!by){alert('Please select your name first.');return;}
   const a=announcements.find(x=>x.id===id);if(!a)return;
-  if(!a.acknowledgments)a.acknowledgments={};
-  a.acknowledgments[by]=new Date().toISOString();
-  if(useLocalStorage){lsSave();}
-  else{await api('announcements?id='+id,{method:'PUT',body:{acknowledgments:a.acknowledgments}});}
+  if(useLocalStorage){
+    if(!a.acknowledgments)a.acknowledgments={};
+    a.acknowledgments[by]=new Date().toISOString();
+    lsSave();
+  } else {
+    // Re-fetch latest server state first to avoid overwriting another staff
+    // member's ack that arrived between when we last loaded and now (race
+    // condition fix — multiple staff acking the same announcement at once).
+    await loadAnnouncements();
+    const fresh=announcements.find(x=>x.id===id);if(!fresh)return;
+    const merged={...(fresh.acknowledgments||{}),[by]:new Date().toISOString()};
+    await api('announcements?id='+id,{method:'PUT',body:{acknowledgments:merged}});
+    await loadAnnouncements();
+  }
   renderAnnouncements();
 }
 
 async function unacknowledgeAnnouncement(id,staffId){
   const a=announcements.find(x=>x.id===id);if(!a||!a.acknowledgments)return;
-  delete a.acknowledgments[staffId];
-  if(useLocalStorage){lsSave();}
-  else{await api('announcements?id='+id,{method:'PUT',body:{acknowledgments:a.acknowledgments}});}
+  if(useLocalStorage){
+    delete a.acknowledgments[staffId];
+    lsSave();
+  } else {
+    // Same race-safety: pull fresh, drop this one key, save back.
+    await loadAnnouncements();
+    const fresh=announcements.find(x=>x.id===id);if(!fresh)return;
+    const merged={...(fresh.acknowledgments||{})};
+    delete merged[staffId];
+    await api('announcements?id='+id,{method:'PUT',body:{acknowledgments:merged}});
+    await loadAnnouncements();
+  }
   renderAnnouncements();
 }
 
