@@ -993,6 +993,10 @@
             <div class="fg"><label class="fl">Valid from<span class="req">*</span></label><input type="date" class="fi" id="promo-start"></div>
             <div class="fg"><label class="fl">Valid until<span class="req">*</span></label><input type="date" class="fi" id="promo-end"></div>
           </div>
+          <div class="fci" style="margin-bottom:8px;">
+            <input type="checkbox" class="fchk" id="promo-no-expiry" onchange="document.getElementById('promo-end').disabled=this.checked;if(this.checked)document.getElementById('promo-end').value='';">
+            <div><div class="fchk-lbl">Always active — no expiration</div><div class="fchk-desc">Use for evergreen codes (e.g. referral codes, military discount). Skips the "Valid until" date.</div></div>
+          </div>
           <div class="fg"><label class="fl">Notes (optional)</label><input type="text" class="fi" id="promo-notes" placeholder="e.g. Only for new members, applies at checkout"></div>
           <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:13px;">
             <button class="btn btn-g" onclick="toggleAddPromo()">Cancel</button>
@@ -6233,6 +6237,8 @@ function toggleAddPromo(){
     document.getElementById('promo-purpose').value='';
     document.getElementById('promo-start').value=toInputDate(new Date());
     document.getElementById('promo-end').value='';
+    document.getElementById('promo-end').disabled=false;
+    document.getElementById('promo-no-expiry').checked=false;
     document.getElementById('promo-notes').value='';
   }
 }
@@ -6240,14 +6246,16 @@ async function addPromo(){
   const code=document.getElementById('promo-code').value.trim().toUpperCase();
   const purpose=document.getElementById('promo-purpose').value.trim();
   const startDate=document.getElementById('promo-start').value;
-  const endDate=document.getElementById('promo-end').value;
+  const noExpiry=document.getElementById('promo-no-expiry').checked;
+  const endDate=noExpiry?null:document.getElementById('promo-end').value;
   const notes=document.getElementById('promo-notes').value.trim();
   if(!code){alert('Please enter a promo code.');return;}
   if(!purpose){alert('Please describe what this code is for.');return;}
-  if(!startDate||!endDate){alert('Please enter valid from and valid until dates.');return;}
-  if(endDate<startDate){alert('The "valid until" date can\'t be before the "valid from" date. Please fix the dates.');return;}
+  if(!startDate){alert('Please enter a "valid from" date.');return;}
+  if(!noExpiry&&!endDate){alert('Please enter a "valid until" date, or check "Always active — no expiration".');return;}
+  if(endDate&&endDate<startDate){alert('The "valid until" date can\'t be before the "valid from" date. Please fix the dates.');return;}
   const id=Date.now().toString();
-  const rec={id,title:code,eventType:'promo-code',startDate,endDate,timeRange:notes,description:purpose,volunteerNeeded:false,assignedStaff:null,createdAt:new Date().toISOString()};
+  const rec={id,title:code,eventType:'promo-code',startDate,endDate:endDate||null,timeRange:notes,description:purpose,volunteerNeeded:false,assignedStaff:null,createdAt:new Date().toISOString()};
   if(useLocalStorage){events.push(rec);lsSave();}
   else{await api('events',{method:'POST',body:rec});await loadEvents();}
   toggleAddPromo();renderPromoCodes();
@@ -6265,7 +6273,8 @@ function editPromo(id){
     <div class="frow"><div class="fg" style="margin:0;"><label class="fl">Promo code</label><input type="text" class="fi" id="ep-code-${id}" value="${p.title}" style="text-transform:uppercase;"></div>
     <div class="fg" style="margin:0;"><label class="fl">What it's for</label><input type="text" class="fi" id="ep-purpose-${id}" value="${(p.description||'').replace(/"/g,'&quot;')}"></div></div>
     <div class="frow"><div class="fg" style="margin:0;"><label class="fl">Valid from</label><input type="date" class="fi" id="ep-start-${id}" value="${p.startDate}"></div>
-    <div class="fg" style="margin:0;"><label class="fl">Valid until</label><input type="date" class="fi" id="ep-end-${id}" value="${p.endDate||''}"></div></div>
+    <div class="fg" style="margin:0;"><label class="fl">Valid until</label><input type="date" class="fi" id="ep-end-${id}" value="${p.endDate||''}" ${p.endDate?'':'disabled'}></div></div>
+    <div class="fci" style="margin:0;"><input type="checkbox" class="fchk" id="ep-no-expiry-${id}" ${p.endDate?'':'checked'} onchange="document.getElementById('ep-end-${id}').disabled=this.checked;if(this.checked)document.getElementById('ep-end-${id}').value='';"><div><div class="fchk-lbl">Always active — no expiration</div></div></div>
     <div class="fg" style="margin:0;"><label class="fl">Notes</label><input type="text" class="fi" id="ep-notes-${id}" value="${(p.timeRange||'').replace(/"/g,'&quot;')}"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-sm btn-g" onclick="renderPromoCodes()">Cancel</button><button class="btn btn-sm btn-p" onclick="savePromo('${id}')">Save</button></div>
   </div>`;
@@ -6274,16 +6283,18 @@ async function savePromo(id){
   const code=document.getElementById('ep-code-'+id).value.trim().toUpperCase();
   const purpose=document.getElementById('ep-purpose-'+id).value.trim();
   const startDate=document.getElementById('ep-start-'+id).value;
-  const endDate=document.getElementById('ep-end-'+id).value;
+  const noExpiry=document.getElementById('ep-no-expiry-'+id)?.checked;
+  const endDate=noExpiry?null:document.getElementById('ep-end-'+id).value;
   const notes=document.getElementById('ep-notes-'+id).value.trim();
   if(!code){alert('Please enter a promo code.');return;}
   if(!purpose){alert('Please describe what this code is for.');return;}
-  if(!startDate||!endDate){alert('Please enter valid from and valid until dates.');return;}
-  if(endDate<startDate){alert('The "valid until" date can\'t be before the "valid from" date.');return;}
+  if(!startDate){alert('Please enter a "valid from" date.');return;}
+  if(!noExpiry&&!endDate){alert('Please enter a "valid until" date, or check "Always active — no expiration".');return;}
+  if(endDate&&endDate<startDate){alert('The "valid until" date can\'t be before the "valid from" date.');return;}
   const p=events.find(x=>x.id===id);if(!p)return;
-  p.title=code;p.description=purpose;p.startDate=startDate;p.endDate=endDate;p.timeRange=notes;
+  p.title=code;p.description=purpose;p.startDate=startDate;p.endDate=endDate||null;p.timeRange=notes;
   if(useLocalStorage){lsSave();}
-  else{await api('events?id='+id,{method:'PUT',body:{title:code,description:purpose,startDate,endDate,timeRange:notes}});}
+  else{await api('events?id='+id,{method:'PUT',body:{title:code,description:purpose,startDate,endDate:endDate||null,timeRange:notes}});}
   renderPromoCodes();
 }
 function renderPromoCodes(){
@@ -6307,7 +6318,7 @@ function renderPromoCodes(){
         <div style="flex:1;">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px;">${statusBadge}<strong style="font-size:14px;font-family:monospace;letter-spacing:.5px;">${p.title}</strong></div>
           <div style="font-size:13px;color:var(--mid);">${p.description}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Valid ${fmtDate(p.startDate)} – ${fmtDate(p.endDate)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Valid from ${fmtDate(p.startDate)} ${p.endDate?`– ${fmtDate(p.endDate)}`:`· <strong style="color:var(--ok);">No expiration</strong>`}</div>
           ${p.timeRange?`<div style="font-size:12px;color:var(--mid);margin-top:6px;padding:6px 10px;background:var(--sand);border-left:3px solid var(--tc);border-radius:4px;"><strong style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;">Notes:</strong> ${p.timeRange}</div>`:''}
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
