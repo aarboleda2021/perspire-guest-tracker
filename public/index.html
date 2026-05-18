@@ -3018,12 +3018,32 @@ function renderChangeCard(c,prefix=''){
     <button class="btn btn-sm btn-do" onclick="removeChange('${c.id}')">Remove</button>
   </div>`;
 
+  // Surface key suspension details on the collapsed header so Mohogany doesn't
+  // have to expand or open Edit to see what the member chose.
+  let suspSummary='';
+  if(c.type==='suspension'||c.outreachOutcome==='suspend-instead'){
+    const dur=c.freezeDuration;
+    const durLbl=dur==='other'?'open-ended':(dur?`${dur} days`:'');
+    const isIritual=c.currentTier==='IRitual Unlimited';
+    let accChip='';
+    if(isIritual){
+      accChip=` · <span style="color:var(--muted);">IRitual (no sessions to roll over)</span>`;
+    } else if(c.retainSessionAccess===true){
+      accChip=` · <span style="color:var(--ok);font-weight:600;">Sessions: RETAINED during freeze</span>`;
+    } else if(c.retainSessionAccess===false){
+      accChip=` · <span style="color:var(--warn);font-weight:600;">Sessions: PAUSED (extend 90-day clock at reactivation)</span>`;
+    } else {
+      accChip=` · <span style="color:var(--err);font-weight:600;">⚠ Session-access decision missing</span>`;
+    }
+    suspSummary=`<div class="cm" style="margin-top:3px;">${durLbl?`Freeze: ${durLbl}`:''}${accChip}</div>`;
+  }
   return`<div class="mccard ${urgCls}" id="${prefix}mc-${c.id}">
     <div class="mchdr" onclick="toggleCard('${prefix}mc-${c.id}')">
       <div class="cav">${initials(c.guestName)}</div>
       <div class="ci">
         <div class="cn">${c.guestName}</div>
         <div class="cm">Requested ${fmtDate(c.dateRequested)} · Bill ${fmtDate(c.billDate)}${duLbl?` · <strong style="color:${urg==='urgent'?'var(--urg)':'var(--warn)'}">${duLbl}</strong>`:''}${c.status==='closed'?' · ✓ Processed':''}</div>
+        ${suspSummary}
       </div>
       <div class="mcbdg">
         <span class="badge ${tmap[c.type]||'bot'}">${tlbl[c.type]||c.type}</span>
