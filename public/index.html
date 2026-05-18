@@ -2475,12 +2475,23 @@ async function autoReassignTierChangeNurtures(){
 
 function today(){const d=new Date();d.setHours(0,0,0,0);return d;}
 function parseDate(s){
+  if(s===null||s===undefined||s==='')return null;
+  if(s instanceof Date){if(isNaN(s))return null;const d=new Date(s);d.setHours(0,0,0,0);return d;}
+  // Excel serial number (days since 1899-12-30). Plain integers like 45678 = Jan 15 2025.
+  if(typeof s==='number'&&s>0&&s<100000){
+    const ms=Math.round((s-25569)*86400*1000);
+    const dt=new Date(ms);
+    if(!isNaN(dt)){dt.setHours(0,0,0,0);return dt;}
+  }
+  s=String(s).trim();
   if(!s)return null;
-  if(s instanceof Date){const d=new Date(s);d.setHours(0,0,0,0);return d;}
   if(/^\d{4}-\d{2}-\d{2}$/.test(s)){const[y,m,d]=s.split('-').map(Number);const dt=new Date(y,m-1,d);dt.setHours(0,0,0,0);return isNaN(dt)?null:dt;}
   if(s.includes('T')){const ds=s.split('T')[0];const[y,m,d]=ds.split('-').map(Number);const dt=new Date(y,m-1,d);dt.setHours(0,0,0,0);return isNaN(dt)?null:dt;}
   const p=s.split('/');
   if(p.length===3){let y=+p[2];if(y<100)y+=2000;const dt=new Date(y,+p[0]-1,+p[1]);dt.setHours(0,0,0,0);return isNaN(dt)?null:dt;}
+  // Fallback: let JS try its best at parsing common text formats like "Jan 15, 2026", "15-Jan-2026", etc.
+  const fallback=new Date(s);
+  if(!isNaN(fallback)){fallback.setHours(0,0,0,0);return fallback;}
   return null;
 }
 function toInputDate(s){const d=parseDate(s);if(!d)return'';return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
@@ -4610,7 +4621,10 @@ function handleMembersUpload(event){
   reader.onload=function(e){
     try{
       const data=new Uint8Array(e.target.result);
-      const wb=XLSX.read(data,{type:'array'});
+      // cellDates:true so date cells come through as JS Date objects instead of
+      // Excel serial numbers (which parseDate can't read and would silently get
+      // bucketed as "historical").
+      const wb=XLSX.read(data,{type:'array',cellDates:true});
       const ws=wb.Sheets[wb.SheetNames[0]];
       // Mindbody reports often have title/blank rows before the real header.
       // Read as raw arrays first so we can find the actual header row.
@@ -4626,12 +4640,15 @@ function handleMembersUpload(event){
       }
       if(headerRowIdx===-1){
         // Fallback to default behavior — let the error message in processMemberRows guide them
-        const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+        const rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
         processMemberRows(rows);
         return;
       }
-      // Re-parse using that row as the header
-      const rows=XLSX.utils.sheet_to_json(ws,{range:headerRowIdx,defval:''});
+      // Re-parse using that row as the header. raw:false makes dates come through
+      // as ISO strings ("2026-01-15") instead of JS Date objects with timezone
+      // weirdness — parseDate handles both, but ISO strings avoid edge cases
+      // around files exported from different timezones.
+      const rows=XLSX.utils.sheet_to_json(ws,{range:headerRowIdx,defval:'',raw:false});
       processMemberRows(rows);
     } catch(err){
       document.getElementById('member-upload-result').innerHTML=`<div style="color:var(--err);padding:10px;">Error parsing file: ${err.message}</div>`;
@@ -4678,26 +4695,28 @@ function processMemberRows(rows){
   const alreadyPending=[]; // in report AND already pending from prior upload
   const dismissedInReport=[]; // report name matches a previously dismissed name
   const historical=[];
-  let missingDateCount=0;
+  let missingDateFlaggedCount=0;
   reportNames.forEach(rn=>{
     const lower=rn.name.toLowerCase().trim();
     const m=activeGuests.find(g=>g.name.toLowerCase().trim()===lower);
     if(m){matched.push({...rn,guestId:m.id});return;}
     if(dismissedNames.includes(lower)){dismissedInReport.push(rn);return;}
     const startD=rn.start?parseDate(rn.start):null;
-    // Strict: if the row has NO valid join date OR the join date is before cutoff,
-    // treat as historical and ignore. This way only members with confirmed
-    // post-launch join dates ever get flagged.
-    if(cutoff&&(!startD||startD<cutoff)){
+    // Only bucket as historical if we have a CONFIRMED date that's before the cutoff.
+    // If the date is missing or unparseable, we err on the side of flagging the
+    // person for review rather than silently hiding them — that's how Alissa
+    // Tumlin slipped through previously. Better to over-flag than miss someone.
+    if(cutoff && startD && startD < cutoff){
       historical.push(rn);
-      if(!startD)missingDateCount++;
       return;
     }
     // Check if already in pending list
     const existing=getPendingMembers().find(p=>(p.description||'').toLowerCase().trim()===lower);
     if(existing){alreadyPending.push(rn);return;}
-    newlyFlagged.push(rn);
+    if(!startD)missingDateFlaggedCount++;
+    newlyFlagged.push({...rn,_noDate:!startD});
   });
+  const missingDateCount=missingDateFlaggedCount;
   window._lastUploadDebug={dateCol:startCol||'(none found)',cols,totalRows:reportNames.length,missingDateCount};
 
   // Persist newly flagged to pending
@@ -4716,13 +4735,13 @@ function processMemberRows(rows){
       <strong>⚠ No "Date Joined" column found in this report.</strong> Without join dates, we can't filter out historical members. Found columns: <em>${cols.join(', ')}</em>. Please make sure the Mindbody export includes a date column (Date Joined / Date Created / Start Date).
     </div>`;
   } else {
-    html+=`<div style="font-size:11px;color:var(--muted);margin-top:4px;font-style:italic;">Reading join dates from "<strong>${startCol}</strong>" column.${missingDateCount>0?` ${missingDateCount} row${missingDateCount!==1?'s':''} had no date and ${missingDateCount===1?'was':'were'} skipped as historical.`:''}</div>`;
+    html+=`<div style="font-size:11px;color:var(--muted);margin-top:4px;font-style:italic;">Reading join dates from "<strong>${startCol}</strong>" column.${missingDateCount>0?` <span style="color:var(--warn);">⚠ ${missingDateCount} row${missingDateCount!==1?'s':''} had no readable date — flagged for your review just in case (better safe than missing someone).</span>`:''}</div>`;
   }
   if(newlyFlagged.length||alreadyPending.length){
     const total=newlyFlagged.length+alreadyPending.length;
     html+=`<div style="margin-top:14px;padding:12px;background:var(--warnp);border:1.5px solid #E8C07A;border-radius:8px;font-size:13px;color:var(--warn);">
       <strong>⚠ ${total} member${total!==1?'s':''} pending review:</strong>
-      <ul style="margin:6px 0 8px 18px;padding:0;">${newlyFlagged.slice(0,10).map(u=>`<li>${u.name}${u.tier?` <span style="color:var(--muted);">— ${u.tier}</span>`:''}${u.start?` <span style="color:var(--muted);">· joined ${u.start}</span>`:''} <span style="color:var(--tc);font-weight:600;">(new)</span></li>`).join('')}</ul>
+      <ul style="margin:6px 0 8px 18px;padding:0;">${newlyFlagged.slice(0,10).map(u=>`<li>${u.name}${u.tier?` <span style="color:var(--muted);">— ${u.tier}</span>`:''}${u.start?` <span style="color:var(--muted);">· joined ${u.start}</span>`:''} <span style="color:var(--tc);font-weight:600;">(new)</span>${u._noDate?` <span style="color:var(--warn);font-weight:600;">⚠ no date — please verify</span>`:''}</li>`).join('')}</ul>
       ${total>10?`<div style="font-size:11px;color:var(--mid);">…and ${total-10} more</div>`:''}
     </div>
     <div style="display:flex;justify-content:flex-end;margin-top:12px;"><button class="btn btn-p btn-sm" onclick="closeModal('member-upload-modal');openPendingMembers();">Review & resolve all ${total} →</button></div>`;
