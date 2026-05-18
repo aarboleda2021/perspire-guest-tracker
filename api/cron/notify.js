@@ -97,6 +97,22 @@ module.exports = async function handler(req, res) {
     process.env.NOTIFY_EMAIL_2
   ].filter(Boolean);
 
+  // Loud failure if we have urgent requests but can't actually email anyone —
+  // silently returning "200 OK" here would hide the misconfiguration and Amanda
+  // would miss real urgent change requests.
+  if (!process.env.RESEND_API_KEY || !recipients.length) {
+    console.error('Cron found urgent requests but cannot email:', {
+      hasApiKey: !!process.env.RESEND_API_KEY,
+      recipientsConfigured: recipients.length,
+      urgentCount: urgent.length
+    });
+    return res.status(500).json({
+      error: 'Cannot send urgent-bill-date email — RESEND_API_KEY or NOTIFY_EMAIL_1/2 env vars not configured.',
+      urgentCount: urgent.length,
+      datesChecked: datesToCheck
+    });
+  }
+
   if (process.env.RESEND_API_KEY && recipients.length) {
     const emailBody = `Hi team,\n\nThis is an automated alert from the Perspire PTC Dashboard.\n\n⚠️ ${summary}:\n\n${details}${closureNote}\n\nPlease log in to the dashboard and process these before the bill date:\nhttps://perspire-guest-tracker.vercel.app\n\n— Perspire PTC Dashboard`;
 
