@@ -355,6 +355,8 @@
   .ss-skip-btn:hover{border-color:var(--tc);color:var(--tc);background:var(--tcp);}
   .ss-back-btn{background:var(--tcp);border:1.5px solid var(--tc);color:var(--tc);padding:7px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
   .ss-back-btn:hover{background:var(--tc);color:white;}
+  .ss-save-error{background:var(--errp);color:var(--err);border:1.5px solid var(--err);border-radius:6px;padding:9px 12px;margin-top:10px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px;line-height:1.4;}
+  .ss-save-error::before{content:"⚠";font-size:15px;flex-shrink:0;}
   .ss-row.closed .ss-buttons,.ss-row.closed .ss-fields,.ss-row.closed .ss-skip-row{display:none;}
 </style>
 </head>
@@ -1104,6 +1106,35 @@
     <div class="modal-actions">
       <button class="btn btn-g" onclick="closeModal('edit-guest-modal')">Cancel</button>
       <button class="btn btn-p" onclick="saveEditGuest()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT NURTURE MODAL -->
+<div class="modal-ov" id="edit-nurture-modal">
+  <div class="modal">
+    <div class="modal-title">Edit nurture</div>
+    <div class="modal-sub" id="en-sub"></div>
+    <div class="fg"><label class="fl">Guest name<span class="req">*</span></label><input type="text" class="fi" id="en-name"></div>
+    <div class="frow">
+      <div class="fg"><label class="fl">Start date<span class="req">*</span></label><input type="date" class="fi" id="en-start-date"><div style="font-size:11px;color:var(--muted);margin-top:4px;">Drives when touchpoint outreach windows open. For tier changes this is usually the bill date; for reactivations it's 7 days before the freeze ends.</div></div>
+      <div class="fg"><label class="fl">Assigned staff</label><select class="fi" id="en-staff"></select></div>
+    </div>
+    <div class="frow" id="en-tier-row">
+      <div class="fg"><label class="fl">Old tier</label><select class="fi" id="en-old-tier"></select></div>
+      <div class="fg" id="en-new-tier-wrap"><label class="fl">New tier</label><select class="fi" id="en-new-tier"></select></div>
+    </div>
+    <div class="fg" id="en-freeze-wrap" style="display:none;"><label class="fl">Freeze duration</label>
+      <select class="fi" id="en-freeze">
+        <option value="30">30 days</option>
+        <option value="60">60 days</option>
+        <option value="90">90 days</option>
+        <option value="other">Open-ended</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-g" onclick="closeModal('edit-nurture-modal')">Cancel</button>
+      <button class="btn btn-p" onclick="saveEditNurture()">Save changes</button>
     </div>
   </div>
 </div>
@@ -4072,12 +4103,63 @@ function renderNurtureCard(n,prefix=''){
       <div class="tpg">${tpHtml}</div>
       <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
         ${isDecl&&n.status==='active'?`<button class="btn btn-p btn-sm" onclick="markPaymentRecovered('${n.id}')" style="background:var(--ok);border-color:var(--ok);">💳 Payment recovered</button>`:''}
+        <button class="btn btn-g btn-sm" onclick="openEditNurture('${n.id}')">Edit</button>
         ${n.status==='active'?`<button class="btn btn-g btn-sm" onclick="completeNurture('${n.id}')">Mark complete ✓</button>`:`<button class="btn btn-g btn-sm" onclick="reopenNurture('${n.id}')">Reopen</button>`}
         <button class="btn btn-g btn-sm" onclick="openReassignNurture('${n.id}')">Reassign</button>
         <button class="btn btn-sm btn-do" onclick="removeNurture('${n.id}')">Remove</button>
       </div>
     </div>
   </div>`;
+}
+
+// Edit nurture modal
+let editNurtureId=null;
+function openEditNurture(id){
+  const n=nurtures.find(x=>x.id===id);if(!n)return;
+  editNurtureId=id;
+  document.getElementById('en-sub').textContent=`${n.guestName} · ${n.type}`;
+  document.getElementById('en-name').value=n.guestName||'';
+  document.getElementById('en-start-date').value=toInputDate(n.startDate);
+  fillStaff('en-staff');document.getElementById('en-staff').value=n.assignedStaff||'mohogany';
+  // Tier dropdowns — all 4 member tiers as options
+  const allTiers=['IRevive 2x','IRelax 4x','IRecover 8x','IRitual Unlimited'];
+  const tierOpts=allTiers.map(t=>`<option value="${t}">${t}</option>`).join('');
+  document.getElementById('en-old-tier').innerHTML=tierOpts;
+  document.getElementById('en-new-tier').innerHTML=tierOpts;
+  if(n.oldTier)document.getElementById('en-old-tier').value=n.oldTier;
+  if(n.newTier)document.getElementById('en-new-tier').value=n.newTier;
+  // Hide/show fields based on nurture type
+  const isTierChange=n.type==='upgrade'||n.type==='downgrade';
+  const isReact=n.type==='reactivation';
+  document.getElementById('en-new-tier-wrap').style.display=isTierChange?'block':'none';
+  document.getElementById('en-tier-row').style.display=(isTierChange||isReact||n.type==='declined-payment')?'flex':'none';
+  document.getElementById('en-freeze-wrap').style.display=isReact?'block':'none';
+  if(isReact)document.getElementById('en-freeze').value=n.freezeDuration||'30';
+  document.getElementById('edit-nurture-modal').classList.add('open');
+}
+
+async function saveEditNurture(){
+  const n=nurtures.find(x=>x.id===editNurtureId);if(!n)return;
+  const name=document.getElementById('en-name').value.trim();
+  if(!name){alert('Guest name is required.');return;}
+  const sd=document.getElementById('en-start-date').value;
+  if(!sd){alert('Start date is required.');return;}
+  const startDate=parseDate(sd);
+  const startDateStr=`${startDate.getFullYear()}-${String(startDate.getMonth()+1).padStart(2,'0')}-${String(startDate.getDate()).padStart(2,'0')}`;
+  const staff=document.getElementById('en-staff').value;
+  const oldTier=document.getElementById('en-old-tier').value;
+  const newTier=document.getElementById('en-new-tier').value;
+  const freeze=document.getElementById('en-freeze').value;
+  const isTierChange=n.type==='upgrade'||n.type==='downgrade';
+  const isReact=n.type==='reactivation';
+  const body={guestName:name,startDate:useLocalStorage?startDate.toISOString():startDateStr,assignedStaff:staff,oldTier};
+  if(isTierChange)body.newTier=newTier;
+  if(isReact)body.freezeDuration=freeze;
+  Object.assign(n,body);
+  if(useLocalStorage){lsSave();}
+  else{await api('nurtures?id='+editNurtureId,{method:'PUT',body});await loadNurtures();}
+  closeModal('edit-nurture-modal');editNurtureId=null;
+  renderGuests();if(typeof renderMgrNurture==='function')renderMgrNurture();
 }
 
 // Nurture log modal
@@ -7423,7 +7505,7 @@ function setMgrTab(tab){
 // Escape key closes modals
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
-    ['log-modal','edit-guest-modal','edit-change-modal','rassign-modal','tp-script-modal','deactivate-modal','milestone-modal','upload-modal','graduation-modal','task-complete-modal','cintas-modal','contact-log-template-modal','upload-instructions-modal','member-upload-modal','member-quickadd-modal','member-instructions-modal','help-modal','decline-deact-modal','redeem-modal','quick-redeem-modal'].forEach(id=>{
+    ['log-modal','edit-guest-modal','edit-change-modal','rassign-modal','tp-script-modal','deactivate-modal','milestone-modal','upload-modal','graduation-modal','task-complete-modal','cintas-modal','contact-log-template-modal','upload-instructions-modal','member-upload-modal','member-quickadd-modal','member-instructions-modal','help-modal','decline-deact-modal','redeem-modal','quick-redeem-modal','edit-nurture-modal'].forEach(id=>{
       const el=document.getElementById(id);if(el&&el.classList.contains('open'))closeModal(id);
     });
   }
