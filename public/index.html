@@ -751,6 +751,16 @@
       </div>
     </div>
     <div style="margin-top:28px;padding:18px;background:var(--sand);border:1.5px solid var(--border);border-radius:12px;">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Export daily numbers</div>
+      <p style="font-size:13px;color:var(--mid);line-height:1.5;margin-bottom:12px;">Download every staff member's daily log (opportunities, first visits booked, membership/package sales, outbound calls, pre-booked guests, contact logs done, Axle follow-ups done) for any date range as a CSV. One row per staff member per day.</p>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+        <div class="fg" style="margin:0;"><label class="fl">From</label><input type="date" class="fi" id="dlexp-from"></div>
+        <div class="fg" style="margin:0;"><label class="fl">To</label><input type="date" class="fi" id="dlexp-to"></div>
+        <button class="btn btn-p" onclick="exportDailyLogs()">📊 Download CSV</button>
+        <span id="dlexp-status" style="font-size:12px;color:var(--muted);"></span>
+      </div>
+    </div>
+    <div style="margin-top:18px;padding:18px;background:var(--sand);border:1.5px solid var(--border);border-radius:12px;">
       <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Data backup</div>
       <p style="font-size:13px;color:var(--mid);line-height:1.5;margin-bottom:12px;">Download a full backup of all dashboard data as a JSON file. Includes guests, membership changes, staff, events, promo codes, shift notes, nurtures, daily logs, and task completions. We recommend backing up at least once a month.</p>
       <button class="btn btn-p" onclick="exportAllData()">📦 Download full backup</button>
@@ -3330,6 +3340,15 @@ function renderMgrChanges(){
 }
 
 function renderRoster(){
+  // Default the daily-log export date range to the last 30 days (only if blank)
+  const fromEl=document.getElementById('dlexp-from');
+  const toEl=document.getElementById('dlexp-to');
+  if(fromEl&&!fromEl.value){
+    const today=new Date();
+    const monthAgo=new Date();monthAgo.setDate(monthAgo.getDate()-30);
+    fromEl.value=toInputDate(monthAgo);
+    if(toEl)toEl.value=toInputDate(today);
+  }
   document.getElementById('roster').innerHTML=staffList.map(s=>{
     const ct=guests.filter(c=>c.assignedStaff===s.id).length;
     const isMohogany=s.id==='mohogany';
@@ -5588,6 +5607,65 @@ function exportNurtures(){
   const rows=[['Guest Name','Type','Old Tier','New Tier','Start Date','Assigned Staff','Status','Freeze Duration','TP1 Done','TP2 Done','TP3 Done']];
   nurtures.forEach(n=>{rows.push([n.guestName,n.type,n.oldTier,n.newTier,toInputDate(n.startDate),sName(n.assignedStaff||'mohogany'),n.status,n.freezeDuration||'',n.logs?.[0]?'Yes':'No',n.logs?.[1]?'Yes':'No',n.logs?.[2]?'Yes':'No']);});
   downloadCSV('perspire-nurtures.csv',rows);
+}
+
+async function exportDailyLogs(){
+  const fromEl=document.getElementById('dlexp-from');
+  const toEl=document.getElementById('dlexp-to');
+  const status=document.getElementById('dlexp-status');
+  const from=fromEl.value;
+  const to=toEl.value;
+  if(!from||!to){alert('Please pick both From and To dates.');return;}
+  if(from>to){alert('"From" date can\'t be after "To" date.');return;}
+  status.textContent='Fetching…';status.style.color='var(--muted)';
+  try{
+    let logs;
+    if(useLocalStorage){
+      // Walk dates in the range and pull each day's localStorage entry
+      logs=[];
+      const start=new Date(from+'T12:00:00'),end=new Date(to+'T12:00:00');
+      for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1)){
+        const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const dayLogs=lsGet('psp-v7-dlogs-'+ds,[]);
+        dayLogs.forEach(l=>logs.push({...l,date:ds}));
+      }
+    } else {
+      logs=await api(`daily?resource=logs&dateFrom=${from}&dateTo=${to}`);
+    }
+    if(!logs||!logs.length){
+      status.textContent='No daily logs found in that date range.';
+      status.style.color='var(--warn)';
+      return;
+    }
+    // Build CSV — one row per (staff, date) entry with all numeric metrics
+    const header=['Date','Staff','Green ⭐ Opportunities','First Visits Booked','Membership Sales','Package Sales','Outbound Calls','Pre-booked Guests','Contact Logs Done','Axle Follow-ups Done'];
+    const rows=[header];
+    // Sort by date asc, then staff name
+    logs.sort((a,b)=>{
+      if(a.date!==b.date)return a.date<b.date?-1:1;
+      return sName(a.staffId).localeCompare(sName(b.staffId));
+    });
+    logs.forEach(l=>{
+      rows.push([
+        l.date,
+        sName(l.staffId),
+        l.opportunities||0,
+        l.firstVisitsBooked||0,
+        l.membershipSales||0,
+        l.packageSales||0,
+        l.outboundCalls||0,
+        l.preBooked||0,
+        l.contactLogsDone?'Yes':'No',
+        l.axleFollowupsDone?'Yes':'No'
+      ]);
+    });
+    downloadCSV(`perspire-daily-logs-${from}-to-${to}.csv`,rows);
+    status.textContent=`✓ Downloaded ${logs.length} row${logs.length!==1?'s':''}.`;
+    status.style.color='var(--ok)';
+  } catch(e){
+    status.textContent='Error: '+e.message;
+    status.style.color='var(--err)';
+  }
 }
 
 async function exportAllData(){
