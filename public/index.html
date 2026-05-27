@@ -4704,10 +4704,21 @@ function handleMembersUpload(event){
 function processMemberRows(rows){
   if(!rows.length){document.getElementById('member-upload-result').innerHTML=`<div style="color:var(--err);">No data in file.</div>`;return;}
   const cols=Object.keys(rows[0]);
-  // Try to find a name column — prefer "Client Name" or "Name", fall back to first/last combo
-  const nameCol=cols.find(k=>/^client\s*name$/i.test(k))||cols.find(k=>/^name$/i.test(k))||cols.find(k=>/^client$/i.test(k))||cols.find(k=>/full.?name/i.test(k));
-  const firstCol=cols.find(k=>/^first.?name$/i.test(k))||cols.find(k=>/^first$/i.test(k));
-  const lastCol=cols.find(k=>/^last.?name$/i.test(k))||cols.find(k=>/^last$/i.test(k));
+  // Permissive column matching — handles Mindbody variants like "Client First Name",
+  // "Member First", "First (legal)", etc. Prefer first+last combo when present (most
+  // reliable since Mindbody often exports them that way). Excludes "user name" /
+  // "username" / "screen name" from full-name matching.
+  const isFirstCol=k=>/\bfirst\b/i.test(k)&&!/user/i.test(k);
+  const isLastCol=k=>/\blast\b/i.test(k)&&!/visit|sale|seen/i.test(k);
+  const isFullNameCol=k=>{
+    if(/user.?name|username|screen.?name/i.test(k))return false;
+    if(isFirstCol(k)||isLastCol(k))return false;
+    return /^(client|guest|member|full|client\s*name|guest\s*name|member\s*name|full\s*name|name)$/i.test(k.trim())||/\bname\b/i.test(k);
+  };
+  const firstCol=cols.find(isFirstCol);
+  const lastCol=cols.find(isLastCol);
+  // Only use a single name column if we don't have a first+last combo
+  const nameCol=(firstCol&&lastCol)?null:cols.find(isFullNameCol);
   const tierCol=cols.find(k=>/membership|pricing.?option|service|plan/i.test(k));
   // Match Mindbody column variants: Date Joined / Join Date / Date Created /
   // Created Date / Start Date / Signup Date / Date Added / Member Since, etc.
@@ -4716,15 +4727,24 @@ function processMemberRows(rows){
     ||cols.find(k=>/date.?created|created.?date|date.?added|added.?date/i.test(k))
     ||cols.find(k=>/start.?date|signup|sign.?up|member.?since/i.test(k));
   if(!nameCol&&!(firstCol&&lastCol)){
-    document.getElementById('member-upload-result').innerHTML=`<div style="color:var(--err);padding:10px;">Could not find a name column. Looking for "Client Name", "Name", or "First Name" + "Last Name". Found columns: <strong>${cols.join(', ')}</strong></div>`;
+    document.getElementById('member-upload-result').innerHTML=`<div style="color:var(--err);padding:10px;line-height:1.5;"><strong>Could not find a name column.</strong><br><br>We look for any column with "first" + "last" in its name (e.g. "First Name" + "Last Name", "Client First" + "Client Last") OR a single column containing "name" (e.g. "Client Name", "Member Name").<br><br>Found columns in your file: <strong>${cols.join(', ')}</strong><br><br>If you think the format should work, screenshot this and let us know so we can add support for it.</div>`;
     return;
   }
-  // Build list of names from the file
+  // Build list of names from the file. If the single name column is in
+  // "Last, First" format (with comma), flip it to "First Last" so matching
+  // against existing guest names works.
   const reportNames=[];
   rows.forEach(r=>{
     let name='';
-    if(nameCol)name=String(r[nameCol]||'').trim();
-    else name=`${String(r[firstCol]||'').trim()} ${String(r[lastCol]||'').trim()}`.trim();
+    if(nameCol){
+      name=String(r[nameCol]||'').trim();
+      if(name.includes(',')){
+        const parts=name.split(',').map(p=>p.trim()).filter(Boolean);
+        if(parts.length===2)name=`${parts[1]} ${parts[0]}`;
+      }
+    } else {
+      name=`${String(r[firstCol]||'').trim()} ${String(r[lastCol]||'').trim()}`.trim();
+    }
     if(!name)return;
     const tier=tierCol?String(r[tierCol]||'').trim():'';
     const start=startCol?String(r[startCol]||'').trim():'';
