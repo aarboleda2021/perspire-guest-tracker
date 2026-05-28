@@ -935,6 +935,8 @@
             <option value="in-studio">In-studio tabling</option>
             <option value="external">External tabling</option>
             <option value="promo">Sales promotion</option>
+            <option value="member-week">Member of the Week</option>
+            <option value="free-friday">Free Friday</option>
             <option value="closure">Closure</option>
             <option value="early-close">Early closure</option>
             <option value="other">Other</option>
@@ -949,6 +951,8 @@
                 <option value="in-studio">In-studio tabling</option>
                 <option value="external">External tabling</option>
                 <option value="promo">Sales promotion</option>
+                <option value="member-week">Member of the Week</option>
+                <option value="free-friday">Free Friday</option>
                 <option value="closure">Studio closure</option>
                 <option value="early-close">Early closure</option>
                 <option value="other">Other</option>
@@ -6494,7 +6498,7 @@ async function removeEvent(id){
 }
 function editEvent(id){
   const e=events.find(x=>x.id===id);if(!e)return;
-  const typeOpts=['in-studio','external','promo','closure','early-close','other'].map(t=>`<option value="${t}" ${e.eventType===t?'selected':''}>${{'in-studio':'In-studio tabling','external':'External tabling','promo':'Sales promotion','closure':'Studio closure','early-close':'Early closure','other':'Other'}[t]}</option>`).join('');
+  const typeOpts=['in-studio','external','promo','member-week','free-friday','closure','early-close','other'].map(t=>`<option value="${t}" ${e.eventType===t?'selected':''}>${{'in-studio':'In-studio tabling','external':'External tabling','promo':'Sales promotion','member-week':'Member of the Week','free-friday':'Free Friday','closure':'Studio closure','early-close':'Early closure','other':'Other'}[t]}</option>`).join('');
   const staffOpts1=`<option value="">Unassigned</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===e.assignedStaff?'selected':''}>${s.name}</option>`).join('')}`;
   const staffOpts2=`<option value="">Unassigned</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===e.assignedStaff2?'selected':''}>${s.name}</option>`).join('')}`;
   const slots=e.volunteersCount??1;
@@ -6559,8 +6563,8 @@ function renderEvents(){
   list=[...list].sort((a,b)=>{const da=parseDate(a.startDate),db=parseDate(b.startDate);return(da?.getTime()||0)-(db?.getTime()||0);});
   const el=document.getElementById('events-list');
   if(!list.length){el.innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No events${fil==='upcoming'?' upcoming':''}${typeFil!=='all'?' matching that type':''}.</p></div>`;return;}
-  const typeLabels={'in-studio':'In-studio tabling','external':'External tabling','promo':'Sales promotion','closure':'Closure','early-close':'Early closure','other':'Other'};
-  const typeBadges={'in-studio':'bm','external':'bot','promo':'bUP','closure':'bod','early-close':'bdu','other':'bia'};
+  const typeLabels={'in-studio':'In-studio tabling','external':'External tabling','promo':'Sales promotion','member-week':'Member of the Week','free-friday':'Free Friday','closure':'Closure','early-close':'Early closure','other':'Other'};
+  const typeBadges={'in-studio':'bm','external':'bot','promo':'bUP','member-week':'bhlt','free-friday':'bdu','closure':'bod','early-close':'bdu','other':'bia'};
   el.innerHTML=list.map(e=>{
     const dateStr=e.endDate&&e.endDate!==e.startDate?`${fmtDate(e.startDate)} – ${fmtDate(e.endDate)}`:fmtDate(e.startDate);
     const timeStr=e.timeRange?` · ${e.timeRange}`:'';
