@@ -6624,8 +6624,18 @@ function getDayOfWeek(){
 }
 function setViewDate(d){_viewDate=d||null;_shownNonConvertedReminders.clear();renderToday();}
 
+// Returns true if a task has no season restriction, or if the given date (YYYY-MM-DD)
+// falls within the task's month-day window. Recurs every year.
+function taskInSeason(t,viewDateStr){
+  if(!t.season)return true;
+  const md=(viewDateStr||getTodayStr()).slice(5); // "MM-DD"
+  return md>=t.season.from&&md<=t.season.to;
+}
+
 const STUDIO_TASKS=[
   {key:'listen360',label:'Log all Listen360 scores & call respective guests',suggestedFor:'opening',days:[0,1,2,3,4,5,6],link:'https://docs.google.com/document/d/1tI5RBT6SHZBgFUiANK5zs83yZGxNDdRgbO99cFRRNMc/edit?tab=t.d188mtcl4pen'},
+  {key:'mow-sign',label:'Update the Member of the Week sign at the front desk',suggestedFor:'closing',days:[0],season:{from:'06-01',to:'08-31'},note:'Get this week\'s member name from the Events & Promos section of the Daily Hub (Mohogany uploads it weekly). Write their name on the desk sign for the week ahead.'},
+  {key:'mow-text',label:'Text this week\'s Member of the Week',suggestedFor:'opening',days:[1],season:{from:'06-01',to:'08-31'},scripts:'member-week-text',note:'Get this week\'s member name from the Events & Promos section. Send the text below encouraging them to book and come in for their free perk.'},
   {key:'call-green-stars',label:'Call tomorrow\'s Green ⭐ first-time visitors',suggestedFor:'closing',days:[0,1,2,3,4,5,6],scripts:'green-star'},
   {key:'daily-cleaning',label:'Daily cleaning tasks complete',days:[0,1,2,3,4,5,6],scripts:'cleaning'},
   {key:'halo-clean',label:'Clean halotherapy machines',days:[2],link:'https://docs.google.com/document/d/1VddlJh1Urc8RpQln0Fu0hp7Hc-98ygN1ItEhoRsRPrQ/edit?pli=1&tab=t.0#heading=h.bt97gz4kb186'},
@@ -6726,8 +6736,9 @@ async function renderToday(){
     </div>
   </div>${readOnlyNotice}`;
 
-  // Studio tasks (regular + holiday)
-  const applicable=[...STUDIO_TASKS.filter(t=>t.days.includes(dow)),...getHolidayTasks(viewDate)];
+  // Studio tasks (regular + holiday). Season-gated tasks (e.g. summer Member of
+  // the Week) only appear within their month-day window.
+  const applicable=[...STUDIO_TASKS.filter(t=>t.days.includes(dow)&&taskInSeason(t,viewDate)),...getHolidayTasks(viewDate)];
   const tasksHtml=applicable.map(t=>{
     const done=dailyTasks.find(x=>x.taskKey===t.key);
     const by=done?sName(done.completedBy):'';
@@ -6735,6 +6746,7 @@ async function renderToday(){
     let scriptBtn='';
     if(t.scripts==='green-star')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openGreenStarScripts()">📞 View call scripts</button>`;
     else if(t.scripts==='cleaning')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openCleaningList()">📋 View today's cleaning list</button>`;
+    else if(t.scripts==='member-week-text')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openMemberWeekText()">📱 View text template</button>`;
     else if(t.special==='cintas'&&!done)scriptBtn=`<button class="btn btn-p btn-sm" style="font-size:11px;" onclick="event.stopPropagation();openCintas()">👆 Click to log supply levels</button>`;
     let cintasSummary='';
     if(t.special==='cintas'&&done&&done.taskData){
@@ -6745,7 +6757,7 @@ async function renderToday(){
     return`<div class="stask ${done?'done':''}" onclick="${clickHandler}" ${t.holiday?'style="border:1.5px dashed var(--warn);background:var(--warnp);"':''}>
       <div class="stask-chk">${done?'<svg width="12" height="12" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div>
       <div class="stask-body">
-        <div class="stask-lbl">${t.label}${t.link?`<a class="stask-link" href="${t.link}" target="_blank" onclick="event.stopPropagation()">How-to guide ↗</a>`:''}${t.suggestedFor?`<div style="font-size:11px;color:var(--muted);font-weight:400;margin-top:2px;font-style:italic;">💡 Suggested for ${t.suggestedFor} shift</div>`:''}</div>
+        <div class="stask-lbl">${t.label}${t.link?`<a class="stask-link" href="${t.link}" target="_blank" onclick="event.stopPropagation()">How-to guide ↗</a>`:''}${t.suggestedFor?`<div style="font-size:11px;color:var(--muted);font-weight:400;margin-top:2px;font-style:italic;">💡 Suggested for ${t.suggestedFor} shift</div>`:''}${t.note?`<div style="font-size:11px;color:var(--mid);font-weight:400;margin-top:4px;line-height:1.4;">${t.note}</div>`:''}</div>
         ${done?`<div class="stask-meta">✓ Completed by ${by} at ${when}${t.special==='cintas'?' · click to view/edit levels':''}</div>${cintasSummary}`:scriptBtn}
       </div>
       ${done?`<button class="btn btn-g btn-sm" onclick="event.stopPropagation();undoTask('${t.key}')" style="font-size:11px;">Undo</button>`:''}
@@ -6794,6 +6806,16 @@ async function renderToday(){
       </tr></thead>
       <tbody>${rows}${totalsRow}</tbody>
     </table></div>`;
+}
+
+// Member of the Week — Monday morning text template
+const MEMBER_WEEK_TEXT=`Hi [Name]! 🎉 It's [Your Name] from Perspire Peachtree Corners — exciting news: you're our Member of the Week! 🧡\n\nAs a thank-you for being part of our community, your next visit this week comes with a free perk of your choice:\n• A Sno Shower\n• A Halotherapy session (enjoyed during your visit)\n• A beverage from our fridge\n\nBook your next session soon so you don't miss out — spots fill up fast! Want me to grab one for you? We can't wait to celebrate you this week! 🥳`;
+function openMemberWeekText(){
+  document.getElementById('tp-script-title').textContent='📱 Member of the Week — text template';
+  document.getElementById('tp-script-sub').textContent='Send this Monday morning to this week\'s Member of the Week (get their name from the Events & Promos section). Replace [Name] and [Your Name].';
+  document.getElementById('tp-script-tabs').innerHTML='';
+  document.getElementById('tp-script-body').textContent=MEMBER_WEEK_TEXT;
+  document.getElementById('tp-script-modal').classList.add('open');
 }
 
 // Green star call scripts popup
