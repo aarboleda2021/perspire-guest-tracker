@@ -7844,13 +7844,27 @@ function _ssFreshState(suiteNum){
 }
 
 async function _ssUpdate(suiteNum,patch,contextSlot){
-  // Always include the for_slot the patch is being applied to, so stale
-  // overrides naturally get ignored once we move past that appointment window.
-  const update={...patch,for_slot:contextSlot.toISOString(),updated_at:new Date().toISOString()};
+  const existing=_ssOverrides[suiteNum];
+  // If the existing override is tied to a DIFFERENT slot, this suite has rolled
+  // over to a new appointment (either naturally as time passed, or via skip).
+  // Start every field fresh so the previous guest's name / Halo / SNØ / moved
+  // flag never leaks into the new appointment — only the current patch sticks.
+  const sameSlot=existing&&existing.for_slot&&existing.for_slot.getTime()===contextSlot.getTime();
+  const FRESH={status:null,guest_first_name:'',moved:false,halo_preset:false,sno_preset:false};
+  const base=sameSlot?{
+    status:existing.status??null,
+    guest_first_name:existing.guest_first_name||'',
+    moved:!!existing.moved,
+    halo_preset:!!existing.halo_preset,
+    sno_preset:!!existing.sno_preset
+  }:{...FRESH};
+  const merged={...base,...patch};
+  // Always write the full field set (not just the patch) so the DB row never
+  // carries a stale value across an appointment-slot change.
+  const update={...merged,for_slot:contextSlot.toISOString(),updated_at:new Date().toISOString()};
   // Optimistic local update
   _ssOverrides[suiteNum]={
-    ..._ssOverrides[suiteNum],
-    ...patch,
+    ...merged,
     for_slot:contextSlot
   };
   // Clear any prior error for this suite — we'll re-flag below if this one also fails
