@@ -82,6 +82,16 @@
     letter-spacing: 0.05em;
     text-transform: uppercase;
   }
+  .enh-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+  .enh-badge {
+    background: #ece4f7;
+    color: #5a3d96;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 12px;
+    letter-spacing: 0.03em;
+  }
 
   .suite-status {
     margin-top: auto;
@@ -186,6 +196,8 @@ async function loadOverrides() {
       status: row.status,
       guest_first_name: row.guest_first_name,
       moved: row.moved,
+      halo_preset: row.halo_preset,
+      sno_preset: row.sno_preset,
       for_slot: row.for_slot ? new Date(row.for_slot) : null
     };
   });
@@ -203,6 +215,8 @@ function subscribeToChanges() {
             status: row.status,
             guest_first_name: row.guest_first_name,
             moved: row.moved,
+            halo_preset: row.halo_preset,
+            sno_preset: row.sno_preset,
             for_slot: row.for_slot ? new Date(row.for_slot) : null
           };
           render();
@@ -267,6 +281,25 @@ function render() {
     status.className = `suite-status ${statusKey}`;
     status.innerHTML = `<span class="dot"></span>${STATUS_LABELS[statusKey]}`;
     card.appendChild(status);
+
+    // Enhancement pre-set badges (only for active sessions)
+    if (state.type === 'active' && (state.haloPreset || state.snoPreset)) {
+      const enh = document.createElement('div');
+      enh.className = 'enh-row';
+      if (state.haloPreset) {
+        const b = document.createElement('span');
+        b.className = 'enh-badge';
+        b.textContent = '✨ Halo ready';
+        enh.appendChild(b);
+      }
+      if (state.snoPreset) {
+        const b = document.createElement('span');
+        b.className = 'enh-badge';
+        b.textContent = '✨ SNØ ready';
+        enh.appendChild(b);
+      }
+      card.appendChild(enh);
+    }
 
     grid.appendChild(card);
   }

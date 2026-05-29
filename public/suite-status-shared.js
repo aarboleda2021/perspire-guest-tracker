@@ -97,14 +97,18 @@
     let status = 'warming-up';
     let guestName = '';
     let moved = false;
+    let haloPreset = false;
+    let snoPreset = false;
 
     if (override && override.for_slot && override.for_slot.getTime() === contextSlot.getTime()) {
       if (override.status) status = override.status;
       if (override.guest_first_name) guestName = override.guest_first_name;
       if (override.moved) moved = override.moved;
+      if (override.halo_preset) haloPreset = override.halo_preset;
+      if (override.sno_preset) snoPreset = override.sno_preset;
     }
 
-    return { type: 'active', time: contextSlot, status, guestName, moved, naturalSlot, nextSlot, isAdvanced };
+    return { type: 'active', time: contextSlot, status, guestName, moved, haloPreset, snoPreset, naturalSlot, nextSlot, isAdvanced };
   }
 
   window.PerspireSuiteStatus = {

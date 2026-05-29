@@ -349,6 +349,9 @@
   .ss-name-clear:hover{background:var(--sand);}
   .ss-moved-toggle{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mid);cursor:pointer;user-select:none;}
   .ss-moved-toggle input{width:16px;height:16px;accent-color:var(--tc);cursor:pointer;}
+  .ss-enh-row{display:flex;gap:16px;flex-wrap:wrap;padding-top:8px;border-top:1px dashed var(--border);}
+  .ss-enh-toggle{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--mid);cursor:pointer;user-select:none;}
+  .ss-enh-toggle input{width:16px;height:16px;accent-color:var(--pur);cursor:pointer;}
   .ss-skip-row{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);}
   .ss-advanced-tag{font-size:11px;color:var(--tc);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-right:auto;}
   .ss-skip-btn{background:transparent;border:1.5px solid var(--border);color:var(--mid);padding:7px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
@@ -7799,6 +7802,8 @@ async function _ssLoadOverrides(){
       status:row.status,
       guest_first_name:row.guest_first_name,
       moved:row.moved,
+      halo_preset:row.halo_preset,
+      sno_preset:row.sno_preset,
       for_slot:row.for_slot?new Date(row.for_slot):null
     };
   });
@@ -7813,6 +7818,8 @@ function _ssSubscribe(){
           status:row.status,
           guest_first_name:row.guest_first_name,
           moved:row.moved,
+          halo_preset:row.halo_preset,
+          sno_preset:row.sno_preset,
           for_slot:row.for_slot?new Date(row.for_slot):null
         };
         if(currentView==='suites'&&!_ssShouldSkipRender())_ssRender();
@@ -7939,6 +7946,22 @@ function _ssRender(){
       const cbText=document.createElement('span');cbText.textContent='Moved from another suite';
       movedLabel.appendChild(cbText);
       fields.appendChild(movedLabel);
+
+      // Enhancement pre-set toggles — Halo + SNØ. When checked, a badge shows on the lobby display.
+      const enhRow=document.createElement('div');enhRow.className='ss-enh-row';
+      [['halo_preset','Halo pre-set',state.haloPreset],['sno_preset','SNØ pre-set',state.snoPreset]].forEach(([key,label,checked])=>{
+        const lbl=document.createElement('label');lbl.className='ss-enh-toggle';
+        const box=document.createElement('input');box.type='checkbox';box.checked=!!checked;
+        box.onchange=(e)=>{
+          const s=_ssFreshState(i);if(!s||s.type==='closed')return;
+          _ssUpdate(i,{[key]:e.target.checked},s.time);
+        };
+        lbl.appendChild(box);
+        const t=document.createElement('span');t.textContent=label;
+        lbl.appendChild(t);
+        enhRow.appendChild(lbl);
+      });
+      fields.appendChild(enhRow);
       row.appendChild(fields);
 
       // Save-failure indicator (only shown when most recent save errored)
@@ -7977,7 +8000,7 @@ function _ssSkipTo(suiteNum,direction){
   if(!s||s.type!=='active')return;
   const target=direction==='next'?s.nextSlot:s.naturalSlot;
   if(!target)return;
-  _ssUpdate(suiteNum,{status:null,guest_first_name:'',moved:false},target);
+  _ssUpdate(suiteNum,{status:null,guest_first_name:'',moved:false,halo_preset:false,sno_preset:false},target);
 }
 
 function _ssSetStatus(suiteNum,status){
