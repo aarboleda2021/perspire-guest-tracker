@@ -4591,9 +4591,23 @@ function handleVisitsUpload(event){
   reader.onload=function(e){
     try{
       const data=new Uint8Array(e.target.result);
-      const wb=XLSX.read(data,{type:'array'});
+      const wb=XLSX.read(data,{type:'array',cellDates:true});
       const ws=wb.Sheets[wb.SheetNames[0]];
-      const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      // Mindbody Attendance Analysis exports often have title/blank rows above
+      // the real header. Scan the first 15 rows to find the row that actually
+      // contains column names (mirrors the member-roster upload logic).
+      const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      let headerRowIdx=-1;
+      const headerKeywords=/^(client\s*name|client|name|first\s*name|last\s*name|full\s*name|member|guest|signed.?in|visits)$/i;
+      for(let i=0;i<Math.min(15,aoa.length);i++){
+        const row=aoa[i]||[];
+        if(row.some(cell=>cell&&headerKeywords.test(String(cell).trim()))){
+          headerRowIdx=i;break;
+        }
+      }
+      const rows=headerRowIdx===-1
+        ?XLSX.utils.sheet_to_json(ws,{defval:'',raw:false})
+        :XLSX.utils.sheet_to_json(ws,{range:headerRowIdx,defval:'',raw:false});
       processUploadRows(rows);
     } catch(err){
       document.getElementById('upload-result').innerHTML=`<div style="color:var(--err);padding:10px;">Error parsing file: ${err.message}</div>`;
@@ -4603,12 +4617,28 @@ function handleVisitsUpload(event){
 }
 
 function processUploadRows(rows){
-  // Find Guest column and Signed-In Visits column (case-insensitive)
+  // Find Guest column (or First+Last combo) and Signed-In Visits column.
+  // Mirrors the permissive matching from the member-roster upload — Mindbody's
+  // Detail-by-Guest report typically uses separate "First Name" + "Last Name"
+  // columns, but the old code grabbed whichever name-ish column appeared first
+  // (usually "Last Name") and only saw last names, so nothing matched.
   if(!rows.length){document.getElementById('upload-result').innerHTML=`<div style="color:var(--err);">No data in file.</div>`;return;}
   const cols=Object.keys(rows[0]);
-  const guestCol=cols.find(k=>/guest|name/i.test(k));
+  const isFirstCol=k=>/\bfirst\b/i.test(k)&&!/user/i.test(k);
+  const isLastCol=k=>/\blast\b/i.test(k)&&!/visit|sale|seen/i.test(k);
+  const isFullNameCol=k=>{
+    if(/user.?name|username|screen.?name/i.test(k))return false;
+    if(isFirstCol(k)||isLastCol(k))return false;
+    return /^(client|guest|member|full|client\s*name|guest\s*name|member\s*name|full\s*name|name)$/i.test(k.trim())||/\b(guest|client|member)\b/i.test(k)||/\bname\b/i.test(k);
+  };
+  const firstCol=cols.find(isFirstCol);
+  const lastCol=cols.find(isLastCol);
+  // Prefer first+last combo when both exist — Mindbody's Detail by Guest report
+  // exports that way, and combining them gives "First Last" which matches the
+  // tracker's stored guest names.
+  const guestCol=(firstCol&&lastCol)?null:cols.find(isFullNameCol);
   const visitsCol=cols.find(k=>/signed.?in/i.test(k))||cols.find(k=>/total.?visits/i.test(k));
-  if(!guestCol||!visitsCol){
+  if((!guestCol&&!(firstCol&&lastCol))||!visitsCol){
     // The "Visiting Clients / Total Clients / Percent of Total Visits" columns are the telltale
     // sign of the SUMMARY report (the wrong one). Detect that and give a specific, actionable fix.
     const looksLikeSummary=cols.some(k=>/visiting clients/i.test(k))||cols.some(k=>/percent of total/i.test(k));
@@ -4627,7 +4657,17 @@ function processUploadRows(rows){
   const matches=[];
   let unmatchedCount=0;
   rows.forEach(r=>{
-    const name=String(r[guestCol]||'').trim();
+    let name='';
+    if(guestCol){
+      name=String(r[guestCol]||'').trim();
+      // Handle "Last, First" single-column format — flip to "First Last".
+      if(name.includes(',')){
+        const parts=name.split(',').map(p=>p.trim()).filter(Boolean);
+        if(parts.length===2)name=`${parts[1]} ${parts[0]}`;
+      }
+    } else {
+      name=`${String(r[firstCol]||'').trim()} ${String(r[lastCol]||'').trim()}`.trim();
+    }
     const visits=parseInt(r[visitsCol]);
     if(!name||isNaN(visits))return;
     const match=activeMembers.find(g=>g.name.toLowerCase().trim()===name.toLowerCase());
