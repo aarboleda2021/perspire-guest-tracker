@@ -104,7 +104,72 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  return res.status(400).json({ error: 'Invalid resource. Use ?resource=tasks or ?resource=logs' });
+  if (resource === 'custom-tasks') {
+    if (req.method === 'GET') {
+      const { data, error } = await supabase
+        .from('custom_tasks')
+        .select('*')
+        .order('start_date', { ascending: false });
+      if (error) return res.status(500).json({ error: error.message });
+      const result = data.map(t => ({
+        id: t.id,
+        title: t.title,
+        description: t.description || '',
+        link: t.link || null,
+        suggestedFor: t.suggested_for || null,
+        startDate: t.start_date,
+        endDate: t.end_date || null,
+        daysOfWeek: t.days_of_week || null,
+        createdBy: t.created_by || null,
+        createdAt: t.created_at
+      }));
+      return res.status(200).json(result);
+    }
+    if (req.method === 'POST') {
+      const b = req.body;
+      if (!b.id || !b.title || !b.startDate) {
+        return res.status(400).json({ error: 'Missing id, title, or startDate' });
+      }
+      const { error } = await supabase.from('custom_tasks').insert({
+        id: b.id,
+        title: b.title,
+        description: b.description || null,
+        link: b.link || null,
+        suggested_for: b.suggestedFor || null,
+        start_date: b.startDate,
+        end_date: b.endDate || null,
+        days_of_week: b.daysOfWeek || null,
+        created_by: b.createdBy || null
+      });
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(201).json({ ok: true });
+    }
+    if (req.method === 'PUT') {
+      const id = req.query.id;
+      if (!id) return res.status(400).json({ error: 'Missing id' });
+      const b = req.body;
+      const updates = {};
+      if (b.title !== undefined) updates.title = b.title;
+      if (b.description !== undefined) updates.description = b.description || null;
+      if (b.link !== undefined) updates.link = b.link || null;
+      if (b.suggestedFor !== undefined) updates.suggested_for = b.suggestedFor || null;
+      if (b.startDate !== undefined) updates.start_date = b.startDate;
+      if (b.endDate !== undefined) updates.end_date = b.endDate || null;
+      if (b.daysOfWeek !== undefined) updates.days_of_week = b.daysOfWeek || null;
+      const { error } = await supabase.from('custom_tasks').update(updates).eq('id', id);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json({ ok: true });
+    }
+    if (req.method === 'DELETE') {
+      const id = req.query.id;
+      if (!id) return res.status(400).json({ error: 'Missing id' });
+      const { error } = await supabase.from('custom_tasks').delete().eq('id', id);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json({ ok: true });
+    }
+  }
+
+  return res.status(400).json({ error: 'Invalid resource. Use ?resource=tasks, logs, or custom-tasks' });
 };
 
 // ── Cintas levels email ───────────────────────────────────────────────

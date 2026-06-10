@@ -754,6 +754,57 @@
       </div>
     </div>
     <div style="margin-top:28px;padding:18px;background:var(--sand);border:1.5px solid var(--border);border-radius:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Custom staff tasks</div>
+        <button class="btn btn-p btn-sm" onclick="toggleAddCustomTask()">+ Add custom task</button>
+      </div>
+      <p style="font-size:13px;color:var(--mid);line-height:1.5;margin-bottom:12px;">Create one-off or recurring tasks that show up on Daily Hub → Today's Tasks for staff to complete. Use for things like "Deep clean Suite 4 on June 15" or "Every Friday this summer, restock referral cards." Tasks marked here appear with a purple "CUSTOM" badge so staff know they're not part of the standard checklist.</p>
+      <div class="aform" id="add-customtask-form">
+        <div class="aft" id="ct-form-title">Add custom task</div>
+        <div class="fg"><label class="fl">Task title<span class="req">*</span></label><input type="text" class="fi" id="ct-title" placeholder="e.g. Deep clean Suite 4 — vacuum & wipe all surfaces"></div>
+        <div class="fg"><label class="fl">Instructions / notes</label><textarea class="fi" id="ct-desc" rows="2" placeholder="Optional — give staff extra context (where supplies are, what to check, etc.)"></textarea></div>
+        <div class="frow">
+          <div class="fg"><label class="fl">Link (optional)</label><input type="text" class="fi" id="ct-link" placeholder="https://... (Google Doc, etc.)"></div>
+          <div class="fg"><label class="fl">Suggested shift</label>
+            <select class="fi" id="ct-shift">
+              <option value="">Either</option>
+              <option value="opening">Opening</option>
+              <option value="closing">Closing</option>
+            </select>
+          </div>
+        </div>
+        <div class="fg"><label class="fl">Recurrence<span class="req">*</span></label>
+          <select class="fi" id="ct-recur" onchange="onCustomTaskRecurChange()">
+            <option value="once">Just one day</option>
+            <option value="range">Every day in a date range</option>
+            <option value="weekly">Specific weekdays in a date range</option>
+          </select>
+        </div>
+        <div class="frow">
+          <div class="fg"><label class="fl" id="ct-start-lbl">Date<span class="req">*</span></label><input type="date" class="fi" id="ct-start"></div>
+          <div class="fg" id="ct-end-wrap" style="display:none;"><label class="fl">End date <span style="color:var(--muted);font-weight:400;">(leave blank for no end)</span></label><input type="date" class="fi" id="ct-end"></div>
+        </div>
+        <div class="fg" id="ct-dow-wrap" style="display:none;">
+          <label class="fl">Which days of the week?<span class="req">*</span></label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+            <label class="fci" style="flex:0 0 auto;"><input type="checkbox" class="fchk" value="0" name="ct-dow"><div><div class="fchk-lbl">Sun</div></div></label>
+            <label class="fci" style="flex:0 0 auto;"><input type="checkbox" class="fchk" value="1" name="ct-dow"><div><div class="fchk-lbl">Mon</div></div></label>
+            <label class="fci" style="flex:0 0 auto;"><input type="checkbox" class="fchk" value="2" name="ct-dow"><div><div class="fchk-lbl">Tue</div></div></label>
+            <label class="fci" style="flex:0 0 auto;"><input type="checkbox" class="fchk" value="3" name="ct-dow"><div><div class="fchk-lbl">Wed</div></div></label>
+            <label class="fci" style="flex:0 0 auto;"><input type="checkbox" class="fchk" value="4" name="ct-dow"><div><div class="fchk-lbl">Thu</div></div></label>
+            <label class="fci" style="flex:0 0 auto;"><input type="checkbox" class="fchk" value="5" name="ct-dow"><div><div class="fchk-lbl">Fri</div></div></label>
+            <label class="fci" style="flex:0 0 auto;"><input type="checkbox" class="fchk" value="6" name="ct-dow"><div><div class="fchk-lbl">Sat</div></div></label>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+          <button class="btn btn-g" onclick="cancelCustomTaskForm()">Cancel</button>
+          <button class="btn btn-p" id="ct-submit-btn" onclick="submitCustomTask()">Add task</button>
+        </div>
+      </div>
+      <div id="custom-tasks-list" style="margin-top:12px;"></div>
+    </div>
+
+    <div style="margin-top:18px;padding:18px;background:var(--sand);border:1.5px solid var(--border);border-radius:12px;">
       <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Export daily numbers</div>
       <p style="font-size:13px;color:var(--mid);line-height:1.5;margin-bottom:12px;">Download every staff member's daily log (opportunities, first visits booked, membership/package sales, outbound calls, pre-booked guests, contact logs done, Axle follow-ups done) for any date range as a CSV. One row per staff member per day.</p>
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
@@ -2368,7 +2419,7 @@ function showChangeScript(key,ch,btn){
 
 // ── STATE ─────────────────────────────────────────────────────────────────
 
-let guests=[],changes=[],staffList=[],nurtures=[],shiftNotes=[],events=[],announcements=[],recordings=[],giftCerts=[];
+let guests=[],changes=[],staffList=[],nurtures=[],shiftNotes=[],events=[],announcements=[],recordings=[],giftCerts=[],customTasks=[];
 
 const DEFAULT_STAFF=[
   {id:'crystal', name:'Crystal', active:true, membershipGoal:10, packageGoal:5},
@@ -2414,6 +2465,7 @@ function lsSave(){
     localStorage.setItem(LS_ANNOUNCE,JSON.stringify(announcements));
     localStorage.setItem(LS_RECORDINGS,JSON.stringify(recordings));
     localStorage.setItem(LS_GIFTCERTS,JSON.stringify(giftCerts));
+    localStorage.setItem('psp-v7-customtasks',JSON.stringify(customTasks));
   }catch(e){}
 }
 
@@ -2453,9 +2505,13 @@ async function loadGiftCerts(){
   if(useLocalStorage){giftCerts=lsGet(LS_GIFTCERTS,[]);return;}
   giftCerts=await api('gift-certs');
 }
+async function loadCustomTasks(){
+  if(useLocalStorage){customTasks=lsGet('psp-v7-customtasks',[]);return;}
+  customTasks=await api('daily?resource=custom-tasks');
+}
 async function loadAll(){
   try{
-    await Promise.all([loadGuests(),loadChanges(),loadStaff(),loadNurtures(),loadShiftNotes(),loadEvents(),loadAnnouncements(),loadRecordings(),loadGiftCerts()]);
+    await Promise.all([loadGuests(),loadChanges(),loadStaff(),loadNurtures(),loadShiftNotes(),loadEvents(),loadAnnouncements(),loadRecordings(),loadGiftCerts(),loadCustomTasks()]);
   }catch(e){
     console.warn('API unavailable, using local storage fallback.',e.message);
     useLocalStorage=true;
@@ -2468,6 +2524,7 @@ async function loadAll(){
     announcements=lsGet(LS_ANNOUNCE,[]);
     recordings=lsGet(LS_RECORDINGS,[]);
     giftCerts=lsGet(LS_GIFTCERTS,[]);
+    customTasks=lsGet('psp-v7-customtasks',[]);
   }
   // One-time auto-reassign for existing tier-change nurtures whose guest's
   // assigned staff doesn't match. Fires once per page load. Reactivations
@@ -3347,6 +3404,8 @@ function renderMgrChanges(){
 }
 
 function renderRoster(){
+  // Also draw the custom tasks list when this tab opens
+  renderCustomTasksList();
   // Default the daily-log export date range to the last 30 days (only if blank)
   const fromEl=document.getElementById('dlexp-from');
   const toEl=document.getElementById('dlexp-to');
@@ -3371,6 +3430,156 @@ function renderRoster(){
         <button class="btn btn-sm" style="${s.active?'color:var(--err);border:1.5px solid var(--err);':'color:var(--ok);border:1.5px solid var(--ok);'}background:transparent;" onclick="toggleStaffActive('${s.id}')">${s.active?'Deactivate':'Reactivate'}</button>
       </div>
       ${goalRow}
+    </div>`;
+  }).join('');
+}
+
+// ── CUSTOM TASKS (manager editor) ─────────────────────────────────────────
+let _editingCustomTaskId=null;
+
+function onCustomTaskRecurChange(){
+  const r=document.getElementById('ct-recur').value;
+  const endWrap=document.getElementById('ct-end-wrap');
+  const dowWrap=document.getElementById('ct-dow-wrap');
+  const startLbl=document.getElementById('ct-start-lbl');
+  if(r==='once'){
+    endWrap.style.display='none';
+    dowWrap.style.display='none';
+    startLbl.innerHTML='Date<span class="req">*</span>';
+  } else if(r==='range'){
+    endWrap.style.display='block';
+    dowWrap.style.display='none';
+    startLbl.innerHTML='Start date<span class="req">*</span>';
+  } else {
+    endWrap.style.display='block';
+    dowWrap.style.display='block';
+    startLbl.innerHTML='Start date<span class="req">*</span>';
+  }
+}
+
+function toggleAddCustomTask(){
+  const f=document.getElementById('add-customtask-form');
+  if(f.classList.contains('open')){cancelCustomTaskForm();return;}
+  _editingCustomTaskId=null;
+  document.getElementById('ct-form-title').textContent='Add custom task';
+  document.getElementById('ct-submit-btn').textContent='Add task';
+  document.getElementById('ct-title').value='';
+  document.getElementById('ct-desc').value='';
+  document.getElementById('ct-link').value='';
+  document.getElementById('ct-shift').value='';
+  document.getElementById('ct-recur').value='once';
+  document.getElementById('ct-start').value=toInputDate(new Date());
+  document.getElementById('ct-end').value='';
+  document.querySelectorAll('input[name=ct-dow]').forEach(cb=>cb.checked=false);
+  onCustomTaskRecurChange();
+  f.classList.add('open');
+}
+
+function cancelCustomTaskForm(){
+  document.getElementById('add-customtask-form').classList.remove('open');
+  _editingCustomTaskId=null;
+}
+
+async function submitCustomTask(){
+  const title=document.getElementById('ct-title').value.trim();
+  const desc=document.getElementById('ct-desc').value.trim();
+  const link=document.getElementById('ct-link').value.trim();
+  const shift=document.getElementById('ct-shift').value||null;
+  const recur=document.getElementById('ct-recur').value;
+  const startDate=document.getElementById('ct-start').value;
+  const endDateRaw=document.getElementById('ct-end').value;
+  const dows=Array.from(document.querySelectorAll('input[name=ct-dow]:checked')).map(cb=>parseInt(cb.value));
+  const errs=[];
+  if(!title)errs.push('Task title');
+  if(!startDate)errs.push('Start date');
+  if(recur==='weekly'&&dows.length===0)errs.push('At least one day of the week');
+  if((recur==='range'||recur==='weekly')&&endDateRaw&&endDateRaw<startDate)errs.push('End date must be on or after start date');
+  if(errs.length){alert('Please fix:\n• '+errs.join('\n• '));return;}
+  const endDate=recur==='once'?startDate:(endDateRaw||null);
+  const daysOfWeek=recur==='weekly'?dows:null;
+  if(_editingCustomTaskId){
+    const t=customTasks.find(x=>x.id===_editingCustomTaskId);if(!t){alert('Task not found.');return;}
+    Object.assign(t,{title,description:desc,link:link||null,suggestedFor:shift,startDate,endDate,daysOfWeek});
+    if(useLocalStorage){lsSave();}
+    else{await api('daily?resource=custom-tasks&id='+_editingCustomTaskId,{method:'PUT',body:{title,description:desc,link:link||null,suggestedFor:shift,startDate,endDate,daysOfWeek}});await loadCustomTasks();}
+  } else {
+    const rec={id:Date.now().toString(),title,description:desc,link:link||null,suggestedFor:shift,startDate,endDate,daysOfWeek,createdBy:'mohogany',createdAt:new Date().toISOString()};
+    if(useLocalStorage){customTasks.unshift(rec);lsSave();}
+    else{await api('daily?resource=custom-tasks',{method:'POST',body:rec});await loadCustomTasks();}
+  }
+  cancelCustomTaskForm();
+  renderCustomTasksList();
+}
+
+function openEditCustomTask(id){
+  const t=customTasks.find(x=>x.id===id);if(!t)return;
+  _editingCustomTaskId=id;
+  document.getElementById('ct-form-title').textContent='Edit custom task';
+  document.getElementById('ct-submit-btn').textContent='Save changes';
+  document.getElementById('ct-title').value=t.title||'';
+  document.getElementById('ct-desc').value=t.description||'';
+  document.getElementById('ct-link').value=t.link||'';
+  document.getElementById('ct-shift').value=t.suggestedFor||'';
+  let recur='once';
+  if(t.daysOfWeek&&t.daysOfWeek.length>0)recur='weekly';
+  else if(t.endDate&&t.endDate!==t.startDate)recur='range';
+  else if(!t.endDate)recur='range'; // open-ended counts as range
+  document.getElementById('ct-recur').value=recur;
+  document.getElementById('ct-start').value=t.startDate||'';
+  document.getElementById('ct-end').value=(t.endDate&&t.endDate!==t.startDate)?t.endDate:'';
+  document.querySelectorAll('input[name=ct-dow]').forEach(cb=>{cb.checked=(t.daysOfWeek||[]).includes(parseInt(cb.value));});
+  onCustomTaskRecurChange();
+  document.getElementById('add-customtask-form').classList.add('open');
+  document.getElementById('add-customtask-form').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+async function deleteCustomTask(id){
+  const t=customTasks.find(x=>x.id===id);if(!t)return;
+  if(!confirm(`Delete custom task "${t.title}"?\n\nIt will stop appearing on Today's Tasks. Any past completions stay in the record.`))return;
+  if(useLocalStorage){customTasks=customTasks.filter(x=>x.id!==id);lsSave();}
+  else{await api('daily?resource=custom-tasks&id='+id,{method:'DELETE'});await loadCustomTasks();}
+  renderCustomTasksList();
+}
+
+function describeCustomTaskSchedule(t){
+  const dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  if(t.startDate===t.endDate)return `One day · ${fmtDate(t.startDate)}`;
+  const range=t.endDate?`${fmtDate(t.startDate)} – ${fmtDate(t.endDate)}`:`${fmtDate(t.startDate)} – ongoing`;
+  if(t.daysOfWeek&&t.daysOfWeek.length>0){
+    return `${range} · ${t.daysOfWeek.map(d=>dayNames[d]).join(', ')}`;
+  }
+  return `${range} · every day`;
+}
+
+function renderCustomTasksList(){
+  const el=document.getElementById('custom-tasks-list');if(!el)return;
+  if(!customTasks||!customTasks.length){
+    el.innerHTML=`<div style="font-size:12px;color:var(--muted);padding:8px 0;font-style:italic;">No custom tasks yet. Click "+ Add custom task" to create one.</div>`;
+    return;
+  }
+  const today=getTodayStr();
+  const isActive=t=>(t.startDate<=today)&&(!t.endDate||t.endDate>=today);
+  const isUpcoming=t=>t.startDate>today;
+  const isPast=t=>t.endDate&&t.endDate<today;
+  const sorted=[...customTasks].sort((a,b)=>{
+    const ra=isActive(a)?0:isUpcoming(a)?1:2;
+    const rb=isActive(b)?0:isUpcoming(b)?1:2;
+    if(ra!==rb)return ra-rb;
+    return (b.startDate||'').localeCompare(a.startDate||'');
+  });
+  el.innerHTML=sorted.map(t=>{
+    const status=isActive(t)?'<span class="badge bhlt" style="font-size:9px;">ACTIVE</span>':isUpcoming(t)?'<span class="badge bm" style="font-size:9px;">UPCOMING</span>':'<span class="badge bia" style="font-size:9px;">PAST</span>';
+    return `<div style="background:white;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:220px;">
+        <div style="font-size:13px;font-weight:600;color:var(--dark);">${t.title} ${status}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px;">${describeCustomTaskSchedule(t)}${t.suggestedFor?` · ${t.suggestedFor} shift`:''}</div>
+        ${t.description?`<div style="font-size:12px;color:var(--mid);margin-top:4px;font-style:italic;">${t.description}</div>`:''}
+        ${t.link?`<div style="font-size:11px;margin-top:3px;"><a href="${t.link}" target="_blank" style="color:var(--info);">${t.link.length>50?t.link.slice(0,50)+'…':t.link} ↗</a></div>`:''}
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        <button class="btn btn-g btn-sm" onclick="openEditCustomTask('${t.id}')">Edit</button>
+        <button class="btn btn-sm btn-do" onclick="deleteCustomTask('${t.id}')">Delete</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -6675,6 +6884,28 @@ function taskInSeason(t,viewDateStr){
   return md>=t.season.from&&md<=t.season.to;
 }
 
+// Returns the custom tasks that apply on a given date (YYYY-MM-DD). Honors the
+// task's start_date, end_date (nullable = forever), and days_of_week filter.
+function customTasksForDate(dateStr){
+  if(!customTasks||!customTasks.length)return [];
+  const d=new Date(dateStr+'T12:00:00');
+  const dow=d.getDay();
+  return customTasks.filter(t=>{
+    if(t.startDate&&dateStr<t.startDate)return false;
+    if(t.endDate&&dateStr>t.endDate)return false;
+    if(t.daysOfWeek&&t.daysOfWeek.length>0&&!t.daysOfWeek.includes(dow))return false;
+    return true;
+  }).map(t=>({
+    key:'custom-'+t.id,
+    label:t.title,
+    note:t.description||'',
+    link:t.link||null,
+    suggestedFor:t.suggestedFor||null,
+    days:[0,1,2,3,4,5,6],
+    isCustom:true
+  }));
+}
+
 const STUDIO_TASKS=[
   {key:'listen360',label:'Log all Listen360 scores & call respective guests',suggestedFor:'opening',days:[0,1,2,3,4,5,6],link:'https://docs.google.com/document/d/1tI5RBT6SHZBgFUiANK5zs83yZGxNDdRgbO99cFRRNMc/edit?tab=t.d188mtcl4pen'},
   {key:'mow-sign',label:'Update the Member of the Week sign at the front desk',suggestedFor:'closing',days:[0],season:{from:'06-01',to:'08-31'},note:'Get this week\'s member name from the Events & Promos section of the Daily Hub (Mohogany uploads it weekly). Write their name on the desk sign for the week ahead.'},
@@ -6779,9 +7010,14 @@ async function renderToday(){
     </div>
   </div>${readOnlyNotice}`;
 
-  // Studio tasks (regular + holiday). Season-gated tasks (e.g. summer Member of
-  // the Week) only appear within their month-day window.
-  const applicable=[...STUDIO_TASKS.filter(t=>t.days.includes(dow)&&taskInSeason(t,viewDate)),...getHolidayTasks(viewDate)];
+  // Studio tasks (regular + holiday + custom). Season-gated tasks (e.g. summer
+  // Member of the Week) only appear within their month-day window. Custom tasks
+  // appear on dates that match their start/end/daysOfWeek config.
+  const applicable=[
+    ...STUDIO_TASKS.filter(t=>t.days.includes(dow)&&taskInSeason(t,viewDate)),
+    ...getHolidayTasks(viewDate),
+    ...customTasksForDate(viewDate)
+  ];
   const tasksHtml=applicable.map(t=>{
     const done=dailyTasks.find(x=>x.taskKey===t.key);
     const by=done?sName(done.completedBy):'';
@@ -6797,10 +7033,12 @@ async function renderToday(){
       cintasSummary=`<div style="margin-top:8px;padding:10px 12px;background:white;border:1px solid var(--border);border-radius:8px;font-size:12px;line-height:1.7;">${CINTAS_ITEMS.map((item,i)=>{const d=done.taskData[i]||{};return`<div><strong>${item}:</strong> ${statusLabels[d.status]||'—'}${d.notes?` <span style="color:var(--muted);">— ${d.notes}</span>`:''}</div>`;}).join('')}</div>`;
     }
     const clickHandler=t.special==='cintas'?`openCintas()`:`openTaskComplete('${t.key}')`;
-    return`<div class="stask ${done?'done':''}" onclick="${clickHandler}" ${t.holiday?'style="border:1.5px dashed var(--warn);background:var(--warnp);"':''}>
+    const customBadge=t.isCustom?`<span class="badge" style="background:var(--purp);color:var(--pur);font-size:9px;margin-left:6px;vertical-align:middle;">CUSTOM</span>`:'';
+    const customStyle=t.isCustom?'style="border:1.5px dashed var(--pur);background:var(--purp);"':'';
+    return`<div class="stask ${done?'done':''}" onclick="${clickHandler}" ${t.holiday?'style="border:1.5px dashed var(--warn);background:var(--warnp);"':customStyle}>
       <div class="stask-chk">${done?'<svg width="12" height="12" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div>
       <div class="stask-body">
-        <div class="stask-lbl">${t.label}${t.link?`<a class="stask-link" href="${t.link}" target="_blank" onclick="event.stopPropagation()">How-to guide ↗</a>`:''}${t.suggestedFor?`<div style="font-size:11px;color:var(--muted);font-weight:400;margin-top:2px;font-style:italic;">💡 Suggested for ${t.suggestedFor} shift</div>`:''}${t.note?`<div style="font-size:11px;color:var(--mid);font-weight:400;margin-top:4px;line-height:1.4;">${t.note}</div>`:''}</div>
+        <div class="stask-lbl">${t.label}${customBadge}${t.link?`<a class="stask-link" href="${t.link}" target="_blank" onclick="event.stopPropagation()">How-to guide ↗</a>`:''}${t.suggestedFor?`<div style="font-size:11px;color:var(--muted);font-weight:400;margin-top:2px;font-style:italic;">💡 Suggested for ${t.suggestedFor} shift</div>`:''}${t.note?`<div style="font-size:11px;color:var(--mid);font-weight:400;margin-top:4px;line-height:1.4;">${t.note}</div>`:''}</div>
         ${done?`<div class="stask-meta">✓ Completed by ${by} at ${when}${t.special==='cintas'?' · click to view/edit levels':''}</div>${cintasSummary}`:scriptBtn}
       </div>
       ${done?`<button class="btn btn-g btn-sm" onclick="event.stopPropagation();undoTask('${t.key}')" style="font-size:11px;">Undo</button>`:''}
@@ -6894,7 +7132,10 @@ function openCleaningList(){
 // Open simple task-complete modal
 let _pendingTaskKey=null;
 function openTaskComplete(key){
-  const t=STUDIO_TASKS.find(x=>x.key===key)||getHolidayTasks(getViewDate()).find(x=>x.key===key);if(!t)return;
+  const t=STUDIO_TASKS.find(x=>x.key===key)
+    ||getHolidayTasks(getViewDate()).find(x=>x.key===key)
+    ||customTasksForDate(getViewDate()).find(x=>x.key===key);
+  if(!t)return;
   if(t.special==='cintas'){openCintas(key);return;}
   _pendingTaskKey=key;
   document.getElementById('task-title').textContent=t.label;
