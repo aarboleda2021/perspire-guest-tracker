@@ -58,7 +58,23 @@
 
     const firstWarmup = new Date(slots[0].getTime() - WARMUP_LEAD_MIN * 60000);
     if (now < firstWarmup) {
-      return { type: 'pre-open', label: `Opens at ${formatTime(slots[0])}`, time: slots[0], status: 'warming-up' };
+      // Pre-open: the first session of the day hasn't reached its warmup window
+      // yet. Still honor an override tied to slots[0] — staff may want to pre-set
+      // Ready / Check-in / a guest's name / Halo / SNØ before the day's first
+      // appointment. Without this, staff clicks during pre-open silently no-op.
+      let status = 'warming-up';
+      let guestName = '';
+      let moved = false;
+      let haloPreset = false;
+      let snoPreset = false;
+      if (override && override.for_slot && override.for_slot.getTime() === slots[0].getTime()) {
+        if (override.status) status = override.status;
+        if (override.guest_first_name) guestName = override.guest_first_name;
+        if (override.moved) moved = override.moved;
+        if (override.halo_preset) haloPreset = override.halo_preset;
+        if (override.sno_preset) snoPreset = override.sno_preset;
+      }
+      return { type: 'pre-open', label: `Opens at ${formatTime(slots[0])}`, time: slots[0], status, guestName, moved, haloPreset, snoPreset, naturalSlot: slots[0], nextSlot: null, isAdvanced: false };
     }
     const lastEnd = new Date(slots[slots.length - 1].getTime() + SESSION_LENGTH_MIN * 60000);
     if (now >= lastEnd) {

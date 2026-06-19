@@ -182,12 +182,14 @@ function initSupabase() {
   return true;
 }
 
-async function loadOverrides() {
+async function loadOverrides(silent = false) {
   const { data, error } = await sb.from('suite_status').select('*');
   if (error) {
     console.error('suite_status load error', error);
-    document.body.insertAdjacentHTML('afterbegin',
-      '<div class="config-warning">⚠️ Couldn\'t load live status (showing default). If this persists, make sure the suite_status table exists in Supabase. Detail: ' + (error.message || error) + '</div>');
+    if (!silent) {
+      document.body.insertAdjacentHTML('afterbegin',
+        '<div class="config-warning">⚠️ Couldn\'t load live status (showing default). If this persists, make sure the suite_status table exists in Supabase. Detail: ' + (error.message || error) + '</div>');
+    }
     return;
   }
   overrides = {};
@@ -258,7 +260,7 @@ function render() {
     }
     card.appendChild(time);
 
-    if (state.type === 'active' && (state.guestName || state.moved)) {
+    if ((state.type === 'active' || state.type === 'pre-open') && (state.guestName || state.moved)) {
       const guest = document.createElement('div');
       guest.className = 'suite-guest';
       if (state.guestName) {
@@ -282,8 +284,8 @@ function render() {
     status.innerHTML = `<span class="dot"></span>${STATUS_LABELS[statusKey]}`;
     card.appendChild(status);
 
-    // Enhancement pre-set badges (only for active sessions)
-    if (state.type === 'active' && (state.haloPreset || state.snoPreset)) {
+    // Enhancement pre-set badges (active or pre-open — staff may pre-set before doors open)
+    if ((state.type === 'active' || state.type === 'pre-open') && (state.haloPreset || state.snoPreset)) {
       const enh = document.createElement('div');
       enh.className = 'enh-row';
       if (state.haloPreset) {
@@ -314,8 +316,14 @@ window.addEventListener('DOMContentLoaded', async () => {
   await loadOverrides();
   render();
   subscribeToChanges();
-  // Re-render every 30s so status transitions on time even without DB changes
-  setInterval(render, 30000);
+  // Re-fetch + re-render every 20s. The realtime subscription handles instant
+  // updates; this is a safety net for when the websocket silently drops (network
+  // blip, laptop suspend, etc.) and stops receiving events. Without this, the
+  // lobby could be stuck on stale data until someone manually refreshes.
+  setInterval(async () => {
+    await loadOverrides(true);
+    render();
+  }, 20000);
 });
 </script>
 

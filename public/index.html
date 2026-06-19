@@ -8060,7 +8060,7 @@ loadAll().then(()=>{
 // Talks directly to Supabase from the browser (no Vercel function).
 // Lobby page (lobby.html) reads the same table in real-time.
 
-let _ssSupabase=null,_ssOverrides={},_ssInited=false,_ssTickInterval=null,_ssErrors={},_ssErrorTimers={};
+let _ssSupabase=null,_ssOverrides={},_ssInited=false,_ssTickInterval=null,_ssErrors={},_ssErrorTimers={},_ssWritesInFlight=0;
 
 function _ssInitSupabase(){
   if(_ssSupabase)return true;
@@ -8151,9 +8151,18 @@ async function _ssUpdate(suiteNum,patch,contextSlot){
   // Clear any prior error for this suite — we'll re-flag below if this one also fails
   _ssClearError(suiteNum);
   _ssRender();
-  const {error}=await _ssSupabase.from('suite_status').update(update).eq('suite_num',suiteNum);
-  if(error){
-    console.error('suite_status update',error);
+  // Track in-flight writes so the safety-net poll doesn't overwrite an
+  // optimistic local change before the DB round-trip completes.
+  _ssWritesInFlight++;
+  let saveError=null;
+  try{
+    const {error}=await _ssSupabase.from('suite_status').update(update).eq('suite_num',suiteNum);
+    saveError=error;
+  }finally{
+    _ssWritesInFlight--;
+  }
+  if(saveError){
+    console.error('suite_status update',saveError);
     _ssFlagError(suiteNum);
     // Re-sync local state with what the DB actually has, so the optimistic
     // change doesn't linger visually after the user knows it failed.
@@ -8312,7 +8321,16 @@ async function initSuiteStatusView(){
     _ssSubscribe();
     _ssInited=true;
     if(_ssTickInterval)clearInterval(_ssTickInterval);
-    _ssTickInterval=setInterval(()=>{if(currentView==='suites'&&!_ssShouldSkipRender())_ssRender();},30000);
+    // Tick every 30s: re-fetch from DB (safety net for dropped realtime websocket),
+    // then re-render. Skip if the user is typing a name or has a write in flight —
+    // either case would clobber a local edit. Also skip if not on the suites view.
+    _ssTickInterval=setInterval(async()=>{
+      if(currentView!=='suites')return;
+      if(_ssShouldSkipRender())return;
+      if(_ssWritesInFlight>0){_ssRender();return;}
+      await _ssLoadOverrides();
+      _ssRender();
+    },30000);
   }
   _ssRender();
 }
