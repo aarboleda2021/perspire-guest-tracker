@@ -51,10 +51,16 @@
   //
   // override format: { status, guest_first_name, moved, for_slot } where for_slot is a Date or null
   function getSuiteState(suiteNum, now, override) {
+    // Manual "closed for service" wins over everything else and persists across
+    // days, slots, and the schedule. Staff explicitly reopens to clear it.
+    if (override && override.closed) {
+      return { type: 'closed', label: 'Closed for service', time: null, manualClosed: true };
+    }
+
     const schedule = getScheduleFor(now);
     const slots = (schedule[suiteNum] || []).map(s => parseSlotToToday(s, now));
 
-    if (slots.length === 0) return { type: 'closed', label: 'Closed', time: null };
+    if (slots.length === 0) return { type: 'closed', label: 'Closed', time: null, manualClosed: false };
 
     const firstWarmup = new Date(slots[0].getTime() - WARMUP_LEAD_MIN * 60000);
     if (now < firstWarmup) {
@@ -78,7 +84,7 @@
     }
     const lastEnd = new Date(slots[slots.length - 1].getTime() + SESSION_LENGTH_MIN * 60000);
     if (now >= lastEnd) {
-      return { type: 'closed', label: 'Closed for today', time: null };
+      return { type: 'closed', label: 'Closed for today', time: null, manualClosed: false };
     }
 
     // Find the time-based ("natural") context slot.

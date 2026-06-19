@@ -360,7 +360,13 @@
   .ss-back-btn:hover{background:var(--tc);color:white;}
   .ss-save-error{background:var(--errp);color:var(--err);border:1.5px solid var(--err);border-radius:6px;padding:9px 12px;margin-top:10px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px;line-height:1.4;}
   .ss-save-error::before{content:"⚠";font-size:15px;flex-shrink:0;}
-  .ss-row.closed .ss-buttons,.ss-row.closed .ss-fields,.ss-row.closed .ss-skip-row{display:none;}
+  .ss-closed-msg{font-size:13px;color:var(--muted);margin:6px 0 12px;font-style:italic;line-height:1.4;}
+  .ss-reopen-btn{background:var(--tcp);border:1.5px solid var(--tc);color:var(--tc);padding:10px 18px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;align-self:flex-start;}
+  .ss-reopen-btn:hover{background:var(--tc);color:white;}
+  .ss-closed-toggle-row{display:flex;justify-content:flex-end;margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);}
+  .ss-mark-closed-btn{background:transparent;border:1.5px solid var(--border);color:var(--muted);padding:6px 11px;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+  .ss-mark-closed-btn:hover{border-color:var(--err);color:var(--err);background:var(--errp);}
+  .ss-row.closed .ss-buttons,.ss-row.closed .ss-fields,.ss-row.closed .ss-skip-row,.ss-row.closed .ss-closed-toggle-row{display:none;}
 </style>
 </head>
 <body>
@@ -843,6 +849,7 @@
           <li><strong>Add the guest's first name</strong> to personalize — and check "Moved" if you've moved them from a different suite</li>
           <li><strong>Early arrival? Tap "Skip to next session →"</strong> to jump that suite ahead to the upcoming appointment. Their name and status save against the next slot. Tap <strong>"← Back to current session"</strong> if you skipped by mistake.</li>
           <li><strong>No need to reset anything</strong> — every status, name, and "Moved" flag auto-clears 15 min before the next appointment</li>
+          <li><strong>Suite out of service?</strong> Tap "🔧 Mark closed for service" at the bottom of a suite card. The card collapses and the lobby shows "Closed for service" instead of an appointment. Stays closed (even across days) until you tap "Reopen suite."</li>
           <li><strong>See a red error banner?</strong> Tap the same button again. If it keeps failing, hard refresh the page (Cmd + Shift + R).</li>
         </ul>
       </div>
@@ -8091,6 +8098,7 @@ async function _ssLoadOverrides(){
       moved:row.moved,
       halo_preset:row.halo_preset,
       sno_preset:row.sno_preset,
+      closed:row.closed,
       for_slot:row.for_slot?new Date(row.for_slot):null
     };
   });
@@ -8155,9 +8163,11 @@ async function _ssUpdate(suiteNum,patch,contextSlot){
   const update=sameSlot
     ? {...patch,for_slot:contextSlot.toISOString(),updated_at:new Date().toISOString()}
     : {...FRESH,...patch,for_slot:contextSlot.toISOString(),updated_at:new Date().toISOString()};
-  // Optimistic local update
+  // Optimistic local update. Preserve the persistent "closed" flag — it lives
+  // outside the per-slot fields and shouldn't be wiped by a status / name edit.
   _ssOverrides[suiteNum]={
     ...merged,
+    closed: !!(existing && existing.closed),
     for_slot:contextSlot
   };
   // Clear any prior error for this suite — we'll re-flag below if this one also fails
@@ -8181,6 +8191,34 @@ async function _ssUpdate(suiteNum,patch,contextSlot){
     _ssFlagError(suiteNum);
     // Re-sync local state with what the DB actually has, so the optimistic
     // change doesn't linger visually after the user knows it failed.
+    _ssLoadOverrides().then(_ssRender);
+  }
+}
+
+async function _ssToggleClosed(suiteNum,closed){
+  // Manual "closed for service" is a persistent flag — independent of slot
+  // context, doesn't auto-clear, only writes the closed column (not the full
+  // row), and survives the nightly cleanup cron. Toggling reopens the suite.
+  _ssOverrides[suiteNum]={
+    ...(_ssOverrides[suiteNum]||{}),
+    closed
+  };
+  _ssClearError(suiteNum);
+  _ssRender();
+  _ssWritesInFlight++;
+  _ssWriteSeq++;
+  let saveError=null;
+  try{
+    const {error}=await _ssSupabase.from('suite_status')
+      .update({closed,updated_at:new Date().toISOString()})
+      .eq('suite_num',suiteNum);
+    saveError=error;
+  }finally{
+    _ssWritesInFlight--;
+  }
+  if(saveError){
+    console.error('suite_status close toggle',saveError);
+    _ssFlagError(suiteNum);
     _ssLoadOverrides().then(_ssRender);
   }
 }
@@ -8222,7 +8260,22 @@ function _ssRender(){
     top.appendChild(tm);
     row.appendChild(top);
 
-    if(state.type!=='closed'){
+    if(state.type==='closed' && state.manualClosed){
+      // Manually closed for service. Collapse the card to a status message +
+      // prominent Reopen button so it's obvious how to bring the suite back.
+      const msg=document.createElement('div');msg.className='ss-closed-msg';
+      msg.textContent='This suite is offline for service. Reopen when ready.';
+      row.appendChild(msg);
+      const reopen=document.createElement('button');reopen.className='ss-reopen-btn';reopen.textContent='Reopen suite';
+      reopen.onclick=()=>_ssToggleClosed(i,false);
+      row.appendChild(reopen);
+      // Save-failure indicator still shown so a failed close/reopen toggle is visible
+      if(_ssErrors[i]){
+        const err=document.createElement('div');err.className='ss-save-error';
+        err.textContent="Couldn't save — tap again. Still failing? Refresh the page.";
+        row.appendChild(err);
+      }
+    } else if(state.type!=='closed'){
       // Status buttons
       const btns=document.createElement('div');btns.className='ss-buttons';
       [['warming-up','Warming up'],['ready','Ready'],['check-in','Check-in']].forEach(([key,label])=>{
@@ -8319,6 +8372,15 @@ function _ssRender(){
         }
         row.appendChild(skipRow);
       }
+
+      // "Mark closed for service" — small, low-prominence toggle at the bottom
+      // of each open suite card. Persists across slots and days until reopened.
+      const closeRow=document.createElement('div');closeRow.className='ss-closed-toggle-row';
+      const closeBtn=document.createElement('button');closeBtn.className='ss-mark-closed-btn';
+      closeBtn.textContent='🔧 Mark closed for service';
+      closeBtn.onclick=()=>_ssToggleClosed(i,true);
+      closeRow.appendChild(closeBtn);
+      row.appendChild(closeRow);
     }
     grid.appendChild(row);
   }
