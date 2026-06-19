@@ -6150,6 +6150,22 @@ function setDailyTab(tab){
 const WORKING_AS_KEY='psp-v7-working-as';
 const IDENT_CONFIRMED_KEY='psp-v7-ident-confirmed';
 const NOTIF_LASTSEEN_KEY='psp-v7-notif-lastseen';
+// Per-staff "tracking started" cutoff (per device). Items created BEFORE this
+// timestamp don't count toward the user's unread badge — fixes the historical-
+// items issue where every pre-existing note/announcement looked unread to
+// everyone the moment we shipped per-staff acks.
+const TRACKING_FROM_PREFIX='psp-v7-tracking-from-';
+function getTrackingFrom(staffId){
+  if(!staffId)return null;
+  const v=localStorage.getItem(TRACKING_FROM_PREFIX+staffId);
+  return v?new Date(v):null;
+}
+function ensureTrackingFrom(staffId){
+  if(!staffId)return;
+  if(!localStorage.getItem(TRACKING_FROM_PREFIX+staffId)){
+    localStorage.setItem(TRACKING_FROM_PREFIX+staffId,new Date().toISOString());
+  }
+}
 // Hours of inactivity before we prompt "Still you?"
 const IDENT_CHECKIN_HOURS=2;
 // Session-only flag — true once user manually picks staff-sel on New Guests so we
@@ -6161,6 +6177,9 @@ function setWorkingAs(sid){
     localStorage.setItem(WORKING_AS_KEY,sid);
     // Track that this person is actively here so the inactivity check-in doesn't fire prematurely
     localStorage.setItem(IDENT_CONFIRMED_KEY,new Date().toISOString());
+    // First time on this device for this staff member? Set their tracking cutoff
+    // so historical items don't pollute their badge.
+    ensureTrackingFrom(sid);
   } else {
     localStorage.removeItem(WORKING_AS_KEY);
     localStorage.removeItem(IDENT_CONFIRMED_KEY);
@@ -6203,9 +6222,12 @@ function markNotifsSeen(){
 function countUnseenNotifs(){
   const me=getWorkingAs();
   if(me){
-    // Per-staff: unread = !resolved AND this person hasn't acknowledged
-    const newNotes=(shiftNotes||[]).filter(n=>!n.resolvedAt&&!(n.acknowledgments||{})[me]).length;
-    const newAnnounce=(announcements||[]).filter(a=>!a.resolvedAt&&!(a.acknowledgments||{})[me]).length;
+    // Per-staff: unread = !resolved AND this person hasn't acknowledged AND
+    // the item was created AFTER they started tracking on this device.
+    const trackingFrom=getTrackingFrom(me);
+    const inRange=createdAt=>!trackingFrom||(createdAt&&new Date(createdAt)>=trackingFrom);
+    const newNotes=(shiftNotes||[]).filter(n=>!n.resolvedAt&&!(n.acknowledgments||{})[me]&&inRange(n.createdAt)).length;
+    const newAnnounce=(announcements||[]).filter(a=>!a.resolvedAt&&!(a.acknowledgments||{})[me]&&inRange(a.createdAt)).length;
     return {notes:newNotes,announce:newAnnounce,total:newNotes+newAnnounce,perStaff:true};
   }
   // Fallback: device-wide "newer than last seen"
@@ -6434,8 +6456,10 @@ function renderShiftNotes(){
   });
   const el=document.getElementById('notes-list');
   const me=getWorkingAs();
-  const myUnreadCount=(shiftNotes||[]).filter(n=>!n.resolvedAt&&me&&!(n.acknowledgments||{})[me]).length
-    +(announcements||[]).filter(a=>!a.resolvedAt&&me&&!(a.acknowledgments||{})[me]).length;
+  const trackingFrom=getTrackingFrom(me);
+  const inTrackingRange=createdAt=>!trackingFrom||(createdAt&&new Date(createdAt)>=trackingFrom);
+  const myUnreadCount=(shiftNotes||[]).filter(n=>!n.resolvedAt&&me&&!(n.acknowledgments||{})[me]&&inTrackingRange(n.createdAt)).length
+    +(announcements||[]).filter(a=>!a.resolvedAt&&me&&!(a.acknowledgments||{})[me]&&inTrackingRange(a.createdAt)).length;
   let banner='';
   if(!me){
     banner=`<div style="background:var(--sand);border-left:3px solid var(--info);padding:10px 14px;border-radius:6px;font-size:12px;color:var(--mid);margin-bottom:12px;line-height:1.5;">👤 <strong>Pick your name in the "Working as…" dropdown</strong> at the top of the page so the app can track which notes & announcements YOU have read.</div>`;
@@ -6448,8 +6472,11 @@ function renderShiftNotes(){
   // you" section so the focus is on what's still actionable.
   const useGrouping=me&&fil==='active';
   if(useGrouping){
-    const unread=list.filter(n=>!n.resolvedAt&&!(n.acknowledgments||{})[me]);
-    const readAlready=list.filter(n=>!n.resolvedAt&&(n.acknowledgments||{})[me]);
+    // "Needs attention" excludes items created before this person started
+    // tracking on this device — those are old, and treated as "already handled"
+    // even though they don't have an explicit ack.
+    const unread=list.filter(n=>!n.resolvedAt&&!(n.acknowledgments||{})[me]&&inTrackingRange(n.createdAt));
+    const readAlready=list.filter(n=>!n.resolvedAt&&((n.acknowledgments||{})[me]||!inTrackingRange(n.createdAt)));
     let html=banner;
     if(unread.length){
       html+=`<div class="sec-hdr" style="border-bottom:2px solid var(--info);margin-bottom:8px;"><div class="sec-title" style="color:var(--info);">🔔 Needs your attention</div><div class="sec-ct">${unread.length}</div></div>`;
@@ -6673,8 +6700,10 @@ function renderAnnouncements(){
   // acknowledged by you" so the focus is on what's actionable for THIS person.
   const useGrouping=me&&fil==='unacknowledged';
   if(useGrouping){
-    const unread=list.filter(a=>!a.resolvedAt&&!(a.acknowledgments||{})[me]);
-    const readAlready=list.filter(a=>!a.resolvedAt&&(a.acknowledgments||{})[me]);
+    const trackingFrom=getTrackingFrom(me);
+    const inRange=createdAt=>!trackingFrom||(createdAt&&new Date(createdAt)>=trackingFrom);
+    const unread=list.filter(a=>!a.resolvedAt&&!(a.acknowledgments||{})[me]&&inRange(a.createdAt));
+    const readAlready=list.filter(a=>!a.resolvedAt&&((a.acknowledgments||{})[me]||!inRange(a.createdAt)));
     let html='';
     if(unread.length){
       html+=`<div class="sec-hdr" style="border-bottom:2px solid var(--info);margin-bottom:8px;"><div class="sec-title" style="color:var(--info);">📣 Needs your acknowledgment</div><div class="sec-ct">${unread.length}</div></div>`;
@@ -8411,6 +8440,10 @@ loadAll().then(()=>{
   } else {
     setDailyTab('notes');
   }
+  // If someone's already signed in (e.g., from before per-staff tracking
+  // existed), make sure their cutoff timestamp is set so historical items
+  // don't show up as "needs your attention."
+  ensureTrackingFrom(getWorkingAs());
   updateNotifBadges();
   maybeShowIdentCheckin();
   // Refresh badges every 60s so new items posted by another device show up
