@@ -8060,7 +8060,7 @@ loadAll().then(()=>{
 // Talks directly to Supabase from the browser (no Vercel function).
 // Lobby page (lobby.html) reads the same table in real-time.
 
-let _ssSupabase=null,_ssOverrides={},_ssInited=false,_ssTickInterval=null,_ssErrors={},_ssErrorTimers={},_ssWritesInFlight=0;
+let _ssSupabase=null,_ssOverrides={},_ssInited=false,_ssTickInterval=null,_ssErrors={},_ssErrorTimers={},_ssWritesInFlight=0,_ssWriteSeq=0;
 
 function _ssInitSupabase(){
   if(_ssSupabase)return true;
@@ -8075,8 +8075,14 @@ function _ssInitSupabase(){
 }
 
 async function _ssLoadOverrides(){
+  // Snapshot the write counter BEFORE the fetch. If it changes during the
+  // fetch, a save happened mid-flight and the SELECT may not reflect that
+  // change yet — bail rather than replace local optimistic state with stale
+  // server data. The realtime echo (or the next tick) will reconcile.
+  const seqAtStart=_ssWriteSeq;
   const {data,error}=await _ssSupabase.from('suite_status').select('*');
   if(error){console.error('suite_status load',error);return;}
+  if(_ssWriteSeq>seqAtStart)return;
   _ssOverrides={};
   data.forEach(row=>{
     _ssOverrides[row.suite_num]={
@@ -8140,9 +8146,15 @@ async function _ssUpdate(suiteNum,patch,contextSlot){
     sno_preset:!!existing.sno_preset
   }:{...FRESH};
   const merged={...base,...patch};
-  // Always write the full field set (not just the patch) so the DB row never
-  // carries a stale value across an appointment-slot change.
-  const update={...merged,for_slot:contextSlot.toISOString(),updated_at:new Date().toISOString()};
+  // DB update strategy:
+  //   - SAME slot: write ONLY the patched fields + for_slot. This way, two
+  //     devices editing different fields at the same time don't clobber each
+  //     other (e.g. Mac sets Ready, phone types a name — both stick).
+  //   - SLOT ROLLOVER: write the full FRESH + patch so previous-slot leftover
+  //     values can't leak into the new appointment.
+  const update=sameSlot
+    ? {...patch,for_slot:contextSlot.toISOString(),updated_at:new Date().toISOString()}
+    : {...FRESH,...patch,for_slot:contextSlot.toISOString(),updated_at:new Date().toISOString()};
   // Optimistic local update
   _ssOverrides[suiteNum]={
     ...merged,
@@ -8152,8 +8164,11 @@ async function _ssUpdate(suiteNum,patch,contextSlot){
   _ssClearError(suiteNum);
   _ssRender();
   // Track in-flight writes so the safety-net poll doesn't overwrite an
-  // optimistic local change before the DB round-trip completes.
+  // optimistic local change before the DB round-trip completes. _ssWriteSeq
+  // is a monotonic counter the load uses to detect mid-fetch writes (catches
+  // even writes that started AND completed during the load round-trip).
   _ssWritesInFlight++;
+  _ssWriteSeq++;
   let saveError=null;
   try{
     const {error}=await _ssSupabase.from('suite_status').update(update).eq('suite_num',suiteNum);
@@ -8227,15 +8242,27 @@ function _ssRender(){
       input.placeholder='Guest first name';
       input.value=state.guestName||'';
       input.onblur=(e)=>{
-        const s=_ssFreshState(i);if(!s||s.type==='closed')return;
-        _ssUpdate(i,{guest_first_name:e.target.value.trim()},s.time);
+        // Defer the save+render to the next frame so a click that *caused* this
+        // blur (e.g. tapping Ready right after typing) lands on its target
+        // before the DOM rebuilds. Without this, the blur handler's _ssRender
+        // destroys the click target mid-event and the tap is silently dropped.
+        const newValue=e.target.value.trim();
+        requestAnimationFrame(()=>{
+          const s=_ssFreshState(i);if(!s||s.type==='closed')return;
+          _ssUpdate(i,{guest_first_name:newValue},s.time);
+        });
       };
       nameRow.appendChild(input);
       if(state.guestName){
         const clr=document.createElement('button');clr.className='ss-name-clear';clr.textContent='✕';clr.title='Clear name';
         clr.onclick=()=>{
-          const s=_ssFreshState(i);if(!s||s.type==='closed')return;
-          _ssUpdate(i,{guest_first_name:''},s.time);
+          // Also defer so that if the user typed something and then tapped X,
+          // the blur-deferred save runs first and the X clear runs after —
+          // last write wins, and "clear" reflects the user's most recent intent.
+          requestAnimationFrame(()=>{
+            const s=_ssFreshState(i);if(!s||s.type==='closed')return;
+            _ssUpdate(i,{guest_first_name:''},s.time);
+          });
         };
         nameRow.appendChild(clr);
       }
