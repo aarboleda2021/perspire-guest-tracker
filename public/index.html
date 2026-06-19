@@ -379,6 +379,7 @@
     <button class="vbtn" onclick="setView('guests')" id="btn-guests">New Guests &amp; Outreach</button>
     <button class="vbtn" onclick="setView('changes')" id="btn-changes">Membership Changes</button>
     <button class="vbtn" onclick="setView('manager')" id="btn-manager">Manager View</button>
+    <select id="working-as" class="vbtn" onchange="setWorkingAs(this.value)" title="Pick your name so the app can track which notes & announcements YOU have read (the badge clears as you mark items read). Picks save on this device." style="padding:5px 10px;font-size:12px;color:white;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);"></select>
     <button class="vbtn" onclick="openModal('help-modal')" id="btn-help" title="Quick reference guide" style="padding-left:14px;padding-right:14px;">?</button>
   </div>
   <button class="suites-btn" onclick="setView('suites')" id="btn-suites" title="Update suite status for the lobby display"><span class="suites-btn-icon">🛋</span> Suite Status</button>
@@ -2641,7 +2642,7 @@ function updateEditTierOpts(){
   const opts=(t==='member'?MEMBER_TIERS:PACKAGE_TIERS);
   document.getElementById('eg-tier').innerHTML=opts.map(x=>`<option value="${x}" ${x===cur?'selected':''}>${x}</option>`).join('');
 }
-function fillAll(){fillStaff('staff-sel');fillStaff('ng-staff');fillStaff('mc-submitter');fillStaff('ec-submitter');fillStaff('rd-staff');updateTierOpts();const ss=document.getElementById('status-sel');if(ss){const v=localStorage.getItem('psp-v7-guests-status');if(v)ss.value=v;}}
+function fillAll(){fillStaff('staff-sel');fillStaff('ng-staff');fillStaff('mc-submitter');fillStaff('ec-submitter');fillStaff('rd-staff');updateTierOpts();const ss=document.getElementById('status-sel');if(ss){const v=localStorage.getItem('psp-v7-guests-status');if(v)ss.value=v;}populateWorkingAsPicker();}
 
 // ── FORM LOGIC ────────────────────────────────────────────────────────────
 
@@ -6067,7 +6068,13 @@ function setDailyTab(tab){
   const map={notes:'daily-notes',events:'daily-events',today:'daily-today',learning:'daily-learning',perf:'daily-perf'};
   Object.entries(map).forEach(([k,id])=>document.getElementById(id).style.display=k===tab?'block':'none');
   ['notes','events','today','learning','perf'].forEach(s=>document.getElementById('tab-'+s).classList.toggle('active',s===tab));
-  if(tab==='notes'){renderShiftNotes();renderAnnouncements();markNotifsSeen();}
+  if(tab==='notes'){
+    renderShiftNotes();renderAnnouncements();
+    // Only update the device-wide "last seen" when no one is signed in.
+    // In per-staff mode, the badge clears via per-item acks instead.
+    if(!getWorkingAs())markNotifsSeen();
+    else updateNotifBadges();
+  }
   else if(tab==='events')renderEvents();
   else if(tab==='today')renderToday();
   else if(tab==='learning')renderRecordings();
@@ -6075,44 +6082,133 @@ function setDailyTab(tab){
   if(typeof saveViewState==='function')saveViewState();
 }
 
-// ── NEW-ITEM NOTIFICATIONS (shift notes + leadership announcements) ──────
-// Tracked per-device via localStorage. When staff opens Daily Hub > Shift Notes,
-// we save the current time as "last seen" — anything posted after that counts as
-// new. Badges show on the Daily Hub top-nav button and the Shift Notes sub-tab.
+// ── "WORKING AS" + PER-STAFF NEW-ITEM NOTIFICATIONS ──────────────────────
+// Each device picks a staff member ("working as") so we can track which notes
+// & announcements that specific person has read. The badge clears for them
+// individually as they mark items read. If no one is signed in, falls back to
+// device-wide "last seen" tracking (everything posted after the device's last
+// visit to Shift Notes counts as new).
+const WORKING_AS_KEY='psp-v7-working-as';
 const NOTIF_LASTSEEN_KEY='psp-v7-notif-lastseen';
+function getWorkingAs(){return localStorage.getItem(WORKING_AS_KEY)||'';}
+function setWorkingAs(sid){
+  if(sid)localStorage.setItem(WORKING_AS_KEY,sid);
+  else localStorage.removeItem(WORKING_AS_KEY);
+  updateNotifBadges();
+  // Re-render shift notes + announcements if visible so per-person ack UI updates
+  if(currentView==='daily'&&currentDailyTab==='notes'){
+    renderShiftNotes();renderAnnouncements();
+  }
+}
+function populateWorkingAsPicker(){
+  const sel=document.getElementById('working-as');if(!sel)return;
+  const cur=getWorkingAs();
+  const opts=activeStaff().map(s=>`<option value="${s.id}" ${s.id===cur?'selected':''}>👤 ${s.name}</option>`).join('');
+  sel.innerHTML=`<option value="">👤 Working as…</option>${opts}`;
+  // If a saved value isn't in the active list anymore (e.g., staff deactivated), clear
+  if(cur&&!activeStaff().some(s=>s.id===cur)){localStorage.removeItem(WORKING_AS_KEY);sel.value='';}
+}
 function _getLastSeen(){
   const v=localStorage.getItem(NOTIF_LASTSEEN_KEY);
   return v?new Date(v):new Date(0);
 }
 function markNotifsSeen(){
+  // Only used as a fallback when no one is signed in — saves a device-wide
+  // last-seen timestamp.
   localStorage.setItem(NOTIF_LASTSEEN_KEY,new Date().toISOString());
   updateNotifBadges();
 }
 function countUnseenNotifs(){
+  const me=getWorkingAs();
+  if(me){
+    // Per-staff: unread = !resolved AND this person hasn't acknowledged
+    const newNotes=(shiftNotes||[]).filter(n=>!n.resolvedAt&&!(n.acknowledgments||{})[me]).length;
+    const newAnnounce=(announcements||[]).filter(a=>!a.resolvedAt&&!(a.acknowledgments||{})[me]).length;
+    return {notes:newNotes,announce:newAnnounce,total:newNotes+newAnnounce,perStaff:true};
+  }
+  // Fallback: device-wide "newer than last seen"
   const since=_getLastSeen();
   const newNotes=(shiftNotes||[]).filter(n=>!n.resolvedAt&&n.createdAt&&new Date(n.createdAt)>since).length;
   const newAnnounce=(announcements||[]).filter(a=>!a.resolvedAt&&a.createdAt&&new Date(a.createdAt)>since).length;
-  return {notes:newNotes,announce:newAnnounce,total:newNotes+newAnnounce};
+  return {notes:newNotes,announce:newAnnounce,total:newNotes+newAnnounce,perStaff:false};
 }
 function updateNotifBadges(){
   const c=countUnseenNotifs();
   const navEl=document.getElementById('nav-notif-daily');
   const tabEl=document.getElementById('tab-notif-notes');
-  // Hide the Daily Hub nav badge when staff is already in the Daily Hub on the
-  // Shift Notes tab (they're seeing the content) — but still show it from any
-  // other view so they notice from elsewhere.
-  const isOnNotesNow=currentView==='daily'&&currentDailyTab==='notes';
-  if(navEl){
-    if(c.total>0&&!isOnNotesNow){navEl.textContent=c.total>9?'9+':String(c.total);navEl.style.display='inline-flex';}
-    else navEl.style.display='none';
-  }
-  if(tabEl){
-    if(c.total>0&&!isOnNotesNow){tabEl.textContent=c.total>9?'9+':String(c.total);tabEl.style.display='inline-flex';}
-    else tabEl.style.display='none';
-  }
+  // When per-staff acks are in play, the badge ONLY clears once they ack the
+  // items — opening the tab doesn't clear it. When device-wide, opening the
+  // tab clears it (current behavior).
+  const hideForOpenTab=!c.perStaff&&currentView==='daily'&&currentDailyTab==='notes';
+  const showBadge=c.total>0&&!hideForOpenTab;
+  const text=c.total>9?'9+':String(c.total);
+  if(navEl){navEl.textContent=text;navEl.style.display=showBadge?'inline-flex':'none';}
+  if(tabEl){tabEl.textContent=text;tabEl.style.display=showBadge?'inline-flex':'none';}
 }
 
 // Shift Notes
+// ── Per-staff acknowledgments on shift notes ──
+async function acknowledgeShiftNote(id){
+  const me=getWorkingAs();
+  if(!me){alert('Pick your name from the "Working as…" dropdown at the top first.');return;}
+  if(useLocalStorage){
+    const n=shiftNotes.find(x=>x.id===id);if(!n)return;
+    if(!n.acknowledgments)n.acknowledgments={};
+    n.acknowledgments[me]=new Date().toISOString();
+    lsSave();
+  } else {
+    // Re-fetch first so concurrent acks from multiple staff don't overwrite each other
+    await loadShiftNotes();
+    const fresh=shiftNotes.find(x=>x.id===id);if(!fresh)return;
+    const merged={...(fresh.acknowledgments||{}),[me]:new Date().toISOString()};
+    await api('shift-notes?id='+id,{method:'PUT',body:{acknowledgments:merged}});
+    await loadShiftNotes();
+  }
+  renderShiftNotes();updateNotifBadges();
+}
+async function unacknowledgeShiftNote(id){
+  const me=getWorkingAs();if(!me)return;
+  if(useLocalStorage){
+    const n=shiftNotes.find(x=>x.id===id);if(!n||!n.acknowledgments)return;
+    delete n.acknowledgments[me];
+    lsSave();
+  } else {
+    await loadShiftNotes();
+    const fresh=shiftNotes.find(x=>x.id===id);if(!fresh)return;
+    const merged={...(fresh.acknowledgments||{})};
+    delete merged[me];
+    await api('shift-notes?id='+id,{method:'PUT',body:{acknowledgments:merged}});
+    await loadShiftNotes();
+  }
+  renderShiftNotes();updateNotifBadges();
+}
+
+// "Mark everything read" — acks every unread (and unresolved) shift note +
+// announcement at once for the signed-in user. One click instead of one per item.
+async function ackAllNewItems(){
+  const me=getWorkingAs();
+  if(!me){alert('Pick your name from the "Working as…" dropdown at the top first.');return;}
+  const unreadNotes=(shiftNotes||[]).filter(n=>!n.resolvedAt&&!(n.acknowledgments||{})[me]);
+  const unreadAnn=(announcements||[]).filter(a=>!a.resolvedAt&&!(a.acknowledgments||{})[me]);
+  const total=unreadNotes.length+unreadAnn.length;
+  if(!total){return;}
+  if(!confirm(`Mark all ${total} new item${total!==1?'s':''} as read for ${sName(me)}?`))return;
+  const now=new Date().toISOString();
+  for(const n of unreadNotes){
+    const merged={...(n.acknowledgments||{}),[me]:now};
+    if(useLocalStorage){n.acknowledgments=merged;}
+    else{try{await api('shift-notes?id='+n.id,{method:'PUT',body:{acknowledgments:merged}});}catch(e){console.warn('ack note',e.message);}}
+  }
+  for(const a of unreadAnn){
+    const merged={...(a.acknowledgments||{}),[me]:now};
+    if(useLocalStorage){a.acknowledgments=merged;}
+    else{try{await api('announcements?id='+a.id,{method:'PUT',body:{acknowledgments:merged}});}catch(e){console.warn('ack ann',e.message);}}
+  }
+  if(useLocalStorage)lsSave();
+  else{await Promise.all([loadShiftNotes(),loadAnnouncements()]);}
+  renderShiftNotes();renderAnnouncements();updateNotifBadges();
+}
+
 function isNoteActive(n){
   if(n.resolvedAt)return false;
   const created=new Date(n.createdAt);
@@ -6221,22 +6317,49 @@ function renderShiftNotes(){
     return sort==='oldest'?ad-bd:bd-ad;
   });
   const el=document.getElementById('notes-list');
-  if(!list.length){el.innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No notes${fil==='active'?' — you\'re all caught up!':''}.</p></div>`;return;}
-  el.innerHTML=list.map(n=>{
+  const me=getWorkingAs();
+  const myUnreadCount=(shiftNotes||[]).filter(n=>!n.resolvedAt&&me&&!(n.acknowledgments||{})[me]).length
+    +(announcements||[]).filter(a=>!a.resolvedAt&&me&&!(a.acknowledgments||{})[me]).length;
+  let banner='';
+  if(!me){
+    banner=`<div style="background:var(--sand);border-left:3px solid var(--info);padding:10px 14px;border-radius:6px;font-size:12px;color:var(--mid);margin-bottom:12px;line-height:1.5;">👤 <strong>Pick your name in the "Working as…" dropdown</strong> at the top of the page so the app can track which notes & announcements YOU have read.</div>`;
+  } else if(myUnreadCount>0){
+    banner=`<div style="background:var(--infop);border-left:3px solid var(--info);padding:10px 14px;border-radius:6px;font-size:12px;color:var(--info);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><span>👤 <strong>${sName(me)}</strong>, you have <strong>${myUnreadCount} unread</strong> item${myUnreadCount!==1?'s':''} (notes + announcements).</span><button class="btn btn-p btn-sm" onclick="ackAllNewItems()">✓ Mark all as read</button></div>`;
+  }
+  if(!list.length){el.innerHTML=banner+`<div class="empty"><div class="empty-icon">○</div><p>No notes${fil==='active'?' — you\'re all caught up!':''}.</p></div>`;return;}
+  el.innerHTML=banner+list.map(n=>{
     const urgent=n.priority==='urgent';
     const resolved=!!n.resolvedAt;
     const createdStr=new Date(n.createdAt).toLocaleString('en-US',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});
     const keepLbl=n.keepUntil?` · keeping until ${fmtDate(n.keepUntil)}`:'';
     const assignedLbl=n.assignedTo?`<span class="badge bm" style="margin-right:6px;">For: ${sName(n.assignedTo)}</span>`:'';
+    // Per-staff read indicator. Only relevant for unresolved notes.
+    const acks=n.acknowledgments||{};
+    const ackedIds=Object.keys(acks);
+    const readByMe=me&&acks[me];
+    let ackUI='';
+    if(!resolved){
+      if(me&&readByMe){
+        const when=new Date(acks[me]).toLocaleDateString('en-US',{month:'numeric',day:'numeric'});
+        ackUI=`<div style="font-size:11px;color:var(--ok);margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span>✓ You read this on ${when}</span><button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 7px;border-color:var(--muted);color:var(--muted);" onclick="unacknowledgeShiftNote('${n.id}')">Undo</button></div>`;
+      } else if(me){
+        ackUI=`<div style="margin-top:6px;"><button class="btn btn-p btn-sm" style="font-size:11px;" onclick="acknowledgeShiftNote('${n.id}')">✓ Mark as read</button></div>`;
+      }
+      if(ackedIds.length){
+        const readers=ackedIds.map(id=>sName(id)).filter(Boolean).join(', ');
+        ackUI+=`<div style="font-size:10px;color:var(--muted);margin-top:4px;">Read by: ${readers}</div>`;
+      }
+    }
     return`<div class="mccard ${urgent&&!resolved?'isurg':''}" id="note-card-${n.id}" style="padding:14px 16px;margin-bottom:9px;${resolved?'opacity:.6;':''}">
       <div style="display:flex;gap:10px;align-items:flex-start;">
         <div style="flex:1;">
           ${assignedLbl?`<div style="margin-bottom:6px;">${assignedLbl}</div>`:''}
           <div style="font-size:13px;white-space:pre-wrap;">${n.content}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:6px;">${urgent?'<span class="badge bURG">URGENT</span> ':''}${sName(n.createdBy)||'Unknown'} · ${createdStr}${keepLbl}${resolved?` · ✓ Resolved by ${sName(n.resolvedBy)||'?'}`:''}</div>
+          ${ackUI}
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap;">
-          ${resolved?`<button class="btn btn-g btn-sm" onclick="unresolveNote('${n.id}')">Reopen</button>`:`<select id="resolve-by-${n.id}" class="fi" style="font-size:12px;padding:5px 8px;width:auto;"><option value="" disabled selected>Your name</option>${staffOptions('').replace('<option value="">—</option>','')}</select><button class="btn btn-g btn-sm" onclick="resolveNote('${n.id}')">Resolve ✓</button>`}
+          ${resolved?`<button class="btn btn-g btn-sm" onclick="unresolveNote('${n.id}')">Reopen</button>`:`<select id="resolve-by-${n.id}" class="fi" style="font-size:12px;padding:5px 8px;width:auto;"><option value="" ${me?'':'disabled selected'}>Your name</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===me?'selected':''}>${s.name}</option>`).join('')}</select><button class="btn btn-g btn-sm" onclick="resolveNote('${n.id}')">Resolve ✓</button>`}
           <button class="btn btn-sm btn-g" onclick="editNote('${n.id}')">Edit</button>
           <button class="btn btn-sm btn-do" onclick="removeNote('${n.id}')">Delete</button>
         </div>
@@ -6296,7 +6419,7 @@ async function acknowledgeAnnouncement(id){
     await api('announcements?id='+id,{method:'PUT',body:{acknowledgments:merged}});
     await loadAnnouncements();
   }
-  renderAnnouncements();
+  renderAnnouncements();renderShiftNotes();updateNotifBadges();
 }
 
 async function unacknowledgeAnnouncement(id,staffId){
@@ -6313,7 +6436,7 @@ async function unacknowledgeAnnouncement(id,staffId){
     await api('announcements?id='+id,{method:'PUT',body:{acknowledgments:merged}});
     await loadAnnouncements();
   }
-  renderAnnouncements();
+  renderAnnouncements();renderShiftNotes();updateNotifBadges();
 }
 
 async function resolveAnnouncement(id){
@@ -6416,8 +6539,12 @@ function renderAnnouncements(){
     const linkBtn=a.linkUrl?`<a href="${a.linkUrl}" target="_blank" class="btn btn-g btn-sm" style="text-decoration:none;display:inline-block;margin-top:8px;border-color:var(--info);color:var(--info);">🔗 ${a.linkLabel||'View link'} ↗</a>`:'';
     const ackList=ackedIds.length?`<div style="font-size:11px;color:var(--ok);margin-top:8px;"><strong>✓ Acknowledged by:</strong> ${ackedIds.map(id=>{const s=activeStaffList.find(x=>x.id===id);const t=new Date(acks[id]).toLocaleDateString('en-US',{month:'numeric',day:'numeric'});return s?`${s.name} (${t})`:'';}).filter(Boolean).join(', ')}</div>`:'';
     const notYetList=!resolved&&notYet.length?`<div style="font-size:11px;color:var(--warn);margin-top:4px;"><strong>Still needs to acknowledge:</strong> ${notYet.map(s=>s.name).join(', ')}</div>`:'';
+    // Pre-fill the picker with the "Working as" signed-in user so it's a single
+    // click. They can still override if a different staff is using the device.
+    const meSignedIn=getWorkingAs();
+    const meIsNotYet=meSignedIn&&notYet.some(s=>s.id===meSignedIn);
     const ackForm=!resolved&&notYet.length?`<div style="margin-top:10px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-      <select id="ack-by-${a.id}" class="fi" style="font-size:12px;padding:5px 8px;width:auto;"><option value="" disabled selected>Your name</option>${notYet.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select>
+      <select id="ack-by-${a.id}" class="fi" style="font-size:12px;padding:5px 8px;width:auto;"><option value="" ${meIsNotYet?'':'disabled selected'}>Your name</option>${notYet.map(s=>`<option value="${s.id}" ${s.id===meSignedIn?'selected':''}>${s.name}</option>`).join('')}</select>
       <button class="btn btn-p btn-sm" onclick="acknowledgeAnnouncement('${a.id}')">I've read this ✓</button>
     </div>`:'';
     const resolvedBadge=resolved?`<div style="margin-top:8px;padding:8px 12px;background:var(--okp);border-left:3px solid var(--ok);border-radius:4px;font-size:12px;color:var(--ok);"><strong>✓ Resolved</strong> by ${leaderName(a.resolvedBy)} on ${new Date(a.resolvedAt).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'})}</div>`:'';

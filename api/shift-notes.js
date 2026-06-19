@@ -23,7 +23,8 @@ module.exports = async function handler(req, res) {
       keepUntil: n.keep_until,
       resolvedAt: n.resolved_at,
       resolvedBy: n.resolved_by,
-      assignedTo: n.assigned_to || null
+      assignedTo: n.assigned_to || null,
+      acknowledgments: n.acknowledgments || {}
     }));
 
     return res.status(200).json(result);
@@ -55,6 +56,7 @@ module.exports = async function handler(req, res) {
     if (b.resolvedAt !== undefined) updates.resolved_at = b.resolvedAt;
     if (b.resolvedBy !== undefined) updates.resolved_by = b.resolvedBy;
     if (b.assignedTo !== undefined) updates.assigned_to = b.assignedTo;
+    if (b.acknowledgments !== undefined) updates.acknowledgments = b.acknowledgments;
 
     const { error } = await supabase.from('shift_notes').update(updates).eq('id', id);
     if (error) return res.status(500).json({ error: error.message });
