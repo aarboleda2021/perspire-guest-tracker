@@ -23,8 +23,9 @@
   .hdr-title{font-family:'DM Serif Display',serif;font-size:16px;color:white;white-space:nowrap;}
   .hdr-title em{font-style:italic;opacity:.8;}
   .vtog{display:flex;background:rgba(0,0,0,.2);border-radius:6px;padding:3px;gap:2px;flex-shrink:0;}
-  .vbtn{padding:5px 12px;border:none;background:transparent;color:rgba(255,255,255,.7);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;border-radius:4px;cursor:pointer;white-space:nowrap;}
+  .vbtn{padding:5px 12px;border:none;background:transparent;color:rgba(255,255,255,.7);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;border-radius:4px;cursor:pointer;white-space:nowrap;position:relative;}
   .vbtn.active{background:white;color:var(--tc);}
+  .notif-dot{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;background:#D93B2E;color:white;font-size:10px;font-weight:700;border-radius:9px;margin-left:6px;vertical-align:middle;box-shadow:0 1px 2px rgba(0,0,0,0.25);line-height:1;}
   .main{max-width:1100px;margin:0 auto;padding:22px 18px;}
 
   /* TOOLBAR */
@@ -374,7 +375,7 @@
 <div class="hdr">
   <div class="hdr-title">Perspire <em>PTC</em> Dashboard</div>
   <div class="vtog">
-    <button class="vbtn active" onclick="setView('daily')" id="btn-daily">Daily Hub</button>
+    <button class="vbtn active" onclick="setView('daily')" id="btn-daily"><span>Daily Hub</span><span id="nav-notif-daily" class="notif-dot" style="display:none;"></span></button>
     <button class="vbtn" onclick="setView('guests')" id="btn-guests">New Guests &amp; Outreach</button>
     <button class="vbtn" onclick="setView('changes')" id="btn-changes">Membership Changes</button>
     <button class="vbtn" onclick="setView('manager')" id="btn-manager">Manager View</button>
@@ -409,6 +410,7 @@
       <option value="between">Between touchpoints</option>
       <option value="milestones">Approaching milestones</option>
     </select>
+    <input type="text" id="guest-search" class="fi" style="width:auto;min-width:160px;padding:6px 10px;font-size:12px;margin-left:6px;" placeholder="🔍 Search by name…" oninput="renderGuests()">
     <button class="btn btn-p" onclick="toggleAddGuest()">+ Add client</button>
   </div>
   <div class="aform" id="add-guest-form">
@@ -452,6 +454,7 @@
       <option value="upgrade">Upgrades</option>
       <option value="processed">Processed</option>
     </select>
+    <input type="text" id="chg-search" class="fi" style="width:auto;min-width:160px;padding:6px 10px;font-size:12px;margin-left:6px;" placeholder="🔍 Search by name…" oninput="renderChanges()">
     <button class="btn btn-p" onclick="toggleAddChange()">+ Log request</button>
   </div>
 
@@ -885,7 +888,7 @@
 <div id="view-daily">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
     <div class="tabs" style="margin-bottom:0;">
-      <button class="tab active" onclick="setDailyTab('notes')" id="tab-notes">Shift Notes</button>
+      <button class="tab active" onclick="setDailyTab('notes')" id="tab-notes"><span>Shift Notes</span><span id="tab-notif-notes" class="notif-dot" style="display:none;"></span></button>
       <button class="tab" onclick="setDailyTab('today')" id="tab-today">Today's Tasks</button>
       <button class="tab" onclick="setDailyTab('events')" id="tab-events">Events & Promos</button>
       <button class="tab" onclick="setDailyTab('learning')" id="tab-learning">Learning Library</button>
@@ -2772,7 +2775,10 @@ function renderGuests(){
   const statusSel=document.getElementById('status-sel');
   const stat=statusSel?statusSel.value:'needs';
   if(statusSel)localStorage.setItem('psp-v7-guests-status',stat);
-  const mineAll=sid==='all'?guests:guests.filter(c=>c.assignedStaff===sid);
+  // Free-text search on guest name — when active, ignore the staff filter so
+  // staff can verify ANY person has been entered regardless of who owns them
+  const searchQ=(document.getElementById('guest-search')?.value||'').toLowerCase().trim();
+  const mineAll=searchQ?guests:(sid==='all'?guests:guests.filter(c=>c.assignedStaff===sid));
   let mine;
   if(stat==='deactivated')mine=mineAll.filter(c=>c.deactivated);
   else if(stat==='all')mine=mineAll;
@@ -2801,6 +2807,7 @@ function renderGuests(){
   else if(fil==='due-soon')list=mine.filter(c=>guestStatus(c)==='due-now');
   else if(fil==='between')list=mine.filter(c=>{const s=guestStatus(c);return(s==='on-track'||s==='complete')&&daysSince(c.contractStartDate)<=95;});
   else if(fil==='milestones')list=mine.filter(c=>hasApproachingOrReached(c));
+  if(searchQ)list=list.filter(c=>c.name.toLowerCase().includes(searchQ));
   function nextTpUrgency(c){
     const tps=getTPs(c.type),wins=getWins(c.type),d=daysSince(c.contractStartDate);
     for(let i=0;i<tps.length;i++){
@@ -2818,15 +2825,18 @@ function renderGuests(){
     return nextTpUrgency(b)-nextTpUrgency(a);// within same status, most urgent first
   });
   // Build unified list of guest cards + nurture cards
+  // When searching, ignore staff filter on nurtures too — match across the team.
+  const sidMatch=g=>searchQ?true:(sid==='all'||(g.assignedStaff||'mohogany')===sid);
   let myNurtures;
   if(stat==='deactivated')myNurtures=[];
-  else if(stat==='completed')myNurtures=nurtures.filter(n=>n.status==='completed'&&(sid==='all'||(n.assignedStaff||'mohogany')===sid));
-  else if(stat==='all')myNurtures=nurtures.filter(n=>(n.status==='active'||n.status==='completed')&&(sid==='all'||(n.assignedStaff||'mohogany')===sid));
+  else if(stat==='completed')myNurtures=nurtures.filter(n=>n.status==='completed'&&sidMatch(n));
+  else if(stat==='all')myNurtures=nurtures.filter(n=>(n.status==='active'||n.status==='completed')&&sidMatch(n));
   else{
-    myNurtures=nurtures.filter(n=>n.status==='active'&&(sid==='all'||(n.assignedStaff||'mohogany')===sid));
+    myNurtures=nurtures.filter(n=>n.status==='active'&&sidMatch(n));
     if(stat==='needs')myNurtures=myNurtures.filter(nurtureNeedsOutreach);
     else if(stat==='upcoming')myNurtures=myNurtures.filter(nurtureIsUpcoming);
   }
+  if(searchQ)myNurtures=myNurtures.filter(n=>(n.guestName||'').toLowerCase().includes(searchQ));
 
   function nurtureStatusGroup(n){
     const hasOverdue=getNurtureTPs(n).some((_,i)=>nurtureStatus(n,i)==='overdue');
@@ -2992,6 +3002,11 @@ function renderChanges(){
   else if(fil==='downgrade')list=changes.filter(c=>c.type==='downgrade'&&c.status!=='closed');
   else if(fil==='upgrade')list=changes.filter(c=>c.type==='upgrade'&&c.status!=='closed');
   else if(fil==='processed')list=changes.filter(c=>c.status==='closed');
+
+  // Free-text search by guest name. When active, broaden to ALL changes (open
+  // OR processed) so staff can verify any past request was logged correctly.
+  const searchQ=(document.getElementById('chg-search')?.value||'').toLowerCase().trim();
+  if(searchQ)list=changes.filter(c=>(c.guestName||'').toLowerCase().includes(searchQ));
 
   list=[...list].sort((a,b)=>{
     const fol=(x)=>needsFollowupNow(x)?0:1;
@@ -6052,12 +6067,49 @@ function setDailyTab(tab){
   const map={notes:'daily-notes',events:'daily-events',today:'daily-today',learning:'daily-learning',perf:'daily-perf'};
   Object.entries(map).forEach(([k,id])=>document.getElementById(id).style.display=k===tab?'block':'none');
   ['notes','events','today','learning','perf'].forEach(s=>document.getElementById('tab-'+s).classList.toggle('active',s===tab));
-  if(tab==='notes'){renderShiftNotes();renderAnnouncements();}
+  if(tab==='notes'){renderShiftNotes();renderAnnouncements();markNotifsSeen();}
   else if(tab==='events')renderEvents();
   else if(tab==='today')renderToday();
   else if(tab==='learning')renderRecordings();
   else if(tab==='perf')initPerformance();
   if(typeof saveViewState==='function')saveViewState();
+}
+
+// ── NEW-ITEM NOTIFICATIONS (shift notes + leadership announcements) ──────
+// Tracked per-device via localStorage. When staff opens Daily Hub > Shift Notes,
+// we save the current time as "last seen" — anything posted after that counts as
+// new. Badges show on the Daily Hub top-nav button and the Shift Notes sub-tab.
+const NOTIF_LASTSEEN_KEY='psp-v7-notif-lastseen';
+function _getLastSeen(){
+  const v=localStorage.getItem(NOTIF_LASTSEEN_KEY);
+  return v?new Date(v):new Date(0);
+}
+function markNotifsSeen(){
+  localStorage.setItem(NOTIF_LASTSEEN_KEY,new Date().toISOString());
+  updateNotifBadges();
+}
+function countUnseenNotifs(){
+  const since=_getLastSeen();
+  const newNotes=(shiftNotes||[]).filter(n=>!n.resolvedAt&&n.createdAt&&new Date(n.createdAt)>since).length;
+  const newAnnounce=(announcements||[]).filter(a=>!a.resolvedAt&&a.createdAt&&new Date(a.createdAt)>since).length;
+  return {notes:newNotes,announce:newAnnounce,total:newNotes+newAnnounce};
+}
+function updateNotifBadges(){
+  const c=countUnseenNotifs();
+  const navEl=document.getElementById('nav-notif-daily');
+  const tabEl=document.getElementById('tab-notif-notes');
+  // Hide the Daily Hub nav badge when staff is already in the Daily Hub on the
+  // Shift Notes tab (they're seeing the content) — but still show it from any
+  // other view so they notice from elsewhere.
+  const isOnNotesNow=currentView==='daily'&&currentDailyTab==='notes';
+  if(navEl){
+    if(c.total>0&&!isOnNotesNow){navEl.textContent=c.total>9?'9+':String(c.total);navEl.style.display='inline-flex';}
+    else navEl.style.display='none';
+  }
+  if(tabEl){
+    if(c.total>0&&!isOnNotesNow){tabEl.textContent=c.total>9?'9+':String(c.total);tabEl.style.display='inline-flex';}
+    else tabEl.style.display='none';
+  }
 }
 
 // Shift Notes
@@ -6159,7 +6211,15 @@ function renderShiftNotes(){
   if(fil==='active')list=shiftNotes.filter(n=>isNoteActive(n));
   else if(fil==='urgent')list=shiftNotes.filter(n=>isNoteActive(n)&&n.priority==='urgent');
   else if(fil==='resolved')list=shiftNotes.filter(n=>n.resolvedAt);
-  list=[...list].sort((a,b)=>{const ad=new Date(a.createdAt),bd=new Date(b.createdAt);return sort==='oldest'?ad-bd:bd-ad;});
+  // Primary sort: unresolved urgent notes always pinned to the top so the team
+  // doesn't miss them. Secondary sort: by createdAt (newest/oldest per dropdown).
+  list=[...list].sort((a,b)=>{
+    const aUrg=a.priority==='urgent'&&!a.resolvedAt?0:1;
+    const bUrg=b.priority==='urgent'&&!b.resolvedAt?0:1;
+    if(aUrg!==bUrg)return aUrg-bUrg;
+    const ad=new Date(a.createdAt),bd=new Date(b.createdAt);
+    return sort==='oldest'?ad-bd:bd-ad;
+  });
   const el=document.getElementById('notes-list');
   if(!list.length){el.innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No notes${fil==='active'?' — you\'re all caught up!':''}.</p></div>`;return;}
   el.innerHTML=list.map(n=>{
@@ -7762,6 +7822,7 @@ function setView(v){
   else if(v==='suites')initSuiteStatusView();
   else renderGuests();
   saveViewState();
+  if(typeof updateNotifBadges==='function')updateNotifBadges();
 }
 // ── GIFT CERTIFICATES ─────────────────────────────────────────────────────
 
@@ -8061,6 +8122,13 @@ loadAll().then(()=>{
   } else {
     setDailyTab('notes');
   }
+  updateNotifBadges();
+  // Refresh badges every 60s so new items posted by another device show up
+  // within a reasonable window without a manual reload.
+  setInterval(async ()=>{
+    if(useLocalStorage)return;
+    try{await Promise.all([loadShiftNotes(),loadAnnouncements()]);updateNotifBadges();}catch(e){}
+  },60000);
 });
 
 // ════ SUITE STATUS ═════════════════════════════════════════════════════════
