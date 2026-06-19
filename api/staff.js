@@ -17,6 +17,7 @@ module.exports = async function handler(req, res) {
       id: s.id,
       name: s.name,
       active: s.active,
+      role: s.role || 'msa',
       membershipGoal: s.membership_goal !== null && s.membership_goal !== undefined ? s.membership_goal : (s.id === 'victor' ? 5 : 10),
       packageGoal: s.package_goal !== null && s.package_goal !== undefined ? s.package_goal : (s.id === 'victor' ? 3 : 5),
       createdAt: s.created_at
@@ -25,11 +26,12 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { id: nid, name, active } = req.body;
+    const { id: nid, name, active, role } = req.body;
     const { error } = await supabase.from('staff').insert({
       id: nid,
       name,
-      active: active !== undefined ? active : true
+      active: active !== undefined ? active : true,
+      role: role || 'msa'
     });
     if (error) return res.status(500).json({ error: error.message });
     return res.status(201).json({ ok: true });
@@ -42,6 +44,7 @@ module.exports = async function handler(req, res) {
     if (req.body.active !== undefined) updates.active = req.body.active;
     if (req.body.membershipGoal !== undefined) updates.membership_goal = req.body.membershipGoal;
     if (req.body.packageGoal !== undefined) updates.package_goal = req.body.packageGoal;
+    if (req.body.role !== undefined) updates.role = req.body.role;
 
     const { error } = await supabase.from('staff').update(updates).eq('id', id);
     if (error) return res.status(500).json({ error: error.message });

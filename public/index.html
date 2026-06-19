@@ -776,6 +776,10 @@
       <div class="smlist" id="roster"></div>
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
         <div class="fg" style="margin:0;flex:1;min-width:160px;"><label class="fl">Add new staff member</label><input type="text" class="fi" id="new-sname" placeholder="First name"></div>
+        <div class="fg" style="margin:0;min-width:140px;"><label class="fl">Role</label><select class="fi" id="new-srole">
+          <option value="msa">MSA (Member Service)</option>
+          <option value="sa">Studio Assistant (BOH)</option>
+        </select></div>
         <button class="btn btn-p" onclick="addStaff()">Add staff</button>
       </div>
     </div>
@@ -2449,13 +2453,13 @@ function showChangeScript(key,ch,btn){
 let guests=[],changes=[],staffList=[],nurtures=[],shiftNotes=[],events=[],announcements=[],recordings=[],giftCerts=[],customTasks=[];
 
 const DEFAULT_STAFF=[
-  {id:'crystal', name:'Crystal', active:true, membershipGoal:10, packageGoal:5},
-  {id:'hannah',  name:'Hannah',  active:true, membershipGoal:10, packageGoal:5},
-  {id:'mahek',   name:'Mahek',   active:true, membershipGoal:10, packageGoal:5},
-  {id:'mohogany',name:'Mohogany',active:true, membershipGoal:0,  packageGoal:0},
-  {id:'raine',   name:'Raine',   active:true, membershipGoal:10, packageGoal:5},
-  {id:'vayanna', name:'Vayanna', active:true, membershipGoal:10, packageGoal:5},
-  {id:'victor',  name:'Victor',  active:true, membershipGoal:5,  packageGoal:3},
+  {id:'crystal', name:'Crystal', active:true, role:'msa', membershipGoal:10, packageGoal:5},
+  {id:'hannah',  name:'Hannah',  active:true, role:'msa', membershipGoal:10, packageGoal:5},
+  {id:'mahek',   name:'Mahek',   active:true, role:'msa', membershipGoal:10, packageGoal:5},
+  {id:'mohogany',name:'Mohogany',active:true, role:'msa', membershipGoal:0,  packageGoal:0},
+  {id:'raine',   name:'Raine',   active:true, role:'msa', membershipGoal:10, packageGoal:5},
+  {id:'vayanna', name:'Vayanna', active:true, role:'msa', membershipGoal:10, packageGoal:5},
+  {id:'victor',  name:'Victor',  active:true, role:'msa', membershipGoal:5,  packageGoal:3},
 ];
 
 // Storage keys for local fallback mode
@@ -2616,8 +2620,13 @@ function getTPs(t){return t==='member'?MEMBER_TPS:PACKAGE_TPS;}
 function getWins(t){return t==='member'?MEMBER_WINS:PACKAGE_WINS;}
 function sName(id){const s=staffList.find(x=>x.id===id);return s?s.name:id;}
 function activeStaff(){return[...staffList].filter(s=>s.active).sort((a,b)=>a.name.localeCompare(b.name));}
+// MSAs only — used for dropdowns that only make sense for sales/member-service
+// staff (assigning new guests, change-request submitter, daily log grid, etc.).
+// Studio Assistants (SAs) handle back-of-house and don't appear in these lists.
+function activeMSAs(){return activeStaff().filter(s=>s.role!=='sa');}
+function isSA(staffId){const s=staffList.find(x=>x.id===staffId);return s&&s.role==='sa';}
 // Resolve a task's sub-items, expanding subItemsFromStaff:true into the live active-staff list.
-function taskSubs(t){if(!t)return null;if(t.subItems&&t.subItems.length)return t.subItems;if(t.subItemsFromStaff){const ex=t.subItemsExcludeStaff||[];return activeStaff().filter(s=>!ex.includes(s.id)).map(s=>s.name);}return null;}
+function taskSubs(t){if(!t)return null;if(t.subItems&&t.subItems.length)return t.subItems;if(t.subItemsFromStaff){const ex=t.subItemsExcludeStaff||[];return activeStaff().filter(s=>!ex.includes(s.id)&&s.role!=='sa').map(s=>s.name);}return null;}
 
 function billUrgency(bs){
   const du=daysUntil(bs);if(du===null)return'normal';
@@ -2651,7 +2660,16 @@ function chLabel(ch){
 
 // ── DROPDOWNS ─────────────────────────────────────────────────────────────
 
-function fillStaff(id){const el=document.getElementById(id);if(!el)return;const opts=activeStaff().map(s=>`<option value="${s.id}">${s.name}</option>`).join('');el.innerHTML=id==='staff-sel'?`<option value="all">All staff</option>${opts}`:opts;}
+function fillStaff(id){
+  const el=document.getElementById(id);if(!el)return;
+  // Dropdowns that are MSA-only: assigning a new client, submitting a membership
+  // change request, the "Viewing as" client-roster picker, and the staff coaching
+  // task sub-items (SAs don't do sales training so they're not coached on it).
+  const msaOnly=['ng-staff','mc-submitter','ec-submitter','staff-sel'].includes(id);
+  const source=msaOnly?activeMSAs():activeStaff();
+  const opts=source.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  el.innerHTML=id==='staff-sel'?`<option value="all">All staff</option>${opts}`:opts;
+}
 function updateTierOpts(){const t=document.getElementById('ng-type').value;document.getElementById('ng-tier').innerHTML=(t==='member'?MEMBER_TIERS:PACKAGE_TIERS).map(x=>`<option value="${x}">${x}</option>`).join('');}
 function updateEditTierOpts(){
   const t=document.getElementById('eg-type').value,cur=document.getElementById('eg-tier').value;
@@ -3464,14 +3482,20 @@ function renderRoster(){
   document.getElementById('roster').innerHTML=staffList.map(s=>{
     const ct=guests.filter(c=>c.assignedStaff===s.id).length;
     const isMohogany=s.id==='mohogany';
+    const isSAStaff=s.role==='sa';
     const msGoal=s.membershipGoal??(s.id==='victor'?5:10);
     const pkGoal=s.packageGoal??(s.id==='victor'?3:5);
-    const goalRow=isMohogany?'':`<div style="display:flex;gap:10px;align-items:center;margin-top:6px;font-size:11px;color:var(--muted);">Monthly goals: <input type="number" min="0" value="${msGoal}" onblur="updateStaffGoal('${s.id}','membershipGoal',this.value)" style="width:50px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;"> memberships · <input type="number" min="0" value="${pkGoal}" onblur="updateStaffGoal('${s.id}','packageGoal',this.value)" style="width:50px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;"> packages</div>`;
+    // Goals are sales-related — only relevant for MSAs, not for Mohogany or SAs.
+    const goalRow=(isMohogany||isSAStaff)?'':`<div style="display:flex;gap:10px;align-items:center;margin-top:6px;font-size:11px;color:var(--muted);">Monthly goals: <input type="number" min="0" value="${msGoal}" onblur="updateStaffGoal('${s.id}','membershipGoal',this.value)" style="width:50px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;"> memberships · <input type="number" min="0" value="${pkGoal}" onblur="updateStaffGoal('${s.id}','packageGoal',this.value)" style="width:50px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;"> packages</div>`;
+    // Role selector — Mohogany is hardcoded team lead so we skip the selector for her.
+    const roleSel=isMohogany?'':`<select onchange="updateStaffRole('${s.id}',this.value)" style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;background:white;cursor:pointer;"><option value="msa" ${(s.role||'msa')==='msa'?'selected':''}>MSA</option><option value="sa" ${(s.role||'msa')==='sa'?'selected':''}>Studio Assistant</option></select>`;
+    const roleBadge=isSAStaff?`<span class="badge" style="background:var(--purp);color:var(--pur);font-size:9px;margin-left:4px;">SA</span>`:'';
     return`<div class="smrow" style="flex-wrap:wrap;">
-      <div style="display:flex;align-items:center;gap:10px;width:100%;">
+      <div style="display:flex;align-items:center;gap:10px;width:100%;flex-wrap:wrap;">
         <div class="sav" style="width:28px;height:28px;font-size:12px;">${s.name[0]}</div>
-        <div class="smname">${s.name}${isMohogany?` <span style="font-size:11px;color:var(--muted);font-style:italic;">(Team lead)</span>`:''}</div>
+        <div class="smname">${s.name}${isMohogany?` <span style="font-size:11px;color:var(--muted);font-style:italic;">(Team lead)</span>`:roleBadge}</div>
         <div class="smct">${ct} client${ct!==1?'s':''}</div>
+        ${roleSel}
         <button class="btn btn-g btn-sm" onclick="openReassignStaff('${s.id}')">Reassign all</button>
         <button class="btn btn-sm" style="${s.active?'color:var(--err);border:1.5px solid var(--err);':'color:var(--ok);border:1.5px solid var(--ok);'}background:transparent;" onclick="toggleStaffActive('${s.id}')">${s.active?'Deactivate':'Reactivate'}</button>
       </div>
@@ -3636,6 +3660,16 @@ async function updateStaffGoal(staffId,key,val){
   s[key]=v;
   if(useLocalStorage){lsSave();}
   else{await api('staff?id='+staffId,{method:'PUT',body:{[key]:v}});}
+}
+async function updateStaffRole(staffId,role){
+  if(!['msa','sa'].includes(role))return;
+  const s=staffList.find(x=>x.id===staffId);if(!s)return;
+  s.role=role;
+  if(useLocalStorage){lsSave();}
+  else{await api('staff?id='+staffId,{method:'PUT',body:{role}});}
+  // Re-render the roster (badges/goals change) and any open views that filter by role.
+  renderRoster();fillAll();
+  if(currentView==='daily'&&currentDailyTab==='today')renderToday();
 }
 
 // ── RENDER: TIER CHANGE NURTURE ──────────────────────────────────────────
@@ -5877,16 +5911,18 @@ async function doReassign(){
 
 async function addStaff(){
   const n=document.getElementById('new-sname').value.trim();if(!n){alert('Please enter a name.');return;}
+  const role=document.getElementById('new-srole')?.value||'msa';
   const id=n.toLowerCase().replace(/\s+/g,'_')+'_'+Date.now();
   if(useLocalStorage){
-    staffList.push({id,name:n,active:true});
+    staffList.push({id,name:n,active:true,role});
     staffList.sort((a,b)=>a.name.localeCompare(b.name));
     lsSave();
   } else {
-    await api('staff',{method:'POST',body:{id,name:n,active:true}});
+    await api('staff',{method:'POST',body:{id,name:n,active:true,role}});
     await loadStaff();
   }
   fillAll();renderRoster();document.getElementById('new-sname').value='';
+  const r=document.getElementById('new-srole');if(r)r.value='msa';
 }
 async function toggleStaffActive(sid){
   const s=staffList.find(x=>x.id===sid);if(!s)return;
@@ -6799,8 +6835,10 @@ function fmtWeekOf(s){
 function renderRecordings(){
   const el=document.getElementById('recordings-list');
   const summaryEl=document.getElementById('learning-summary');
-  const teamStaff=activeStaff().filter(s=>s.id!=='mohogany');
-  const allStaff=activeStaff();
+  // Studio Assistants don't do sales training, so they're never tracked in the
+  // completion grid and the "still needs to complete" lists.
+  const teamStaff=activeStaff().filter(s=>s.id!=='mohogany'&&s.role!=='sa');
+  const allStaff=activeStaff().filter(s=>s.role!=='sa');
 
   // Filter dropdown — default to active (still has people to watch)
   const filterEl=document.getElementById('rec-filter');
@@ -7363,8 +7401,9 @@ async function renderToday(){
   }).join('');
   document.getElementById('today-studio-tasks').innerHTML=`<div class="sec-hdr"><div class="sec-title">Studio tasks</div><div class="sec-ct">${applicable.length}</div></div>${tasksHtml||'<div class="empty"><p>No studio tasks for this day.</p></div>'}`;
 
-  // Daily log grid — exclude Mohogany
-  const staff=activeStaff().filter(s=>s.id!=='mohogany');
+  // Daily log grid — exclude Mohogany and Studio Assistants (SAs handle BOH,
+  // not sales metrics, so they don't appear as rows in the calls/sales chart).
+  const staff=activeStaff().filter(s=>s.id!=='mohogany'&&s.role!=='sa');
   const colsHeader=LOG_COLS.map(c=>`<th title="${c.tip}">${c.label}${c.goal?`<div style="font-weight:400;font-size:10px;color:var(--muted);margin-top:2px;font-style:italic;text-transform:none;letter-spacing:0;">${c.goal}</div>`:''}</th>`).join('');
   const rows=staff.map(s=>{
     const log=dailyLogs.find(l=>l.staffId===s.id)||{staffId:s.id};
