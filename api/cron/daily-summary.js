@@ -42,6 +42,35 @@ module.exports = async function handler(req, res) {
 
   const supabase = getSupabase();
 
+  // ── SUITE STATUS CLEANUP ──
+  // Reset any suite_status rows whose for_slot is from before today's studio
+  // day. The frontend already ignores these (the for_slot timestamps don't
+  // match today's contextSlot), but clearing them keeps the DB tidy and avoids
+  // any future code accidentally reading a leftover name or status.
+  // 3am ET is well past the studio's last session (~9pm ET), so this is safe.
+  try {
+    const cutoffET = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    cutoffET.setHours(0, 0, 0, 0); // midnight ET today
+    const { data: cleared, error: cleanupError } = await supabase
+      .from('suite_status')
+      .update({
+        status: null,
+        guest_first_name: '',
+        moved: false,
+        halo_preset: false,
+        sno_preset: false,
+        for_slot: null,
+        updated_at: new Date().toISOString()
+      })
+      .lt('for_slot', cutoffET.toISOString())
+      .select('suite_num');
+    if (cleanupError) console.error('suite_status cleanup error', cleanupError);
+    else console.log(`suite_status cleanup: reset ${cleared?.length || 0} stale rows`);
+  } catch (e) {
+    console.error('suite_status cleanup threw', e);
+    // Cleanup failure is non-blocking — continue to the email summary
+  }
+
   // Get "today" in Eastern Time with 3am ET reset (matches frontend getTodayStr).
   // This way the cron reports the correct studio day even if Vercel runs it with
   // some scheduling jitter (e.g. 12:30am ET instead of 11:55pm ET).
