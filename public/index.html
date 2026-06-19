@@ -26,6 +26,13 @@
   .vbtn{padding:5px 12px;border:none;background:transparent;color:rgba(255,255,255,.7);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;border-radius:4px;cursor:pointer;white-space:nowrap;position:relative;}
   .vbtn.active{background:white;color:var(--tc);}
   .notif-dot{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;background:#D93B2E;color:white;font-size:10px;font-weight:700;border-radius:9px;margin-left:6px;vertical-align:middle;box-shadow:0 1px 2px rgba(0,0,0,0.25);line-height:1;}
+  #working-as{padding:6px 14px;font-size:13px;font-weight:600;border-radius:18px;cursor:pointer;transition:all .15s;}
+  #working-as.signed-in{background:white;color:var(--tc);border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.15);}
+  #working-as.signed-out{background:#FFD966;color:#5A3D0A;border:2px solid #B8841F;animation:pulse-attention 2.4s infinite;}
+  @keyframes pulse-attention{0%,100%{box-shadow:0 0 0 0 rgba(255,217,102,0.7);}50%{box-shadow:0 0 0 6px rgba(255,217,102,0);}}
+  .ident-checkin{background:#FFF3D6;border:1.5px solid #D4A017;border-radius:10px;padding:12px 18px;margin:14px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  .ident-checkin-text{font-size:13px;color:#5A3D0A;font-weight:500;}
+  .ident-checkin-actions{display:flex;gap:8px;}
   .main{max-width:1100px;margin:0 auto;padding:22px 18px;}
 
   /* TOOLBAR */
@@ -387,12 +394,21 @@
 
 <div class="main">
 
+<!-- IDENTITY CHECK-IN BANNER (shown after long idle gaps on shared devices) -->
+<div id="ident-checkin-banner" class="ident-checkin" style="display:none;">
+  <div class="ident-checkin-text" id="ident-checkin-text">👋 Still you?</div>
+  <div class="ident-checkin-actions">
+    <button class="btn btn-p btn-sm" onclick="confirmIdentity()">Yes, that's me</button>
+    <button class="btn btn-g btn-sm" onclick="openIdentitySwitch()">Switch user</button>
+  </div>
+</div>
+
 <!-- ══ NEW GUESTS ══════════════════════════════════════════════════════════ -->
 <div id="view-guests" style="display:none;">
   <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Track new members and package holders through their first 90 days, plus any tier-change nurtures or reactivation reminders assigned to that staff member.</div>
   <div class="toolbar" style="flex-wrap:wrap;">
     <span class="tlbl">Viewing as</span>
-    <select id="staff-sel" onchange="renderGuests()"></select>
+    <select id="staff-sel" onchange="_manualGuestStaffOverride=true;renderGuests()"></select>
     <span class="tlbl" style="margin-left:6px;">Status</span>
     <select id="status-sel" onchange="renderGuests()">
       <option value="needs">Needs outreach now</option>
@@ -2771,7 +2787,14 @@ function cardScript(cid,key,type,btn){
 // ── RENDER: NEW GUESTS ────────────────────────────────────────────────────
 
 function renderGuests(){
-  const sid=document.getElementById('staff-sel').value;
+  const staffSel=document.getElementById('staff-sel');
+  // Auto-default "Viewing as" to the signed-in user UNTIL they manually override.
+  // The override flag is session-only — reload or switching identity resets it.
+  const me=getWorkingAs();
+  if(me&&!_manualGuestStaffOverride&&staffSel&&activeStaff().some(s=>s.id===me)){
+    staffSel.value=me;
+  }
+  const sid=staffSel.value;
   const fil=document.getElementById('filter-sel').value;
   const statusSel=document.getElementById('status-sel');
   const stat=statusSel?statusSel.value:'needs';
@@ -6089,13 +6112,30 @@ function setDailyTab(tab){
 // device-wide "last seen" tracking (everything posted after the device's last
 // visit to Shift Notes counts as new).
 const WORKING_AS_KEY='psp-v7-working-as';
+const IDENT_CONFIRMED_KEY='psp-v7-ident-confirmed';
 const NOTIF_LASTSEEN_KEY='psp-v7-notif-lastseen';
+// Hours of inactivity before we prompt "Still you?"
+const IDENT_CHECKIN_HOURS=2;
+// Session-only flag — true once user manually picks staff-sel on New Guests so we
+// stop auto-defaulting to their signed-in name on subsequent renders.
+let _manualGuestStaffOverride=false;
 function getWorkingAs(){return localStorage.getItem(WORKING_AS_KEY)||'';}
 function setWorkingAs(sid){
-  if(sid)localStorage.setItem(WORKING_AS_KEY,sid);
-  else localStorage.removeItem(WORKING_AS_KEY);
+  if(sid){
+    localStorage.setItem(WORKING_AS_KEY,sid);
+    // Track that this person is actively here so the inactivity check-in doesn't fire prematurely
+    localStorage.setItem(IDENT_CONFIRMED_KEY,new Date().toISOString());
+  } else {
+    localStorage.removeItem(WORKING_AS_KEY);
+    localStorage.removeItem(IDENT_CONFIRMED_KEY);
+  }
+  // Reset per-session manual override flags so the auto-filter re-defaults for the new user
+  _manualGuestStaffOverride=false;
+  applyWorkingAsStyling();
+  hideIdentCheckin();
   updateNotifBadges();
-  // Re-render shift notes + announcements if visible so per-person ack UI updates
+  // Re-render whatever is visible so per-person UI (acks, auto-filter) updates
+  if(currentView==='guests')renderGuests();
   if(currentView==='daily'&&currentDailyTab==='notes'){
     renderShiftNotes();renderAnnouncements();
   }
@@ -6104,9 +6144,15 @@ function populateWorkingAsPicker(){
   const sel=document.getElementById('working-as');if(!sel)return;
   const cur=getWorkingAs();
   const opts=activeStaff().map(s=>`<option value="${s.id}" ${s.id===cur?'selected':''}>👤 ${s.name}</option>`).join('');
-  sel.innerHTML=`<option value="">👤 Working as…</option>${opts}`;
+  sel.innerHTML=`<option value="">👤 Pick your name…</option>${opts}`;
   // If a saved value isn't in the active list anymore (e.g., staff deactivated), clear
   if(cur&&!activeStaff().some(s=>s.id===cur)){localStorage.removeItem(WORKING_AS_KEY);sel.value='';}
+  applyWorkingAsStyling();
+}
+function applyWorkingAsStyling(){
+  const sel=document.getElementById('working-as');if(!sel)return;
+  if(sel.value){sel.classList.add('signed-in');sel.classList.remove('signed-out');}
+  else{sel.classList.add('signed-out');sel.classList.remove('signed-in');}
 }
 function _getLastSeen(){
   const v=localStorage.getItem(NOTIF_LASTSEEN_KEY);
@@ -6132,6 +6178,40 @@ function countUnseenNotifs(){
   const newAnnounce=(announcements||[]).filter(a=>!a.resolvedAt&&a.createdAt&&new Date(a.createdAt)>since).length;
   return {notes:newNotes,announce:newAnnounce,total:newNotes+newAnnounce,perStaff:false};
 }
+// ── Inactivity check-in ("Still you?") ──
+function maybeShowIdentCheckin(){
+  const me=getWorkingAs();
+  const banner=document.getElementById('ident-checkin-banner');
+  if(!banner)return;
+  if(!me){banner.style.display='none';return;}
+  const lastConfirmed=localStorage.getItem(IDENT_CONFIRMED_KEY);
+  if(!lastConfirmed){
+    // First load since signing in — record now
+    localStorage.setItem(IDENT_CONFIRMED_KEY,new Date().toISOString());
+    banner.style.display='none';return;
+  }
+  const ageHours=(Date.now()-new Date(lastConfirmed).getTime())/3600000;
+  if(ageHours>=IDENT_CHECKIN_HOURS){
+    document.getElementById('ident-checkin-text').innerHTML=`👋 <strong>Still ${sName(me)}?</strong> It's been a while — confirm or switch so we track reads to the right person.`;
+    banner.style.display='flex';
+  } else {
+    banner.style.display='none';
+  }
+}
+function confirmIdentity(){
+  localStorage.setItem(IDENT_CONFIRMED_KEY,new Date().toISOString());
+  hideIdentCheckin();
+}
+function hideIdentCheckin(){
+  const banner=document.getElementById('ident-checkin-banner');
+  if(banner)banner.style.display='none';
+}
+function openIdentitySwitch(){
+  hideIdentCheckin();
+  const sel=document.getElementById('working-as');
+  if(sel){sel.focus();try{sel.click();}catch(e){}}
+}
+
 function updateNotifBadges(){
   const c=countUnseenNotifs();
   const navEl=document.getElementById('nav-notif-daily');
@@ -6327,45 +6407,67 @@ function renderShiftNotes(){
     banner=`<div style="background:var(--infop);border-left:3px solid var(--info);padding:10px 14px;border-radius:6px;font-size:12px;color:var(--info);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><span>👤 <strong>${sName(me)}</strong>, you have <strong>${myUnreadCount} unread</strong> item${myUnreadCount!==1?'s':''} (notes + announcements).</span><button class="btn btn-p btn-sm" onclick="ackAllNewItems()">✓ Mark all as read</button></div>`;
   }
   if(!list.length){el.innerHTML=banner+`<div class="empty"><div class="empty-icon">○</div><p>No notes${fil==='active'?' — you\'re all caught up!':''}.</p></div>`;return;}
-  el.innerHTML=banner+list.map(n=>{
-    const urgent=n.priority==='urgent';
-    const resolved=!!n.resolvedAt;
-    const createdStr=new Date(n.createdAt).toLocaleString('en-US',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});
-    const keepLbl=n.keepUntil?` · keeping until ${fmtDate(n.keepUntil)}`:'';
-    const assignedLbl=n.assignedTo?`<span class="badge bm" style="margin-right:6px;">For: ${sName(n.assignedTo)}</span>`:'';
-    // Per-staff read indicator. Only relevant for unresolved notes.
-    const acks=n.acknowledgments||{};
-    const ackedIds=Object.keys(acks);
-    const readByMe=me&&acks[me];
-    let ackUI='';
-    if(!resolved){
-      if(me&&readByMe){
-        const when=new Date(acks[me]).toLocaleDateString('en-US',{month:'numeric',day:'numeric'});
-        ackUI=`<div style="font-size:11px;color:var(--ok);margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span>✓ You read this on ${when}</span><button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 7px;border-color:var(--muted);color:var(--muted);" onclick="unacknowledgeShiftNote('${n.id}')">Undo</button></div>`;
-      } else if(me){
-        ackUI=`<div style="margin-top:6px;"><button class="btn btn-p btn-sm" style="font-size:11px;" onclick="acknowledgeShiftNote('${n.id}')">✓ Mark as read</button></div>`;
-      }
-      if(ackedIds.length){
-        const readers=ackedIds.map(id=>sName(id)).filter(Boolean).join(', ');
-        ackUI+=`<div style="font-size:10px;color:var(--muted);margin-top:4px;">Read by: ${readers}</div>`;
-      }
+  // When signed in AND viewing the default "Active" filter, split notes into
+  // "needs your attention" (unread by you) and a collapsible "already read by
+  // you" section so the focus is on what's still actionable.
+  const useGrouping=me&&fil==='active';
+  if(useGrouping){
+    const unread=list.filter(n=>!n.resolvedAt&&!(n.acknowledgments||{})[me]);
+    const readAlready=list.filter(n=>!n.resolvedAt&&(n.acknowledgments||{})[me]);
+    let html=banner;
+    if(unread.length){
+      html+=`<div class="sec-hdr" style="border-bottom:2px solid var(--info);margin-bottom:8px;"><div class="sec-title" style="color:var(--info);">🔔 Needs your attention</div><div class="sec-ct">${unread.length}</div></div>`;
+      html+=unread.map(n=>_renderNoteCard(n,me)).join('');
+    } else {
+      html+=`<div style="padding:18px;background:var(--okp);border-left:3px solid var(--ok);border-radius:6px;font-size:13px;color:var(--ok);margin-bottom:14px;text-align:center;">✓ <strong>You're caught up!</strong> All active notes have been read.</div>`;
     }
-    return`<div class="mccard ${urgent&&!resolved?'isurg':''}" id="note-card-${n.id}" style="padding:14px 16px;margin-bottom:9px;${resolved?'opacity:.6;':''}">
-      <div style="display:flex;gap:10px;align-items:flex-start;">
-        <div style="flex:1;">
-          ${assignedLbl?`<div style="margin-bottom:6px;">${assignedLbl}</div>`:''}
-          <div style="font-size:13px;white-space:pre-wrap;">${n.content}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:6px;">${urgent?'<span class="badge bURG">URGENT</span> ':''}${sName(n.createdBy)||'Unknown'} · ${createdStr}${keepLbl}${resolved?` · ✓ Resolved by ${sName(n.resolvedBy)||'?'}`:''}</div>
-          ${ackUI}
-        </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap;">
-          ${resolved?`<button class="btn btn-g btn-sm" onclick="unresolveNote('${n.id}')">Reopen</button>`:`<select id="resolve-by-${n.id}" class="fi" style="font-size:12px;padding:5px 8px;width:auto;"><option value="" ${me?'':'disabled selected'}>Your name</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===me?'selected':''}>${s.name}</option>`).join('')}</select><button class="btn btn-g btn-sm" onclick="resolveNote('${n.id}')">Resolve ✓</button>`}
-          <button class="btn btn-sm btn-g" onclick="editNote('${n.id}')">Edit</button>
-          <button class="btn btn-sm btn-do" onclick="removeNote('${n.id}')">Delete</button>
-        </div>
+    if(readAlready.length){
+      html+=`<details style="margin-top:14px;border-top:1px dashed var(--border);padding-top:12px;"><summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:600;padding:6px 0;">✓ ${readAlready.length} item${readAlready.length!==1?'s':''} you've already read this shift</summary><div style="margin-top:8px;">${readAlready.map(n=>_renderNoteCard(n,me)).join('')}</div></details>`;
+    }
+    el.innerHTML=html;
+    return;
+  }
+  // Not signed in OR filter is not "Active" — render as a flat list (current behavior).
+  el.innerHTML=banner+list.map(n=>_renderNoteCard(n,me)).join('');
+}
+
+function _renderNoteCard(n,me){
+  const urgent=n.priority==='urgent';
+  const resolved=!!n.resolvedAt;
+  const createdStr=new Date(n.createdAt).toLocaleString('en-US',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});
+  const keepLbl=n.keepUntil?` · keeping until ${fmtDate(n.keepUntil)}`:'';
+  const assignedLbl=n.assignedTo?`<span class="badge bm" style="margin-right:6px;">For: ${sName(n.assignedTo)}</span>`:'';
+  const acks=n.acknowledgments||{};
+  const ackedIds=Object.keys(acks);
+  const readByMe=me&&acks[me];
+  let ackUI='';
+  if(!resolved){
+    if(me&&readByMe){
+      const when=new Date(acks[me]).toLocaleDateString('en-US',{month:'numeric',day:'numeric'});
+      ackUI=`<div style="font-size:11px;color:var(--ok);margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span>✓ You read this on ${when}</span><button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 7px;border-color:var(--muted);color:var(--muted);" onclick="unacknowledgeShiftNote('${n.id}')">Undo</button></div>`;
+    } else if(me){
+      ackUI=`<div style="margin-top:6px;"><button class="btn btn-p btn-sm" style="font-size:11px;" onclick="acknowledgeShiftNote('${n.id}')">✓ Mark as read</button></div>`;
+    }
+    if(ackedIds.length){
+      const readers=ackedIds.map(id=>sName(id)).filter(Boolean).join(', ');
+      ackUI+=`<div style="font-size:10px;color:var(--muted);margin-top:4px;">Read by: ${readers}</div>`;
+    }
+  }
+  return`<div class="mccard ${urgent&&!resolved?'isurg':''}" id="note-card-${n.id}" style="padding:14px 16px;margin-bottom:9px;${resolved?'opacity:.6;':''}">
+    <div style="display:flex;gap:10px;align-items:flex-start;">
+      <div style="flex:1;">
+        ${assignedLbl?`<div style="margin-bottom:6px;">${assignedLbl}</div>`:''}
+        <div style="font-size:13px;white-space:pre-wrap;">${n.content}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;">${urgent?'<span class="badge bURG">URGENT</span> ':''}${sName(n.createdBy)||'Unknown'} · ${createdStr}${keepLbl}${resolved?` · ✓ Resolved by ${sName(n.resolvedBy)||'?'}`:''}</div>
+        ${ackUI}
       </div>
-    </div>`;
-  }).join('');
+      <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap;">
+        ${resolved?`<button class="btn btn-g btn-sm" onclick="unresolveNote('${n.id}')">Reopen</button>`:`<select id="resolve-by-${n.id}" class="fi" style="font-size:12px;padding:5px 8px;width:auto;"><option value="" ${me?'':'disabled selected'}>Your name</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===me?'selected':''}>${s.name}</option>`).join('')}</select><button class="btn btn-g btn-sm" onclick="resolveNote('${n.id}')">Resolve ✓</button>`}
+        <button class="btn btn-sm btn-g" onclick="editNote('${n.id}')">Edit</button>
+        <button class="btn btn-sm btn-do" onclick="removeNote('${n.id}')">Delete</button>
+      </div>
+    </div>
+  </div>`;
 }
 
 // ── LEADERSHIP ANNOUNCEMENTS ─────────────────────────────────────────────
@@ -6529,46 +6631,67 @@ function renderAnnouncements(){
   }
   list.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   if(!list.length){el.innerHTML=`<div class="empty" style="padding:20px;"><div class="empty-icon">✓</div><p>All announcements acknowledged or resolved.</p></div>`;return;}
-  el.innerHTML=list.map(a=>{
-    const acks=a.acknowledgments||{};
-    const ackedIds=Object.keys(acks);
-    const ackedCount=activeStaffList.filter(s=>acks[s.id]).length;
-    const notYet=activeStaffList.filter(s=>!acks[s.id]);
-    const resolved=!!a.resolvedAt;
-    const createdStr=new Date(a.createdAt).toLocaleString('en-US',{month:'numeric',day:'numeric',year:'2-digit',hour:'numeric',minute:'2-digit'});
-    const linkBtn=a.linkUrl?`<a href="${a.linkUrl}" target="_blank" class="btn btn-g btn-sm" style="text-decoration:none;display:inline-block;margin-top:8px;border-color:var(--info);color:var(--info);">🔗 ${a.linkLabel||'View link'} ↗</a>`:'';
-    const ackList=ackedIds.length?`<div style="font-size:11px;color:var(--ok);margin-top:8px;"><strong>✓ Acknowledged by:</strong> ${ackedIds.map(id=>{const s=activeStaffList.find(x=>x.id===id);const t=new Date(acks[id]).toLocaleDateString('en-US',{month:'numeric',day:'numeric'});return s?`${s.name} (${t})`:'';}).filter(Boolean).join(', ')}</div>`:'';
-    const notYetList=!resolved&&notYet.length?`<div style="font-size:11px;color:var(--warn);margin-top:4px;"><strong>Still needs to acknowledge:</strong> ${notYet.map(s=>s.name).join(', ')}</div>`:'';
-    // Pre-fill the picker with the "Working as" signed-in user so it's a single
-    // click. They can still override if a different staff is using the device.
-    const meSignedIn=getWorkingAs();
-    const meIsNotYet=meSignedIn&&notYet.some(s=>s.id===meSignedIn);
-    const ackForm=!resolved&&notYet.length?`<div style="margin-top:10px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-      <select id="ack-by-${a.id}" class="fi" style="font-size:12px;padding:5px 8px;width:auto;"><option value="" ${meIsNotYet?'':'disabled selected'}>Your name</option>${notYet.map(s=>`<option value="${s.id}" ${s.id===meSignedIn?'selected':''}>${s.name}</option>`).join('')}</select>
-      <button class="btn btn-p btn-sm" onclick="acknowledgeAnnouncement('${a.id}')">I've read this ✓</button>
-    </div>`:'';
-    const resolvedBadge=resolved?`<div style="margin-top:8px;padding:8px 12px;background:var(--okp);border-left:3px solid var(--ok);border-radius:4px;font-size:12px;color:var(--ok);"><strong>✓ Resolved</strong> by ${leaderName(a.resolvedBy)} on ${new Date(a.resolvedAt).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'})}</div>`:'';
-    const resolveBtn=!resolved?`<button class="btn btn-sm btn-g" onclick="resolveAnnouncement('${a.id}')" style="border-color:var(--ok);color:var(--ok);">✓ Mark resolved</button>`:`<button class="btn btn-sm btn-g" onclick="unresolveAnnouncement('${a.id}')" style="border-color:var(--muted);color:var(--muted);">Reopen</button>`;
-    return`<div class="mccard" id="announce-card-${a.id}" style="padding:14px 16px;margin-bottom:10px;border:1.5px solid ${resolved?'var(--border)':'var(--tc)'};background:${resolved?'var(--sand)':'white'};${resolved?'opacity:.78;':''}">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px;">
-        <div style="flex:1;">
-          <div style="font-weight:600;font-size:14px;color:var(--dark);">${a.title}${resolved?' <span class="badge bhlt">Resolved</span>':''}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px;">📣 Posted by <strong>${leaderName(a.postedBy)}</strong> · ${createdStr} · ${ackedCount}/${totalStaff} acknowledged</div>
-        </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">
-          ${resolveBtn}
-          <button class="btn btn-sm btn-g" onclick="editAnnouncement('${a.id}')">Edit</button>
-          <button class="btn btn-sm btn-do" onclick="removeAnnouncement('${a.id}')">Delete</button>
-        </div>
+  const me=getWorkingAs();
+  // When signed in AND viewing the default "Needing acknowledgment" filter,
+  // split announcements into "Needs your acknowledgment" + collapsed "Already
+  // acknowledged by you" so the focus is on what's actionable for THIS person.
+  const useGrouping=me&&fil==='unacknowledged';
+  if(useGrouping){
+    const unread=list.filter(a=>!a.resolvedAt&&!(a.acknowledgments||{})[me]);
+    const readAlready=list.filter(a=>!a.resolvedAt&&(a.acknowledgments||{})[me]);
+    let html='';
+    if(unread.length){
+      html+=`<div class="sec-hdr" style="border-bottom:2px solid var(--info);margin-bottom:8px;"><div class="sec-title" style="color:var(--info);">📣 Needs your acknowledgment</div><div class="sec-ct">${unread.length}</div></div>`;
+      html+=unread.map(a=>_renderAnnouncementCard(a,activeStaffList,totalStaff,me)).join('');
+    } else {
+      html+=`<div style="padding:14px;background:var(--okp);border-left:3px solid var(--ok);border-radius:6px;font-size:13px;color:var(--ok);margin-bottom:14px;text-align:center;">✓ <strong>You're caught up!</strong> All announcements have been acknowledged.</div>`;
+    }
+    if(readAlready.length){
+      html+=`<details style="margin-top:14px;border-top:1px dashed var(--border);padding-top:12px;"><summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:600;padding:6px 0;">✓ ${readAlready.length} announcement${readAlready.length!==1?'s':''} you've already acknowledged</summary><div style="margin-top:8px;">${readAlready.map(a=>_renderAnnouncementCard(a,activeStaffList,totalStaff,me)).join('')}</div></details>`;
+    }
+    el.innerHTML=html;
+    return;
+  }
+  el.innerHTML=list.map(a=>_renderAnnouncementCard(a,activeStaffList,totalStaff,me)).join('');
+}
+
+function _renderAnnouncementCard(a,activeStaffList,totalStaff,meSignedIn){
+  const acks=a.acknowledgments||{};
+  const ackedIds=Object.keys(acks);
+  const ackedCount=activeStaffList.filter(s=>acks[s.id]).length;
+  const notYet=activeStaffList.filter(s=>!acks[s.id]);
+  const resolved=!!a.resolvedAt;
+  const createdStr=new Date(a.createdAt).toLocaleString('en-US',{month:'numeric',day:'numeric',year:'2-digit',hour:'numeric',minute:'2-digit'});
+  const linkBtn=a.linkUrl?`<a href="${a.linkUrl}" target="_blank" class="btn btn-g btn-sm" style="text-decoration:none;display:inline-block;margin-top:8px;border-color:var(--info);color:var(--info);">🔗 ${a.linkLabel||'View link'} ↗</a>`:'';
+  const ackList=ackedIds.length?`<div style="font-size:11px;color:var(--ok);margin-top:8px;"><strong>✓ Acknowledged by:</strong> ${ackedIds.map(id=>{const s=activeStaffList.find(x=>x.id===id);const t=new Date(acks[id]).toLocaleDateString('en-US',{month:'numeric',day:'numeric'});return s?`${s.name} (${t})`:'';}).filter(Boolean).join(', ')}</div>`:'';
+  const notYetList=!resolved&&notYet.length?`<div style="font-size:11px;color:var(--warn);margin-top:4px;"><strong>Still needs to acknowledge:</strong> ${notYet.map(s=>s.name).join(', ')}</div>`:'';
+  // Pre-fill the picker with the signed-in user so it's a single click.
+  const meIsNotYet=meSignedIn&&notYet.some(s=>s.id===meSignedIn);
+  const ackForm=!resolved&&notYet.length?`<div style="margin-top:10px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+    <select id="ack-by-${a.id}" class="fi" style="font-size:12px;padding:5px 8px;width:auto;"><option value="" ${meIsNotYet?'':'disabled selected'}>Your name</option>${notYet.map(s=>`<option value="${s.id}" ${s.id===meSignedIn?'selected':''}>${s.name}</option>`).join('')}</select>
+    <button class="btn btn-p btn-sm" onclick="acknowledgeAnnouncement('${a.id}')">I've read this ✓</button>
+  </div>`:'';
+  const resolvedBadge=resolved?`<div style="margin-top:8px;padding:8px 12px;background:var(--okp);border-left:3px solid var(--ok);border-radius:4px;font-size:12px;color:var(--ok);"><strong>✓ Resolved</strong> by ${leaderName(a.resolvedBy)} on ${new Date(a.resolvedAt).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'})}</div>`:'';
+  const resolveBtn=!resolved?`<button class="btn btn-sm btn-g" onclick="resolveAnnouncement('${a.id}')" style="border-color:var(--ok);color:var(--ok);">✓ Mark resolved</button>`:`<button class="btn btn-sm btn-g" onclick="unresolveAnnouncement('${a.id}')" style="border-color:var(--muted);color:var(--muted);">Reopen</button>`;
+  return`<div class="mccard" id="announce-card-${a.id}" style="padding:14px 16px;margin-bottom:10px;border:1.5px solid ${resolved?'var(--border)':'var(--tc)'};background:${resolved?'var(--sand)':'white'};${resolved?'opacity:.78;':''}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px;">
+      <div style="flex:1;">
+        <div style="font-weight:600;font-size:14px;color:var(--dark);">${a.title}${resolved?' <span class="badge bhlt">Resolved</span>':''}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">📣 Posted by <strong>${leaderName(a.postedBy)}</strong> · ${createdStr} · ${ackedCount}/${totalStaff} acknowledged</div>
       </div>
-      <div style="font-size:13px;white-space:pre-wrap;margin-top:8px;">${a.content}</div>
-      ${linkBtn}
-      ${resolvedBadge}
-      ${ackList}
-      ${notYetList}
-      ${ackForm}
-    </div>`;
-  }).join('');
+      <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">
+        ${resolveBtn}
+        <button class="btn btn-sm btn-g" onclick="editAnnouncement('${a.id}')">Edit</button>
+        <button class="btn btn-sm btn-do" onclick="removeAnnouncement('${a.id}')">Delete</button>
+      </div>
+    </div>
+    <div style="font-size:13px;white-space:pre-wrap;margin-top:8px;">${a.content}</div>
+    ${linkBtn}
+    ${resolvedBadge}
+    ${ackList}
+    ${notYetList}
+    ${ackForm}
+  </div>`;
 }
 
 // ── LEARNING LIBRARY (training recordings) ──────────────────────────────
@@ -8250,11 +8373,12 @@ loadAll().then(()=>{
     setDailyTab('notes');
   }
   updateNotifBadges();
+  maybeShowIdentCheckin();
   // Refresh badges every 60s so new items posted by another device show up
   // within a reasonable window without a manual reload.
   setInterval(async ()=>{
     if(useLocalStorage)return;
-    try{await Promise.all([loadShiftNotes(),loadAnnouncements()]);updateNotifBadges();}catch(e){}
+    try{await Promise.all([loadShiftNotes(),loadAnnouncements()]);updateNotifBadges();maybeShowIdentCheckin();}catch(e){}
   },60000);
 });
 
