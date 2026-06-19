@@ -849,7 +849,7 @@
           <li><strong>Add the guest's first name</strong> to personalize — and check "Moved" if you've moved them from a different suite</li>
           <li><strong>Early arrival? Tap "Skip to next session →"</strong> to jump that suite ahead to the upcoming appointment. Their name and status save against the next slot. Tap <strong>"← Back to current session"</strong> if you skipped by mistake.</li>
           <li><strong>No need to reset anything</strong> — every status, name, and "Moved" flag auto-clears 15 min before the next appointment</li>
-          <li><strong>Suite out of service?</strong> Tap "🔧 Mark closed for service" at the bottom of a suite card. The card collapses and the lobby shows "Closed for service" instead of an appointment. Stays closed (even across days) until you tap "Reopen suite."</li>
+          <li><strong>Need to close a suite?</strong> Tap "Close suite" at the bottom of the suite card. The card collapses and the lobby shows "Closed" instead of an appointment. Stays closed (even across days) until you tap "Reopen suite."</li>
           <li><strong>See a red error banner?</strong> Tap the same button again. If it keeps failing, hard refresh the page (Cmd + Shift + R).</li>
         </ul>
       </div>
@@ -8264,7 +8264,7 @@ function _ssRender(){
       // Manually closed for service. Collapse the card to a status message +
       // prominent Reopen button so it's obvious how to bring the suite back.
       const msg=document.createElement('div');msg.className='ss-closed-msg';
-      msg.textContent='This suite is offline for service. Reopen when ready.';
+      msg.textContent='This suite is closed. Reopen when ready.';
       row.appendChild(msg);
       const reopen=document.createElement('button');reopen.className='ss-reopen-btn';reopen.textContent='Reopen suite';
       reopen.onclick=()=>_ssToggleClosed(i,false);
@@ -8377,7 +8377,7 @@ function _ssRender(){
       // of each open suite card. Persists across slots and days until reopened.
       const closeRow=document.createElement('div');closeRow.className='ss-closed-toggle-row';
       const closeBtn=document.createElement('button');closeBtn.className='ss-mark-closed-btn';
-      closeBtn.textContent='🔧 Mark closed for service';
+      closeBtn.textContent='Close suite';
       closeBtn.onclick=()=>_ssToggleClosed(i,true);
       closeRow.appendChild(closeBtn);
       row.appendChild(closeRow);

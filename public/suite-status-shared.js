@@ -54,7 +54,7 @@
     // Manual "closed for service" wins over everything else and persists across
     // days, slots, and the schedule. Staff explicitly reopens to clear it.
     if (override && override.closed) {
-      return { type: 'closed', label: 'Closed for service', time: null, manualClosed: true };
+      return { type: 'closed', label: 'Closed', time: null, manualClosed: true };
     }
 
     const schedule = getScheduleFor(now);
