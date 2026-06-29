@@ -66,6 +66,7 @@ module.exports = async function handler(req, res) {
       deactivated: g.deactivated || false,
       deactivatedReason: g.deactivated_reason || null,
       deactivatedNotes: g.deactivated_notes || null,
+      deactivatedAt: g.deactivated_at || null,
       totalVisits: g.total_visits || 0,
       visitsUpdatedAt: g.visits_updated_at || null,
       milestonesCompleted: g.milestones_completed || {},
@@ -104,9 +105,17 @@ module.exports = async function handler(req, res) {
     if (body.contractStartDate !== undefined) updates.contract_start_date = body.contractStartDate;
     if (body.assignedStaff !== undefined) updates.assigned_staff = body.assignedStaff;
     if (body.visitStatus !== undefined) updates.visit_status = body.visitStatus;
-    if (body.deactivated !== undefined) updates.deactivated = body.deactivated;
+    if (body.deactivated !== undefined) {
+      updates.deactivated = body.deactivated;
+      // Auto-stamp deactivation time on the transition to deactivated, and
+      // clear it on reactivation. Skip if the caller explicitly provided one.
+      if (body.deactivatedAt === undefined) {
+        updates.deactivated_at = body.deactivated ? new Date().toISOString() : null;
+      }
+    }
     if (body.deactivatedReason !== undefined) updates.deactivated_reason = body.deactivatedReason;
     if (body.deactivatedNotes !== undefined) updates.deactivated_notes = body.deactivatedNotes;
+    if (body.deactivatedAt !== undefined) updates.deactivated_at = body.deactivatedAt;
     if (body.totalVisits !== undefined) updates.total_visits = body.totalVisits;
     if (body.visitsUpdatedAt !== undefined) updates.visits_updated_at = body.visitsUpdatedAt;
     if (body.milestonesCompleted !== undefined) updates.milestones_completed = body.milestonesCompleted;

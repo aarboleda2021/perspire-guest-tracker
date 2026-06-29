@@ -4764,13 +4764,17 @@ async function removeGuest(id){
     if(relatedNurtures.length)parts.push(`${relatedNurtures.length} nurture${relatedNurtures.length!==1?'s':''}`);
     extra=`\n\nThis will also delete ${parts.join(' and ')} for ${guest.name} to keep things in sync.`;
   }
-  if(!confirm(`Remove ${guest.name} from the tracker?${extra}`))return;
+  if(!confirm(`Remove ${guest.name} from the tracker?${extra}\n\nNote: Their name will be added to the dismissed list so the next Mindbody member-roster upload doesn't re-flag them. If they re-join later (with a fresh Mindbody join date), the system will still catch that.`))return;
   // Delete the guest first
   if(useLocalStorage){
     guests=guests.filter(c=>c.id!==id);lsSave();
   } else {
     await api('guests?id='+id,{method:'DELETE'});
   }
+  // Auto-dismiss the name so future member uploads don't re-flag this person
+  // as "missing from the tracker." Re-join detection (if they later show up
+  // again with a newer join date) is handled separately in processUploadRows.
+  await addDismissedName(guest.name,'guest removed from tracker');
   // Cascade: delete related changes
   for(const c of relatedChanges){
     if(useLocalStorage){changes=changes.filter(x=>x.id!==c.id);}
@@ -5086,22 +5090,72 @@ function processMemberRows(rows){
     const start=startCol?String(r[startCol]||'').trim():'';
     reportNames.push({name,tier,start});
   });
-  // Compare against ACTIVE guests (members + packages, since the report could include both)
+  // Compare against ALL guests (active + deactivated). Deactivated matches use
+  // a re-join check: if the report's join date is AFTER the guest's deactivation,
+  // they re-joined and need to be flagged. Otherwise it's the same person
+  // Mohogany already cancelled — silent, no flag.
   const activeGuests=guests.filter(g=>!g.deactivated);
+  const deactivatedGuests=guests.filter(g=>g.deactivated);
   const cutoff=parseDate(MEMBER_TRACKING_START_DATE);
   const dismissedNames=getDismissedMemberNames();
+  // Also build a lookup of dismissal timestamps so we can detect re-joins after
+  // a hard-delete (e.g., Mohogany deleted Crystal in March, Crystal re-joins in
+  // May — the May join date is newer than the March dismissal, so she should
+  // still get flagged as a re-join even though her name is on the dismissed list).
+  const dismissedTimestamps={};
+  events.filter(e=>e.title==='__dismissed-member').forEach(e=>{
+    const k=(e.description||'').toLowerCase().trim();
+    if(k&&e.createdAt){dismissedTimestamps[k]=new Date(e.createdAt);}
+  });
   const matched=[];
   const newlyFlagged=[]; // net-new unmatched this upload
   const alreadyPending=[]; // in report AND already pending from prior upload
   const dismissedInReport=[]; // report name matches a previously dismissed name
   const historical=[];
+  const previouslyCancelled=[]; // matched a deactivated guest with no evidence of re-joining
+  const rejoined=[]; // matched a deactivated guest AND report join date is after deactivation
   let missingDateFlaggedCount=0;
   reportNames.forEach(rn=>{
     const lower=rn.name.toLowerCase().trim();
     const m=activeGuests.find(g=>g.name.toLowerCase().trim()===lower);
     if(m){matched.push({...rn,guestId:m.id});return;}
-    if(dismissedNames.includes(lower)){dismissedInReport.push(rn);return;}
     const startD=rn.start?parseDate(rn.start):null;
+    if(dismissedNames.includes(lower)){
+      // If their join date is AFTER we dismissed them, they re-joined — flag.
+      // Otherwise silent (same person we already chose to skip).
+      const dismAt=dismissedTimestamps[lower];
+      if(startD&&dismAt&&startD>dismAt){
+        rejoined.push({...rn,wasDismissed:true});
+        const existing=getPendingMembers().find(p=>(p.description||'').toLowerCase().trim()===lower);
+        if(!existing){newlyFlagged.push({...rn,_noDate:!startD,_rejoined:true});}
+        else {alreadyPending.push(rn);}
+      } else {
+        dismissedInReport.push(rn);
+      }
+      return;
+    }
+    // Check deactivated guests for a name match BEFORE flagging as new.
+    const deactMatch=deactivatedGuests.find(g=>g.name.toLowerCase().trim()===lower);
+    if(deactMatch){
+      const deactAt=deactMatch.deactivatedAt?new Date(deactMatch.deactivatedAt):null;
+      // Re-join only if we have BOTH a report date AND a deactivation date AND
+      // the report date is strictly after deactivation. Anything else is treated
+      // as the same person Mohogany already cancelled — silent.
+      if(startD&&deactAt&&startD>deactAt){
+        rejoined.push({...rn,deactivatedGuest:deactMatch});
+        // Still flag for the manager-review queue since this is a real re-join
+        const existing=getPendingMembers().find(p=>(p.description||'').toLowerCase().trim()===lower);
+        if(!existing){
+          if(!startD)missingDateFlaggedCount++;
+          newlyFlagged.push({...rn,_noDate:!startD,_rejoined:true});
+        } else {
+          alreadyPending.push(rn);
+        }
+      } else {
+        previouslyCancelled.push({...rn,deactivatedGuest:deactMatch});
+      }
+      return;
+    }
     // Only bucket as historical if we have a CONFIRMED date that's before the cutoff.
     // If the date is missing or unparseable, we err on the side of flagging the
     // person for review rather than silently hiding them — that's how Alissa
@@ -5128,7 +5182,7 @@ function processMemberRows(rows){
 
   const cutoffPretty=cutoff?cutoff.toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'numeric'}):MEMBER_TRACKING_START_DATE;
   const totalPendingAfter=getPendingMembers().length+newlyFlagged.length;
-  let html=`<div style="margin-top:14px;font-weight:600;">Already in tracker: ${matched.length} · Newly flagged: ${newlyFlagged.length} · Already pending: ${alreadyPending.length}${dismissedInReport.length?` · Previously dismissed: ${dismissedInReport.length}`:''}${historical.length?` · Historical (ignored): ${historical.length}`:''}</div>`;
+  let html=`<div style="margin-top:14px;font-weight:600;">Already in tracker: ${matched.length} · Newly flagged: ${newlyFlagged.length} · Already pending: ${alreadyPending.length}${previouslyCancelled.length?` · Previously cancelled: ${previouslyCancelled.length}`:''}${rejoined.length?` · Re-joined: ${rejoined.length}`:''}${dismissedInReport.length?` · Previously dismissed: ${dismissedInReport.length}`:''}${historical.length?` · Historical (ignored): ${historical.length}`:''}</div>`;
   html+=`<div style="font-size:12px;color:var(--mid);margin-top:6px;">${reportNames.length} total members in your report. Only members who joined on or after <strong>${cutoffPretty}</strong> are being tracked.</div>`;
   if(!startCol){
     html+=`<div style="margin-top:10px;padding:10px 12px;background:var(--errp);border:1.5px solid var(--err);border-radius:8px;font-size:12px;color:var(--err);">
@@ -5141,12 +5195,24 @@ function processMemberRows(rows){
     const total=newlyFlagged.length+alreadyPending.length;
     html+=`<div style="margin-top:14px;padding:12px;background:var(--warnp);border:1.5px solid #E8C07A;border-radius:8px;font-size:13px;color:var(--warn);">
       <strong>⚠ ${total} member${total!==1?'s':''} pending review:</strong>
-      <ul style="margin:6px 0 8px 18px;padding:0;">${newlyFlagged.slice(0,10).map(u=>`<li>${u.name}${u.tier?` <span style="color:var(--muted);">— ${u.tier}</span>`:''}${u.start?` <span style="color:var(--muted);">· joined ${u.start}</span>`:''} <span style="color:var(--tc);font-weight:600;">(new)</span>${u._noDate?` <span style="color:var(--warn);font-weight:600;">⚠ no date — please verify</span>`:''}</li>`).join('')}</ul>
+      <ul style="margin:6px 0 8px 18px;padding:0;">${newlyFlagged.slice(0,10).map(u=>`<li>${u.name}${u.tier?` <span style="color:var(--muted);">— ${u.tier}</span>`:''}${u.start?` <span style="color:var(--muted);">· joined ${u.start}</span>`:''} <span style="color:${u._rejoined?'var(--ok)':'var(--tc)'};font-weight:600;">${u._rejoined?'🔁 re-joined':'(new)'}</span>${u._noDate?` <span style="color:var(--warn);font-weight:600;">⚠ no date — please verify</span>`:''}</li>`).join('')}</ul>
       ${total>10?`<div style="font-size:11px;color:var(--mid);">…and ${total-10} more</div>`:''}
     </div>
     <div style="display:flex;justify-content:flex-end;margin-top:12px;"><button class="btn btn-p btn-sm" onclick="closeModal('member-upload-modal');openPendingMembers();">Review & resolve all ${total} →</button></div>`;
   } else {
     html+=`<div style="margin-top:14px;padding:12px;background:var(--okp);border:1.5px solid #9ECDB5;border-radius:8px;font-size:13px;color:var(--ok);"><strong>✓ No new members to add — the tracker is caught up!</strong></div>`;
+  }
+  if(previouslyCancelled.length){
+    const sample=previouslyCancelled.slice(0,5).map(p=>p.name).join(', ')+(previouslyCancelled.length>5?`, +${previouslyCancelled.length-5} more`:'');
+    html+=`<div style="margin-top:10px;padding:10px 12px;background:white;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--muted);">
+      <strong>${previouslyCancelled.length} previously cancelled member${previouslyCancelled.length!==1?'s':''}</strong> appeared in your report again but were skipped — they were already deactivated in the tracker and their report join date isn't newer than when you cancelled them. <span style="color:var(--mid);">${sample}</span>
+    </div>`;
+  }
+  if(rejoined.length){
+    const sample=rejoined.slice(0,5).map(p=>p.name).join(', ')+(rejoined.length>5?`, +${rejoined.length-5} more`:'');
+    html+=`<div style="margin-top:10px;padding:10px 12px;background:var(--okp);border-left:3px solid var(--ok);border-radius:8px;font-size:12px;color:var(--ok);">
+      <strong>🔁 ${rejoined.length} re-joined member${rejoined.length!==1?'s':''}</strong> — these people had been cancelled in the tracker, but their new Mindbody join date is AFTER the cancellation. They've been added to the pending-review list as fresh new clients so you can re-enroll them in the 90-day journey. <span style="color:var(--mid);">${sample}</span>
+    </div>`;
   }
   if(dismissedInReport.length){
     html+=`<div style="margin-top:10px;padding:10px 12px;background:white;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--muted);">
@@ -5345,6 +5411,19 @@ async function addPendingMember(name,tier,joinDate){
 async function removePendingMember(id){
   if(useLocalStorage){events=events.filter(e=>e.id!==id);lsSave();}
   else{try{await api('events?id='+id,{method:'DELETE'});}catch(e){console.warn(e.message);}}
+}
+
+// Adds a name to the dismissed list so future member-roster uploads skip it.
+// Used when a guest is hard-deleted from the tracker so the next upload doesn't
+// just re-flag them as "missing." Safe to call repeatedly — idempotent.
+async function addDismissedName(name,reason){
+  const lower=(name||'').toLowerCase().trim();
+  if(!lower)return;
+  if(getDismissedMemberNames().includes(lower))return;
+  const did='dism-'+Date.now()+Math.random().toString(36).slice(2,6);
+  const rec={id:did,title:'__dismissed-member',eventType:'other',description:name,timeRange:reason||'guest deleted',startDate:toInputDate(new Date()),endDate:null,volunteerNeeded:false,assignedStaff:null,createdAt:new Date().toISOString()};
+  if(useLocalStorage){events.push(rec);lsSave();}
+  else{try{await api('events',{method:'POST',body:rec});await loadEvents();}catch(e){console.warn('Could not auto-dismiss',e.message);}}
 }
 
 async function dismissPendingMember(id,reason){
