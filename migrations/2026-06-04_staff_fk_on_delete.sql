@@ -4,6 +4,15 @@
 -- should keep existing — they just lose the named reference (becomes NULL).
 -- Without this, removing a staff member is blocked by foreign-key constraints.
 
+-- events references (assigned_staff + assigned_staff_2)
+ALTER TABLE events DROP CONSTRAINT IF EXISTS events_assigned_staff_fkey;
+ALTER TABLE events ADD CONSTRAINT events_assigned_staff_fkey
+  FOREIGN KEY (assigned_staff) REFERENCES staff(id) ON DELETE SET NULL;
+
+ALTER TABLE events DROP CONSTRAINT IF EXISTS events_assigned_staff_2_fkey;
+ALTER TABLE events ADD CONSTRAINT events_assigned_staff_2_fkey
+  FOREIGN KEY (assigned_staff_2) REFERENCES staff(id) ON DELETE SET NULL;
+
 -- shift_notes references
 ALTER TABLE shift_notes DROP CONSTRAINT IF EXISTS shift_notes_created_by_fkey;
 ALTER TABLE shift_notes ADD CONSTRAINT shift_notes_created_by_fkey
