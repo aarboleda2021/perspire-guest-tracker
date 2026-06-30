@@ -17,14 +17,9 @@ ALTER TABLE shift_notes DROP CONSTRAINT IF EXISTS shift_notes_assigned_to_fkey;
 ALTER TABLE shift_notes ADD CONSTRAINT shift_notes_assigned_to_fkey
   FOREIGN KEY (assigned_to) REFERENCES staff(id) ON DELETE SET NULL;
 
--- announcements references
-ALTER TABLE announcements DROP CONSTRAINT IF EXISTS announcements_posted_by_fkey;
-ALTER TABLE announcements ADD CONSTRAINT announcements_posted_by_fkey
-  FOREIGN KEY (posted_by) REFERENCES staff(id) ON DELETE SET NULL;
-
-ALTER TABLE announcements DROP CONSTRAINT IF EXISTS announcements_resolved_by_fkey;
-ALTER TABLE announcements ADD CONSTRAINT announcements_resolved_by_fkey
-  FOREIGN KEY (resolved_by) REFERENCES staff(id) ON DELETE SET NULL;
+-- announcements: posted_by / resolved_by reference LEADERSHIP (Amanda + Mohogany),
+-- not the staff table. Amanda isn't in `staff`, so no FK is added on these
+-- columns — leadership IDs are validated client-side in the frontend.
 
 -- guests.assigned_staff — deactivated guests may still reference removed staff
 ALTER TABLE guests DROP CONSTRAINT IF EXISTS guests_assigned_staff_fkey;
