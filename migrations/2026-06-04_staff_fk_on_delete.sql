@@ -13,7 +13,8 @@ ALTER TABLE events DROP CONSTRAINT IF EXISTS events_assigned_staff_2_fkey;
 ALTER TABLE events ADD CONSTRAINT events_assigned_staff_2_fkey
   FOREIGN KEY (assigned_staff_2) REFERENCES staff(id) ON DELETE SET NULL;
 
--- shift_notes references
+-- shift_notes — allow NULL on created_by so notes survive when their author is removed
+ALTER TABLE shift_notes ALTER COLUMN created_by DROP NOT NULL;
 ALTER TABLE shift_notes DROP CONSTRAINT IF EXISTS shift_notes_created_by_fkey;
 ALTER TABLE shift_notes ADD CONSTRAINT shift_notes_created_by_fkey
   FOREIGN KEY (created_by) REFERENCES staff(id) ON DELETE SET NULL;
@@ -40,17 +41,22 @@ ALTER TABLE changes DROP CONSTRAINT IF EXISTS changes_submitted_by_fkey;
 ALTER TABLE changes ADD CONSTRAINT changes_submitted_by_fkey
   FOREIGN KEY (submitted_by) REFERENCES staff(id) ON DELETE SET NULL;
 
--- daily_task_completions.completed_by
+-- daily_task_completions.completed_by — allow NULL so a removed staff's
+-- past completion records are preserved (just lose the named link).
+ALTER TABLE daily_task_completions ALTER COLUMN completed_by DROP NOT NULL;
 ALTER TABLE daily_task_completions DROP CONSTRAINT IF EXISTS daily_task_completions_completed_by_fkey;
 ALTER TABLE daily_task_completions ADD CONSTRAINT daily_task_completions_completed_by_fkey
   FOREIGN KEY (completed_by) REFERENCES staff(id) ON DELETE SET NULL;
 
--- daily_logs.staff_id
+-- daily_logs.staff_id — a log row only makes sense PER staff member, so
+-- CASCADE delete the row entirely if the staff is removed (otherwise orphaned
+-- 'null' rows would collide on the (staff_id, log_date) unique constraint).
 ALTER TABLE daily_logs DROP CONSTRAINT IF EXISTS daily_logs_staff_id_fkey;
 ALTER TABLE daily_logs ADD CONSTRAINT daily_logs_staff_id_fkey
-  FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE SET NULL;
+  FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE;
 
 -- gift_certificates.issued_by
+ALTER TABLE gift_certificates ALTER COLUMN issued_by DROP NOT NULL;
 ALTER TABLE gift_certificates DROP CONSTRAINT IF EXISTS gift_certificates_issued_by_fkey;
 ALTER TABLE gift_certificates ADD CONSTRAINT gift_certificates_issued_by_fkey
   FOREIGN KEY (issued_by) REFERENCES staff(id) ON DELETE SET NULL;
