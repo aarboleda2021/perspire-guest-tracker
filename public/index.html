@@ -3496,6 +3496,7 @@ function renderRoster(){
         <div class="smname">${s.name}${isMohogany?` <span style="font-size:11px;color:var(--muted);font-style:italic;">(Team lead)</span>`:roleBadge}</div>
         <div class="smct">${ct} client${ct!==1?'s':''}</div>
         ${roleSel}
+        <button class="btn btn-g btn-sm" onclick="renameStaff('${s.id}')">Edit name</button>
         <button class="btn btn-g btn-sm" onclick="openReassignStaff('${s.id}')">Reassign all</button>
         <button class="btn btn-sm" style="${s.active?'color:var(--err);border:1.5px solid var(--err);':'color:var(--ok);border:1.5px solid var(--ok);'}background:transparent;" onclick="toggleStaffActive('${s.id}')">${s.active?'Deactivate':'Reactivate'}</button>
       </div>
@@ -3660,6 +3661,28 @@ async function updateStaffGoal(staffId,key,val){
   s[key]=v;
   if(useLocalStorage){lsSave();}
   else{await api('staff?id='+staffId,{method:'PUT',body:{[key]:v}});}
+}
+async function renameStaff(staffId){
+  const s=staffList.find(x=>x.id===staffId);if(!s)return;
+  const next=prompt(`Edit ${s.name}'s display name:\n\n(This updates how their name shows up everywhere — staff dropdowns, shift notes, the team roster, exports, etc. Their underlying ID and history stay the same.)`,s.name);
+  if(next===null)return;
+  const trimmed=next.trim();
+  if(!trimmed){alert('Name cannot be empty.');return;}
+  if(trimmed===s.name)return;
+  s.name=trimmed;
+  if(useLocalStorage){
+    staffList.sort((a,b)=>a.name.localeCompare(b.name));
+    lsSave();
+  } else {
+    await api('staff?id='+staffId,{method:'PUT',body:{name:trimmed}});
+    await loadStaff();
+  }
+  fillAll();renderRoster();
+  // Refresh anything visible that displays staff names so the change is instant.
+  if(currentView==='guests')renderGuests();
+  if(currentView==='changes')renderChanges();
+  if(currentView==='daily'&&currentDailyTab==='notes'){renderShiftNotes();renderAnnouncements();}
+  if(currentView==='manager')setMgrTab(currentMgrTab);
 }
 async function updateStaffRole(staffId,role){
   if(!['msa','sa'].includes(role))return;
