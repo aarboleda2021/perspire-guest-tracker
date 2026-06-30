@@ -2618,7 +2618,7 @@ function windowDates(startDate,ws,we){
 function initials(n){return n.trim().split(' ').map(p=>p[0]).join('').toUpperCase().slice(0,2);}
 function getTPs(t){return t==='member'?MEMBER_TPS:PACKAGE_TPS;}
 function getWins(t){return t==='member'?MEMBER_WINS:PACKAGE_WINS;}
-function sName(id){const s=staffList.find(x=>x.id===id);return s?s.name:id;}
+function sName(id){if(!id)return'(removed)';const s=staffList.find(x=>x.id===id);return s?s.name:'(removed)';}
 function activeStaff(){return[...staffList].filter(s=>s.active).sort((a,b)=>a.name.localeCompare(b.name));}
 // MSAs only — used for dropdowns that only make sense for sales/member-service
 // staff (assigning new guests, change-request submitter, daily log grid, etc.).
