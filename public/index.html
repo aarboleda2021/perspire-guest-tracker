@@ -3499,6 +3499,7 @@ function renderRoster(){
         <button class="btn btn-g btn-sm" onclick="renameStaff('${s.id}')">Edit name</button>
         <button class="btn btn-g btn-sm" onclick="openReassignStaff('${s.id}')">Reassign all</button>
         <button class="btn btn-sm" style="${s.active?'color:var(--err);border:1.5px solid var(--err);':'color:var(--ok);border:1.5px solid var(--ok);'}background:transparent;" onclick="toggleStaffActive('${s.id}')">${s.active?'Deactivate':'Reactivate'}</button>
+        ${(!s.active&&!isMohogany)?`<button class="btn btn-sm btn-do" onclick="removeStaffPermanently('${s.id}')">Remove</button>`:''}
       </div>
       ${goalRow}
     </div>`;
@@ -3662,6 +3663,31 @@ async function updateStaffGoal(staffId,key,val){
   if(useLocalStorage){lsSave();}
   else{await api('staff?id='+staffId,{method:'PUT',body:{[key]:v}});}
 }
+async function removeStaffPermanently(staffId){
+  const s=staffList.find(x=>x.id===staffId);if(!s)return;
+  if(s.active){alert('Please deactivate this person first, then click Remove.');return;}
+  // Safety: don't allow removal while any active guest is still assigned to them
+  const stillAssigned=guests.filter(g=>!g.deactivated&&g.assignedStaff===staffId).length;
+  if(stillAssigned>0){
+    alert(`${s.name} still has ${stillAssigned} active client${stillAssigned!==1?'s':''} assigned. Click "Reassign all" first, then come back to Remove.`);
+    return;
+  }
+  if(!confirm(`Permanently remove ${s.name} from the staff list?\n\nThis hides their name from every dropdown, picker, and roster going forward. Historical records they were involved in (old shift notes they resolved, change requests they submitted, etc.) will still exist but may show their ID instead of their name in some places. This action cannot be undone.`))return;
+  if(useLocalStorage){
+    staffList=staffList.filter(x=>x.id!==staffId);
+    lsSave();
+  } else {
+    await api('staff?id='+staffId,{method:'DELETE'});
+    await loadStaff();
+  }
+  fillAll();renderRoster();
+  // Refresh visible views that might still reference them
+  if(currentView==='guests')renderGuests();
+  if(currentView==='changes')renderChanges();
+  if(currentView==='daily'&&currentDailyTab==='notes'){renderShiftNotes();renderAnnouncements();}
+  if(currentView==='manager')setMgrTab(currentMgrTab);
+}
+
 async function renameStaff(staffId){
   const s=staffList.find(x=>x.id===staffId);if(!s)return;
   const next=prompt(`Edit ${s.name}'s display name:\n\n(This updates how their name shows up everywhere — staff dropdowns, shift notes, the team roster, exports, etc. Their underlying ID and history stay the same.)`,s.name);
