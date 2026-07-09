@@ -446,6 +446,25 @@
       <input type="checkbox" class="fchk" id="ng-welcome-email">
       <div><div class="fchk-lbl">Welcome email sent</div><div class="fchk-desc">Check this if the welcome email has been sent to the client from Gmail.</div></div>
     </div>
+    <div class="fci" style="margin-top:6px;">
+      <input type="checkbox" class="fchk" id="ng-comped" onchange="onCompedChange('ng')">
+      <div><div class="fchk-lbl">This is a comped / gifted membership or package</div><div class="fchk-desc">Raffle prize, gift certificate redemption, Summer Selection giveaway, etc. Lets us proactively engage them before it expires to try to convert them into a paying client.</div></div>
+    </div>
+    <div id="ng-comped-wrap" style="display:none;padding:12px;background:var(--sand);border-radius:8px;border:1px dashed var(--tc);margin-top:4px;">
+      <div class="frow">
+        <div class="fg" style="margin:0;"><label class="fl">Comped through<span class="req">*</span></label>
+          <select class="fi" id="ng-comped-source">
+            <option value="">— Select —</option>
+            <option value="raffle">Raffle prize</option>
+            <option value="gift_certificate">Gift certificate</option>
+            <option value="summer_selection">Summer Selection</option>
+            <option value="other">Other gift</option>
+          </select>
+        </div>
+        <div class="fg" style="margin:0;"><label class="fl">Expires on<span class="req">*</span></label><input type="date" class="fi" id="ng-comped-expires"></div>
+      </div>
+      <div class="fg" style="margin:6px 0 0;"><label class="fl">Details (optional)</label><input type="text" class="fi" id="ng-comped-details" placeholder="e.g., Summer Sizzle raffle at Amazon HQ, or GC #142 to XYZ auction"></div>
+    </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
       <button class="btn btn-g" onclick="toggleAddGuest()">Cancel</button>
       <button class="btn btn-p" onclick="addGuest()">Add client</button>
@@ -1212,6 +1231,25 @@
         <div><div class="fchk-lbl">Membership agreement signed</div></div>
       </div>
     </div>
+    <div class="fci" style="margin-top:4px;">
+      <input type="checkbox" class="fchk" id="eg-comped" onchange="onCompedChange('eg')">
+      <div><div class="fchk-lbl">This is a comped / gifted membership or package</div><div class="fchk-desc">Raffle, gift certificate, Summer Selection, etc.</div></div>
+    </div>
+    <div id="eg-comped-wrap" style="display:none;padding:12px;background:var(--sand);border-radius:8px;border:1px dashed var(--tc);margin-top:4px;">
+      <div class="frow">
+        <div class="fg" style="margin:0;"><label class="fl">Comped through<span class="req">*</span></label>
+          <select class="fi" id="eg-comped-source">
+            <option value="">— Select —</option>
+            <option value="raffle">Raffle prize</option>
+            <option value="gift_certificate">Gift certificate</option>
+            <option value="summer_selection">Summer Selection</option>
+            <option value="other">Other gift</option>
+          </select>
+        </div>
+        <div class="fg" style="margin:0;"><label class="fl">Expires on<span class="req">*</span></label><input type="date" class="fi" id="eg-comped-expires"></div>
+      </div>
+      <div class="fg" style="margin:6px 0 0;"><label class="fl">Details (optional)</label><input type="text" class="fi" id="eg-comped-details"></div>
+    </div>
     <div class="fg"><label class="fl">Notes</label><textarea class="fi" id="eg-notes" placeholder="Any helpful context — medical concerns, goals, referral source, preferred contact time, etc."></textarea></div>
     <div class="modal-actions">
       <button class="btn btn-g" onclick="closeModal('edit-guest-modal')">Cancel</button>
@@ -1784,7 +1822,7 @@ const MILESTONES=[
     script:`Hi [Name],\n\nFive sessions in — you're officially building a habit! 🧡 We love seeing you here and can't wait to watch you keep going.\n\nKeep showing up for yourself.\n\n— [Your Name] & the Perspire Peachtree Corners team`},
   {n:8, action:'Let them know at check-in that a complimentary guest pass has been loaded on their account and is ready to use.'},
   {n:10,action:'Have a PATH water with their name written on it ready at the front desk, or place it on the shelf in their suite.'},
-  {n:15,action:'Offer an elemental superfood bar — place it on the shelf in their suite or hand it to them at the front desk.'},
+  {n:15,action:'Grab a free "extra" from the back and offer it to them — options include: Vital Proteins collagen sparkling water, WellwithAll energy drink, St. James iced tea, RYSE protein powder packet, or whatever fresh comps we currently have stocked. Place it on the shelf in their suite or hand it to them at the front desk.'},
   {n:20,action:'Offer a complimentary Halo add-on for THIS visit — apply it at check-in so they use it today (do not leave it on their account for later).'},
 ];
 
@@ -2950,6 +2988,29 @@ function renderGuestCard(c,actions,prefix=''){
   const nxtTxt=nxt?` · Next: ${nxt.label} ${nxt.text}`:'';
   const sBdg={overdue:`<span class="badge bod">Overdue</span>`,'due-now':`<span class="badge bdu">Due now</span>`,'on-track':`<span class="badge bot">On track</span>`,complete:`<span class="badge bhlt">Complete</span>`}[st]||'';
   const tBdg=c.type==='member'?`<span class="badge bm">Member</span>`:`<span class="badge bpk">Package</span>`;
+  // Comped badge — shows source + expiration countdown with urgency color
+  let compedBdg='';let compedBox='';
+  if(c.compedSource){
+    const sourceLabels={raffle:'Raffle',gift_certificate:'Gift cert',summer_selection:'Summer Selection',other:'Gift'};
+    const label=sourceLabels[c.compedSource]||'Comped';
+    const exp=c.compedExpiresAt?parseDate(c.compedExpiresAt):null;
+    const today=new Date();today.setHours(0,0,0,0);
+    const days=exp?Math.floor((exp-today)/86400000):null;
+    let urgency='',urgencyTxt='';
+    if(days!==null){
+      if(days<0){urgency='bod';urgencyTxt=`expired ${Math.abs(days)}d ago`;}
+      else if(days===0){urgency='bod';urgencyTxt='expires TODAY';}
+      else if(days<=7){urgency='bod';urgencyTxt=`expires in ${days}d`;}
+      else if(days<=30){urgency='bdu';urgencyTxt=`expires in ${days}d`;}
+      else{urgency='bia';urgencyTxt=`expires in ${days}d`;}
+    }
+    compedBdg=`<span class="badge ${urgency||'bia'}" title="Comped through ${label}${exp?' · expires '+fmtDate(c.compedExpiresAt):''}">🎁 ${label}${urgencyTxt?` · ${urgencyTxt}`:''}</span>`;
+    if(!c.deactivated){
+      const urgencyBg=(days!==null&&days<=7)?'var(--errp)':(days!==null&&days<=30)?'var(--warnp)':'var(--sand)';
+      const urgencyBorder=(days!==null&&days<=7)?'var(--err)':(days!==null&&days<=30)?'var(--warn)':'var(--tc)';
+      compedBox=`<div style="background:${urgencyBg};border-left:3px solid ${urgencyBorder};border-radius:6px;padding:10px 14px;margin-top:12px;"><div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">🎁 Comped ${label.toLowerCase()}${exp?` · expires ${fmtDate(c.compedExpiresAt)}`:''}${urgencyTxt?` <span style="color:${(days!==null&&days<=7)?'var(--err)':(days!==null&&days<=30)?'var(--warn)':'var(--muted)'};">(${urgencyTxt})</span>`:''}</div>${c.compedDetails?`<div style="font-size:13px;color:var(--mid);white-space:pre-wrap;">${c.compedDetails}</div>`:''}<div style="font-size:11px;color:var(--muted);margin-top:4px;font-style:italic;">Reach out before expiration to try to convert to a paying client.</div></div>`;
+    }
+  }
   const wins=getWins(c.type);
   const tpHtml=tps.map((tp,i)=>{
     const s=tpStatus(c,i),log=c.logs?.[i],ch=chLabel(tp.channel);
@@ -2970,11 +3031,12 @@ function renderGuestCard(c,actions,prefix=''){
     <div class="chdr" onclick="toggleCard('${prefix}ccard-${c.id}')">
       <div class="cav">${initials(c.name)}</div>
       <div class="ci"><div class="cn">${c.name}</div><div class="cm">${c.totalVisits||0} visits · ${nxt?`Next: ${nxt.label} ${nxt.text} · `:'All touchpoints complete · '}${sName(c.assignedStaff)}</div></div>
-      <div class="cbdg">${!c.deactivated&&!c.welcomeEmailSent?'<span class="badge bdu" title="Welcome email not sent">📧</span>':''}${!c.deactivated&&c.type==='member'&&!c.agreementSigned?'<span class="badge bod" title="Agreement not signed">📋</span>':''}${tBdg}${c.deactivated?`<span class="badge bia">Deactivated</span>`:sBdg}${!c.deactivated&&c.visitStatus==='at-risk'?`<span class="badge bod">At-risk</span>`:''}</div>
+      <div class="cbdg">${!c.deactivated&&!c.welcomeEmailSent?'<span class="badge bdu" title="Welcome email not sent">📧</span>':''}${!c.deactivated&&c.type==='member'&&!c.agreementSigned?'<span class="badge bod" title="Agreement not signed">📋</span>':''}${tBdg}${!c.deactivated?compedBdg:''}${c.deactivated?`<span class="badge bia">Deactivated</span>`:sBdg}${!c.deactivated&&c.visitStatus==='at-risk'?`<span class="badge bod">At-risk</span>`:''}</div>
       <svg class="xic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
     </div>
     <div class="cbody">
       ${!c.deactivated?renderOnboardingChecks(c,actions):''}
+      ${compedBox}
       ${c.type==='member'&&!c.deactivated&&actions?renderMilestonesBlock(c):''}
       <div class="tpg">${tpHtml}</div>
       ${c.notes?`<div style="background:var(--sand);border-left:3px solid var(--tc);border-radius:6px;padding:10px 14px;margin-top:12px;"><div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">📝 Notes</div><div style="font-size:13px;color:var(--mid);white-space:pre-wrap;">${c.notes}</div></div>`:''}
@@ -4863,6 +4925,26 @@ function toggleAddGuest(){
     fillStaff('ng-staff');
     const selStaff=document.getElementById('staff-sel').value;
     if(selStaff&&selStaff!=='all')document.getElementById('ng-staff').value=selStaff;
+    // Reset comped fields whenever the form opens fresh
+    document.getElementById('ng-comped').checked=false;
+    document.getElementById('ng-comped-source').value='';
+    document.getElementById('ng-comped-expires').value='';
+    document.getElementById('ng-comped-details').value='';
+    document.getElementById('ng-comped-wrap').style.display='none';
+  }
+}
+
+// Shared show/hide + reset helper for the comped fields (used by both
+// the new-guest form and the edit-guest modal, prefix = 'ng' or 'eg').
+function onCompedChange(prefix){
+  const cb=document.getElementById(prefix+'-comped');
+  const wrap=document.getElementById(prefix+'-comped-wrap');
+  if(!cb||!wrap)return;
+  wrap.style.display=cb.checked?'block':'none';
+  if(!cb.checked){
+    document.getElementById(prefix+'-comped-source').value='';
+    document.getElementById(prefix+'-comped-expires').value='';
+    document.getElementById(prefix+'-comped-details').value='';
   }
 }
 async function addGuest(){
@@ -4873,18 +4955,26 @@ async function addGuest(){
   const staff=document.getElementById('ng-staff').value;
   const welcomeEmailSent=document.getElementById('ng-welcome-email').checked;
   const notes=document.getElementById('ng-notes').value.trim();
+  const isComped=document.getElementById('ng-comped').checked;
+  const compedSource=isComped?(document.getElementById('ng-comped-source').value||null):null;
+  const compedExpires=isComped?(document.getElementById('ng-comped-expires').value||null):null;
+  const compedDetails=isComped?(document.getElementById('ng-comped-details').value.trim()||null):null;
   if(!name){alert('Please enter a client name.');return;}
   if(!parseDate(dv)){alert('Please enter a valid contract start date.');return;}
+  if(isComped){
+    if(!compedSource){alert('Please pick what the comp came from (Raffle, Gift certificate, etc.).');return;}
+    if(!compedExpires){alert('Please set an expiration date for the comped membership/package.');return;}
+  }
   const dup=guests.find(c=>c.name.toLowerCase()===name.toLowerCase());
   if(dup&&!confirm(`A client named "${dup.name}" already exists (assigned to ${sName(dup.assignedStaff)}). Add another with this name?`))return;
   const id=Date.now().toString();
   const d=parseDate(dv);
   const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   if(useLocalStorage){
-    guests.push({id,name,type,tier,contractStartDate:d.toISOString(),assignedStaff:staff,visitStatus:'healthy',welcomeEmailSent,agreementSigned:false,notes,logs:{},createdAt:new Date().toISOString()});
+    guests.push({id,name,type,tier,contractStartDate:d.toISOString(),assignedStaff:staff,visitStatus:'healthy',welcomeEmailSent,agreementSigned:false,notes,logs:{},compedSource,compedDetails,compedExpiresAt:compedExpires,createdAt:new Date().toISOString()});
     lsSave();
   } else {
-    await api('guests',{method:'POST',body:{id,name,type,tier,contractStartDate:dateStr,assignedStaff:staff,visitStatus:'healthy',welcomeEmailSent,notes}});
+    await api('guests',{method:'POST',body:{id,name,type,tier,contractStartDate:dateStr,assignedStaff:staff,visitStatus:'healthy',welcomeEmailSent,notes,compedSource,compedDetails,compedExpiresAt:compedExpires}});
     await loadGuests();
   }
   document.getElementById('ng-name').value='';document.getElementById('ng-welcome-email').checked=false;document.getElementById('ng-notes').value='';toggleAddGuest();renderGuests();
@@ -6178,6 +6268,13 @@ function openEditGuest(id){
   document.getElementById('eg-agreement').checked=!!c.agreementSigned;
   document.getElementById('eg-agreement-wrap').style.display=c.type==='member'?'flex':'none';
   document.getElementById('eg-notes').value=c.notes||'';
+  // Populate comped fields from existing record
+  const isComped=!!c.compedSource;
+  document.getElementById('eg-comped').checked=isComped;
+  document.getElementById('eg-comped-wrap').style.display=isComped?'block':'none';
+  document.getElementById('eg-comped-source').value=c.compedSource||'';
+  document.getElementById('eg-comped-expires').value=c.compedExpiresAt?toInputDate(c.compedExpiresAt):'';
+  document.getElementById('eg-comped-details').value=c.compedDetails||'';
   document.getElementById('edit-guest-modal').classList.add('open');
 }
 async function saveEditGuest(){
@@ -6192,8 +6289,17 @@ async function saveEditGuest(){
   c.welcomeEmailSent=document.getElementById('eg-welcome-email').checked;
   c.agreementSigned=document.getElementById('eg-agreement').checked;
   c.notes=document.getElementById('eg-notes').value.trim();
+  const isComped=document.getElementById('eg-comped').checked;
+  const compedSource=isComped?(document.getElementById('eg-comped-source').value||null):null;
+  const compedExpires=isComped?(document.getElementById('eg-comped-expires').value||null):null;
+  const compedDetails=isComped?(document.getElementById('eg-comped-details').value.trim()||null):null;
+  if(isComped){
+    if(!compedSource){alert('Please pick what the comp came from.');return;}
+    if(!compedExpires){alert('Please set an expiration date for the comped membership/package.');return;}
+  }
+  c.compedSource=compedSource;c.compedDetails=compedDetails;c.compedExpiresAt=compedExpires;
   if(useLocalStorage){lsSave();}
-  else{await api('guests?id='+editGuestId,{method:'PUT',body:{name:c.name,type:c.type,tier:c.tier,contractStartDate:c.contractStartDate,assignedStaff:c.assignedStaff,welcomeEmailSent:c.welcomeEmailSent,agreementSigned:c.agreementSigned,notes:c.notes}});await loadGuests();}
+  else{await api('guests?id='+editGuestId,{method:'PUT',body:{name:c.name,type:c.type,tier:c.tier,contractStartDate:c.contractStartDate,assignedStaff:c.assignedStaff,welcomeEmailSent:c.welcomeEmailSent,agreementSigned:c.agreementSigned,notes:c.notes,compedSource,compedDetails,compedExpiresAt:compedExpires}});await loadGuests();}
   closeModal('edit-guest-modal');renderGuests();
 }
 

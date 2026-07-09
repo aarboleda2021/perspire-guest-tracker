@@ -67,6 +67,9 @@ module.exports = async function handler(req, res) {
       deactivatedReason: g.deactivated_reason || null,
       deactivatedNotes: g.deactivated_notes || null,
       deactivatedAt: g.deactivated_at || null,
+      compedSource: g.comped_source || null,
+      compedDetails: g.comped_details || null,
+      compedExpiresAt: g.comped_expires_at || null,
       totalVisits: g.total_visits || 0,
       visitsUpdatedAt: g.visits_updated_at || null,
       milestonesCompleted: g.milestones_completed || {},
@@ -89,7 +92,10 @@ module.exports = async function handler(req, res) {
       visit_status: b.visitStatus || 'healthy',
       welcome_email_sent: b.welcomeEmailSent || false,
       agreement_signed: b.agreementSigned || false,
-      notes: b.notes || null
+      notes: b.notes || null,
+      comped_source: b.compedSource || null,
+      comped_details: b.compedDetails || null,
+      comped_expires_at: b.compedExpiresAt || null
     });
     if (error) return res.status(500).json({ error: error.message });
     return res.status(201).json({ ok: true });
@@ -116,6 +122,9 @@ module.exports = async function handler(req, res) {
     if (body.deactivatedReason !== undefined) updates.deactivated_reason = body.deactivatedReason;
     if (body.deactivatedNotes !== undefined) updates.deactivated_notes = body.deactivatedNotes;
     if (body.deactivatedAt !== undefined) updates.deactivated_at = body.deactivatedAt;
+    if (body.compedSource !== undefined) updates.comped_source = body.compedSource;
+    if (body.compedDetails !== undefined) updates.comped_details = body.compedDetails;
+    if (body.compedExpiresAt !== undefined) updates.comped_expires_at = body.compedExpiresAt;
     if (body.totalVisits !== undefined) updates.total_visits = body.totalVisits;
     if (body.visitsUpdatedAt !== undefined) updates.visits_updated_at = body.visitsUpdatedAt;
     if (body.milestonesCompleted !== undefined) updates.milestones_completed = body.milestonesCompleted;
