@@ -4122,6 +4122,39 @@ async function renderMgrTeamLead(){
   // Build HTML
   let html='';
 
+  // Sync status widget — auto-sync summary + pending review count. Data comes
+  // from the last autoSyncFromAdmin() run (stored in localStorage) and the
+  // live pendingMembers count.
+  const syncSummary=lsGet('psp-v7-last-auto-sync-summary',null);
+  const pendingCount=getPendingMembers().length;
+  {
+    const wasSynced = !!(syncSummary && syncSummary.syncedAt);
+    const syncedAt = wasSynced ? new Date(syncSummary.syncedAt) : null;
+    const syncedLabel = syncedAt ? syncedAt.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : null;
+    const attSummary = wasSynced ? syncSummary.attendance : null;
+    const memSummary = wasSynced ? syncSummary.members : null;
+    const attLine = attSummary
+      ? `Attendance: <strong>${attSummary.updates} visit${attSummary.updates===1?'':'s'} updated${attSummary.newMilestones?` · 🎉 ${attSummary.newMilestones} new milestone${attSummary.newMilestones===1?'':'s'}`:''}</strong>`
+      : `Attendance: <em style="color:var(--muted);">no upload found on manager dashboard yet</em>`;
+    const memLine = memSummary
+      ? `Members: <strong>${memSummary.newlyFlagged} newly flagged</strong> from ${memSummary.rowCount} on the roster`
+      : `Members: <em style="color:var(--muted);">no upload found on manager dashboard yet</em>`;
+    const bellHtml = pendingCount>0
+      ? `<div onclick="openPendingMembers()" style="display:inline-flex;align-items:center;gap:6px;background:var(--warnp);border:1.5px solid var(--warn);color:var(--warn);padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;"><span style="font-size:15px;">🔔</span> ${pendingCount} pending member${pendingCount===1?'':'s'} to review →</div>`
+      : `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--sand);color:var(--muted);padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;">✓ nothing to review</div>`;
+    html+=`
+      <div style="background:white;border:1.5px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+          <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">🔄 Auto-sync from manager dashboard</div>
+          ${bellHtml}
+        </div>
+        <div style="font-size:12px;color:var(--mid);line-height:1.6;">
+          ${wasSynced?`Last synced <strong>today at ${syncedLabel}</strong>. `:''}
+          ${attLine}${wasSynced?' · ':''}${memLine}
+        </div>
+      </div>`;
+  }
+
   // DAILY section
   const dailyDateLbl=(()=>{const d=parseDate(dailyDate);return d?d.toLocaleDateString('en-US',{weekday:'long',month:'numeric',day:'numeric'}):'';})();
   html+=`<div style="display:flex;justify-content:space-between;align-items:baseline;margin:4px 0 10px;"><div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">🌅 Today — ${dailyDateLbl}</div><div style="font-size:11px;color:var(--muted);">Resets at midnight</div></div>`;
@@ -5201,6 +5234,57 @@ async function syncVisitsFromAdmin(){
 }
 window.syncVisitsFromAdmin=syncVisitsFromAdmin;
 
+// ── AUTO-SYNC on page load (once per calendar day) ──────────────────────
+// Silently pulls the latest Attendance Analysis + Members roster from the
+// manager dashboard, applies visit updates automatically, and lands any
+// truly-new members in the pending review queue. Anything ambiguous still
+// surfaces to Mohogany via the existing "N pending members to review" daily
+// item and the Sync status widget on the manager view.
+async function autoSyncFromAdmin(){
+  if(useLocalStorage)return null;
+  const todayStr=getMidnightETDateStr();
+  const lastAutoSync=lsGet('psp-v7-last-auto-sync-date',null);
+  if(lastAutoSync===todayStr){
+    // Already synced today — return the stored summary for the status widget.
+    return lsGet('psp-v7-last-auto-sync-summary',null);
+  }
+  const summary={attendance:null,members:null,syncedAt:new Date().toISOString()};
+
+  // 1. Attendance (safe to auto-apply — visit updates on existing guests only)
+  try{
+    const r=await fetch('/api/daily?resource=attendance-upload');
+    if(r.ok){
+      const j=await r.json();
+      const attRows=(j&&j.parsed_data&&j.parsed_data.rows)||[];
+      if(attRows.length){
+        const reshaped=attRows.map(row=>({'Client Name':row.name,'Signed-In Visits':row.visits}));
+        _pendingUploadFileName=j.file_name||'auto-sync-'+todayStr;
+        processUploadRows(reshaped);
+        const applied=await applyUploadedVisits({silent:true});
+        summary.attendance={rowCount:attRows.length,uploadedAt:j.uploaded_at,updates:(applied&&applied.updates)||0,newMilestones:(applied&&applied.newMilestones)||0};
+      }
+    }
+  }catch(e){console.warn('[auto-sync attendance]',e);}
+
+  // 2. Members (auto-adds truly-new to pending queue; nothing gets silently
+  //    added to the tracker itself — Mohogany still reviews from pending).
+  try{
+    const r=await fetch('/api/daily?resource=members-roster');
+    if(r.ok){
+      const j=await r.json();
+      if(j&&j.rows&&j.rows.length){
+        const memSummary=processMemberRows(j.rows,{silent:true});
+        summary.members={rowCount:j.rows.length,uploadedAt:j.uploaded_at,newlyFlagged:(memSummary&&memSummary.newlyFlagged)||0};
+      }
+    }
+  }catch(e){console.warn('[auto-sync members]',e);}
+
+  try{localStorage.setItem('psp-v7-last-auto-sync-date',JSON.stringify(todayStr));}catch(e){}
+  try{localStorage.setItem('psp-v7-last-auto-sync-summary',JSON.stringify(summary));}catch(e){}
+  return summary;
+}
+window.autoSyncFromAdmin=autoSyncFromAdmin;
+
 function handleMembersUpload(event){
   const file=event.target.files[0];if(!file)return;
   const reader=new FileReader();
@@ -5243,8 +5327,12 @@ function handleMembersUpload(event){
   reader.readAsArrayBuffer(file);
 }
 
-function processMemberRows(rows){
-  if(!rows.length){document.getElementById('member-upload-result').innerHTML=`<div style="color:var(--err);">No data in file.</div>`;return;}
+function processMemberRows(rows,opts){
+  // In silent mode (auto-sync), skip all DOM updates — the categorization
+  // + auto-add-to-pending-queue still runs, but no result UI is shown.
+  const silent = opts && opts.silent;
+  const writeResult = html => { if (!silent) { const el = document.getElementById('member-upload-result'); if (el) el.innerHTML = html; } };
+  if(!rows.length){writeResult(`<div style="color:var(--err);">No data in file.</div>`);return;}
   const cols=Object.keys(rows[0]);
   // Permissive column matching — handles Mindbody variants like "Client First Name",
   // "Member First", "First (legal)", etc. Prefer first+last combo when present (most
@@ -5269,7 +5357,7 @@ function processMemberRows(rows){
     ||cols.find(k=>/date.?created|created.?date|date.?added|added.?date/i.test(k))
     ||cols.find(k=>/start.?date|signup|sign.?up|member.?since/i.test(k));
   if(!nameCol&&!(firstCol&&lastCol)){
-    document.getElementById('member-upload-result').innerHTML=`<div style="color:var(--err);padding:10px;line-height:1.5;"><strong>Could not find a name column.</strong><br><br>We look for any column with "first" + "last" in its name (e.g. "First Name" + "Last Name", "Client First" + "Client Last") OR a single column containing "name" (e.g. "Client Name", "Member Name").<br><br>Found columns in your file: <strong>${cols.join(', ')}</strong><br><br>If you think the format should work, screenshot this and let us know so we can add support for it.</div>`;
+    writeResult(`<div style="color:var(--err);padding:10px;line-height:1.5;"><strong>Could not find a name column.</strong><br><br>We look for any column with "first" + "last" in its name (e.g. "First Name" + "Last Name", "Client First" + "Client Last") OR a single column containing "name" (e.g. "Client Name", "Member Name").<br><br>Found columns in your file: <strong>${cols.join(', ')}</strong><br><br>If you think the format should work, screenshot this and let us know so we can add support for it.</div>`);
     return;
   }
   // Build list of names from the file. If the single name column is in
@@ -5426,7 +5514,9 @@ function processMemberRows(rows){
       <strong>${historical.length} historical member${historical.length!==1?'s':''}</strong> in your report joined before ${cutoffPretty} and are not being tracked (staff weren't trained on the tracker before that date).
     </div>`;
   }
-  document.getElementById('member-upload-result').innerHTML=html;
+  writeResult(html);
+  // Silent callers get the summary numbers back for the sync-status widget.
+  return { newlyFlagged: newlyFlagged.length, alreadyPending: alreadyPending.length, matched: matched.length };
 }
 
 // Open the persistent pending-members review modal
@@ -5664,14 +5754,17 @@ function cleanupPendingMembers(){
   return Promise.all(pending.filter(p=>activeNames.includes((p.description||'').toLowerCase().trim())).map(p=>removePendingMember(p.id)));
 }
 
-async function applyUploadedVisits(){
+async function applyUploadedVisits(opts){
+  const silent = opts && opts.silent;
   // Share the raw attendance report with the manager dashboard (which reads
   // this table for its milestone celebration tile). Do this BEFORE the
   // guest-update loop so even zero-match uploads still land the report.
   // Failures here should never block the guest updates or alert the user —
   // the report share is a bonus for the other dashboard, not the primary
   // purpose of this upload. (Using bare fetch to sidestep api()'s alerts.)
-  if(_pendingUploadAllRows.length&&!useLocalStorage){
+  // Skip in silent mode — the auto-sync already came FROM that shared table,
+  // so echoing back would just create noise.
+  if(!silent && _pendingUploadAllRows.length&&!useLocalStorage){
     try{
       const r=await fetch('/api/daily?resource=attendance-upload',{method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -5686,7 +5779,10 @@ async function applyUploadedVisits(){
   }
 
   const updates=_pendingUploadMatches.filter(m=>m.guestId);
-  if(!updates.length){alert('No guests to update.');return;}
+  if(!updates.length){
+    if(!silent)alert('No guests to update.');
+    return {updates:0, newMilestones:0};
+  }
   let newMilestonesCount=0;
   const now=new Date().toISOString();
   for(const u of updates){
@@ -5705,6 +5801,11 @@ async function applyUploadedVisits(){
   }
   if(useLocalStorage)lsSave();
   await logAttendanceReportUpload();
+  if(silent){
+    if(currentView==='guests')renderGuests();
+    if(currentView==='manager'&&currentMgrTab==='overview')renderMgrOverview();
+    return {updates:updates.length, newMilestones:newMilestonesCount};
+  }
   closeModal('upload-modal');
   if(newMilestonesCount>0){
     setTimeout(()=>alert(`✅ Updated ${updates.length} guest${updates.length!==1?'s':''}.\n\n🎉 ${newMilestonesCount} new milestone${newMilestonesCount!==1?'s':''} ready to celebrate!`),100);
@@ -5713,6 +5814,7 @@ async function applyUploadedVisits(){
   }
   renderGuests();
   if(currentView==='manager'&&currentMgrTab==='overview')renderMgrOverview();
+  return {updates:updates.length, newMilestones:newMilestonesCount};
 }
 
 async function toggleDeactivate(id){
@@ -8747,6 +8849,18 @@ loadAll().then(()=>{
   ensureTrackingFrom(getWorkingAs());
   updateNotifBadges();
   maybeShowIdentCheckin();
+  // Auto-sync attendance + members from the manager dashboard, once per
+  // calendar day. Fires after the initial view render so it never blocks
+  // the UI. If it produces new pending items, the manager view's Sync
+  // status widget + the "Review N pending members" daily reminder both
+  // surface them.
+  setTimeout(()=>{
+    autoSyncFromAdmin().then(summary=>{
+      if(!summary)return;
+      // Refresh the manager view if it's currently open so pending counts + timestamps show fresh.
+      if(currentView==='manager')setMgrTab(currentMgrTab);
+    }).catch(e=>console.warn('[auto-sync]',e));
+  },1200);
   // Refresh badges every 60s so new items posted by another device show up
   // within a reasonable window without a manual reload.
   setInterval(async ()=>{
