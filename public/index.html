@@ -1381,18 +1381,30 @@
 
 <!-- UPLOAD VISITS MODAL -->
 <div class="modal-ov" id="upload-modal">
-  <div class="modal" style="max-width:600px;">
-    <div class="modal-title">Upload visits report</div>
-    <div class="modal-sub">Upload the Mindbody Attendance Analysis Excel file (.xls or .xlsx). The "Signed-In Visits" column will be used to update visit counts.</div>
-    <div style="margin-bottom:10px;"><a href="#" onclick="event.preventDefault();closeModal('upload-modal');openModal('upload-instructions-modal');" style="font-size:12px;color:var(--info);text-decoration:underline;">📖 How to pull the Attendance Analysis report from Mindbody</a></div>
-    <label class="upload-zone" id="upload-zone">
-      <input type="file" id="upload-file" accept=".xls,.xlsx" onchange="handleVisitsUpload(event)">
-      <div style="font-size:14px;color:var(--mid);">📤 Click to choose file or drop here</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:6px;">Excel file (.xls or .xlsx)</div>
-    </label>
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-title">Sync visits report</div>
+    <div class="modal-sub">Pulls the latest Attendance Analysis report from the manager dashboard (perspire-admin) and updates visit counts for every tracked new guest. Any names on the report not yet in the tracker get flagged for you to add.</div>
+    <div style="background:var(--sand);border-radius:8px;padding:12px 14px;margin:10px 0 14px;font-size:12px;color:var(--mid);line-height:1.5;">
+      <strong style="color:var(--dark);">Where the data comes from:</strong> The Attendance Analysis report Mohogany uploads to the manager dashboard every ~3 days. As long as that upload is current, you don't need to run a separate report here.
+    </div>
+    <div style="text-align:center;margin:14px 0;">
+      <button class="btn btn-p" style="font-size:14px;padding:10px 22px;" onclick="syncVisitsFromAdmin()">🔄 Sync from manager dashboard</button>
+    </div>
+    <details style="margin-top:14px;font-size:12px;color:var(--muted);">
+      <summary style="cursor:pointer;">Manual upload (fallback only)</summary>
+      <div style="margin-top:10px;padding:10px;background:var(--sand);border-radius:8px;line-height:1.5;">
+        Use this if the sync failed, or if you need to load an older report. Otherwise sync is the preferred path — no double-upload of Mindbody reports.
+        <div style="margin-top:8px;"><a href="#" onclick="event.preventDefault();closeModal('upload-modal');openModal('upload-instructions-modal');" style="color:var(--info);text-decoration:underline;">📖 How to pull the Attendance Analysis report from Mindbody</a></div>
+        <label class="upload-zone" id="upload-zone" style="margin-top:10px;">
+          <input type="file" id="upload-file" accept=".xls,.xlsx" onchange="handleVisitsUpload(event)">
+          <div style="font-size:13px;color:var(--mid);">📤 Click to choose file or drop here</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px;">Excel file (.xls or .xlsx)</div>
+        </label>
+      </div>
+    </details>
     <div class="upload-result" id="upload-result"></div>
     <div class="modal-actions">
-      <button class="btn btn-g" onclick="closeModal('upload-modal')">Cancel</button>
+      <button class="btn btn-g" onclick="closeModal('upload-modal')">Close</button>
       <button class="btn btn-p" id="upload-apply-btn" onclick="applyUploadedVisits()" style="display:none;">Apply updates</button>
     </div>
   </div>
@@ -3326,7 +3338,7 @@ async function renderMgrDashboard(){
       if(visitsState==='overdue')items.push(`Attendance ${daysSinceUpload}d overdue`);
       if(memberState==='overdue')items.push(`Member roster ${daysSinceMemberUpload}d overdue`);
       msg=`Mindbody upload overdue: ${items.join(' · ')}`;
-      actions=`<button class="btn btn-p btn-sm" onclick="openUploadMembers()">Sync member roster</button><button class="btn btn-p btn-sm" onclick="openUploadVisits()">Upload attendance</button>`;
+      actions=`<button class="btn btn-p btn-sm" onclick="openUploadMembers()">Sync member roster</button><button class="btn btn-p btn-sm" onclick="openUploadVisits()">Sync attendance</button>`;
     } else {
       bg='var(--warnp)';border='1.5px solid #E8C07A';color='var(--warn)';icon='📤';
       const items=[];
@@ -3335,7 +3347,7 @@ async function renderMgrDashboard(){
       msg=`Time to upload: ${items.join(' · ')}`;
       const btns=[];
       if(memberState==='due'||memberState==='never')btns.push('<button class="btn btn-p btn-sm" onclick="openUploadMembers()">Sync member roster</button>');
-      if(visitsState==='due'||visitsState==='never')btns.push('<button class="btn btn-p btn-sm" onclick="openUploadVisits()">Upload attendance</button>');
+      if(visitsState==='due'||visitsState==='never')btns.push('<button class="btn btn-p btn-sm" onclick="openUploadVisits()">Sync attendance</button>');
       actions=btns.join('');
     }
     return{bg,border,color,icon,msg,actions};
@@ -3456,7 +3468,7 @@ function renderMgrOverview(){
     <div class="sc"><div class="scl">At-risk members</div><div class="scv ${ar>0?'d':''}">${ar}</div></div>`;
   const pendingCount=getPendingMembers().length;
   const pendingBtn=pendingCount?`<button class="btn btn-sm" style="background:var(--warnp);border:1.5px solid #E8C07A;color:var(--warn);" onclick="openPendingMembers()">⚠ ${pendingCount} member${pendingCount!==1?'s':''} pending review</button>`:'';
-  document.getElementById('mgr-stats').innerHTML+=`<div style="grid-column:1/-1;text-align:right;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">${pendingBtn}<button class="btn btn-p btn-sm" onclick="openUploadVisits()">📤 Upload visits report</button><button class="btn btn-p btn-sm" onclick="openUploadMembers()">📤 Sync member roster</button><button class="btn btn-g btn-sm" onclick="exportGuests()">Export CSV</button></div>`;
+  document.getElementById('mgr-stats').innerHTML+=`<div style="grid-column:1/-1;text-align:right;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">${pendingBtn}<button class="btn btn-p btn-sm" onclick="openUploadVisits()">🔄 Sync visits report</button><button class="btn btn-p btn-sm" onclick="openUploadMembers()">📤 Sync member roster</button><button class="btn btn-g btn-sm" onclick="exportGuests()">Export CSV</button></div>`;
   if(!activeGuests.length){document.getElementById('mgr-list').innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No active clients.</p></div>`;return;}
   document.getElementById('mgr-list').innerHTML=staffList.map(s=>{
     const sc=activeGuests.filter(c=>c.assignedStaff===s.id);if(!sc.length)return'';
@@ -4079,7 +4091,7 @@ async function renderMgrTeamLead(){
   const lastUpload=fromLog&&fromGuests?(fromLog>fromGuests?fromLog:fromGuests):(fromLog||fromGuests||null);
   const daysSinceUpload=lastUpload?Math.floor((new Date()-lastUpload)/86400000):null;
   if(daysSinceUpload===null||daysSinceUpload>=3){
-    dailyItems.push({label:`📤 Upload the Attendance Analysis report ${daysSinceUpload===null?'(never uploaded)':`(${daysSinceUpload} day${daysSinceUpload!==1?'s':''} ago)`}`,action:`openUploadVisits()`,urgent:daysSinceUpload!==null&&daysSinceUpload>=5});
+    dailyItems.push({label:`🔄 Sync attendance from manager dashboard ${daysSinceUpload===null?'(never synced)':`(${daysSinceUpload} day${daysSinceUpload!==1?'s':''} ago)`}`,action:`openUploadVisits()`,urgent:daysSinceUpload!==null&&daysSinceUpload>=5});
   }
   const memberUploadLogs=events.filter(e=>e.eventType==='other'&&e.title==='__member-report-log').sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   const lastMemberUpload=memberUploadLogs[0]?new Date(memberUploadLogs[0].createdAt):null;
@@ -4968,7 +4980,8 @@ let _pendingUploadFileName='';
 function openUploadVisits(){
   document.getElementById('upload-result').innerHTML='';
   document.getElementById('upload-apply-btn').style.display='none';
-  document.getElementById('upload-file').value='';
+  const fileInput=document.getElementById('upload-file');
+  if(fileInput)fileInput.value='';
   _pendingUploadMatches=[];
   _pendingUploadAllRows=[];
   _pendingUploadFileName='';
@@ -5141,6 +5154,52 @@ async function syncMembersFromAdmin(){
   }
 }
 window.syncMembersFromAdmin=syncMembersFromAdmin;
+
+async function syncVisitsFromAdmin(){
+  // Pulls the latest Attendance Analysis upload from the manager dashboard
+  // (perspire-admin) via the shared attendance_uploads table and runs it
+  // through the same review pipeline the file upload uses. Rows are
+  // pre-normalized to {name, visits} — reshape into the "Client Name" +
+  // "Signed-In Visits" columns that processUploadRows() already parses.
+  const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const resEl=document.getElementById('upload-result');
+  resEl.innerHTML='<div style="padding:12px;color:var(--muted);font-style:italic;">Syncing from manager dashboard…</div>';
+  if(useLocalStorage){
+    resEl.innerHTML='<div style="color:var(--err);padding:10px;line-height:1.5;">Sync is unavailable in local-storage mode. Use the manual upload below.</div>';
+    return;
+  }
+  try{
+    const r=await fetch('/api/daily?resource=attendance-upload');
+    if(!r.ok){
+      const t=await r.text().catch(()=>String(r.status));
+      resEl.innerHTML=`<div style="color:var(--err);padding:10px;line-height:1.5;"><strong>Sync failed (${r.status}).</strong> Try the manual upload below.<br><span style="font-size:11px;color:var(--muted);">${esc(t.slice(0,180))}</span></div>`;
+      return;
+    }
+    const j=await r.json();
+    if(!j||!j.uploaded_at){
+      resEl.innerHTML='<div style="color:var(--err);padding:10px;line-height:1.5;"><strong>No Attendance Analysis on the manager dashboard yet.</strong> Upload it there first (perspire-admin → Uploads → Attendance Analysis), then come back and sync. Or use the manual upload below.</div>';
+      return;
+    }
+    const attRows=(j.parsed_data&&j.parsed_data.rows)||[];
+    if(!attRows.length){
+      resEl.innerHTML='<div style="color:var(--warn);padding:10px;line-height:1.5;">The manager dashboard has an attendance upload, but it contained no rows to review.</div>';
+      return;
+    }
+    // Freshness banner — attendance cadence is ~3 days, so >=5d gets a warning.
+    const uploadedAt=new Date(j.uploaded_at);
+    const ageDays=Math.floor((Date.now()-uploadedAt.getTime())/(24*60*60*1000));
+    const ageStr=ageDays===0?'today':ageDays===1?'1 day ago':`${ageDays} days ago`;
+    const ageColor=ageDays>=5?'var(--warn)':'var(--muted)';
+    resEl.innerHTML=`<div style="padding:8px 10px;font-size:11px;color:${ageColor};background:var(--sand);border-radius:6px;margin-bottom:10px;">Manager-dashboard Attendance Analysis was uploaded <strong>${ageStr}</strong>${ageDays>=5?' — worth re-uploading over there before you rely on this.':''}</div>`;
+    // Reshape to the raw-report format processUploadRows() expects.
+    const reshaped=attRows.map(r=>({'Client Name':r.name,'Signed-In Visits':r.visits}));
+    _pendingUploadFileName=j.file_name||'sync-from-manager-dashboard';
+    processUploadRows(reshaped);
+  }catch(e){
+    resEl.innerHTML=`<div style="color:var(--err);padding:10px;line-height:1.5;"><strong>Sync failed.</strong> ${esc(e.message||String(e))}<br>Try the manual upload below.</div>`;
+  }
+}
+window.syncVisitsFromAdmin=syncVisitsFromAdmin;
 
 function handleMembersUpload(event){
   const file=event.target.files[0];if(!file)return;
