@@ -1527,13 +1527,13 @@
       <div style="margin-bottom:12px;"><strong>4.</strong> Leave at default settings for <strong>last 30 days</strong></div>
       <div style="margin-bottom:12px;"><strong>5.</strong> Press <strong>Generate</strong></div>
       <div style="margin-bottom:12px;"><strong>6.</strong> Click <strong>Export to Excel (XLS)</strong> and save the file to your computer</div>
-      <div style="margin-bottom:12px;"><strong>7.</strong> Come back here and click "Upload member roster below" to import it</div>
+      <div style="margin-bottom:12px;"><strong>7.</strong> Come back here and click "Sync member roster below" to import it</div>
       <div style="font-size:12px;color:var(--mid);background:white;border-left:3px solid var(--info);padding:8px 12px;border-radius:4px;margin-bottom:8px;"><strong>💡 What we compare:</strong> Each name in this report is checked against the New Guest tracker. Any members who aren't in the tracker yet will be listed so you can quickly add them.</div>
       <div style="font-size:12px;color:var(--mid);background:white;border-left:3px solid var(--warn);padding:8px 12px;border-radius:4px;"><strong>⏱ Date cutoff:</strong> Only members who joined on or after <strong>4/22/2026</strong> (the day the tracker launched) are flagged as missing. Earlier members are silently ignored as historical.</div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-g" onclick="closeModal('member-instructions-modal')">Close</button>
-      <button class="btn btn-p" onclick="closeModal('member-instructions-modal');openUploadMembers();">📤 Upload member roster below</button>
+      <button class="btn btn-p" onclick="closeModal('member-instructions-modal');openUploadMembers();">📤 Sync member roster below</button>
     </div>
   </div>
 </div>
@@ -3326,7 +3326,7 @@ async function renderMgrDashboard(){
       if(visitsState==='overdue')items.push(`Attendance ${daysSinceUpload}d overdue`);
       if(memberState==='overdue')items.push(`Member roster ${daysSinceMemberUpload}d overdue`);
       msg=`Mindbody upload overdue: ${items.join(' · ')}`;
-      actions=`<button class="btn btn-p btn-sm" onclick="openUploadMembers()">Upload member roster</button><button class="btn btn-p btn-sm" onclick="openUploadVisits()">Upload attendance</button>`;
+      actions=`<button class="btn btn-p btn-sm" onclick="openUploadMembers()">Sync member roster</button><button class="btn btn-p btn-sm" onclick="openUploadVisits()">Upload attendance</button>`;
     } else {
       bg='var(--warnp)';border='1.5px solid #E8C07A';color='var(--warn)';icon='📤';
       const items=[];
@@ -3334,7 +3334,7 @@ async function renderMgrDashboard(){
       if(visitsState==='due'||visitsState==='never')items.push(`Attendance${visitsState==='never'?' (never uploaded)':` (${daysSinceUpload}d ago)`}`);
       msg=`Time to upload: ${items.join(' · ')}`;
       const btns=[];
-      if(memberState==='due'||memberState==='never')btns.push('<button class="btn btn-p btn-sm" onclick="openUploadMembers()">Upload member roster</button>');
+      if(memberState==='due'||memberState==='never')btns.push('<button class="btn btn-p btn-sm" onclick="openUploadMembers()">Sync member roster</button>');
       if(visitsState==='due'||visitsState==='never')btns.push('<button class="btn btn-p btn-sm" onclick="openUploadVisits()">Upload attendance</button>');
       actions=btns.join('');
     }
@@ -3456,7 +3456,7 @@ function renderMgrOverview(){
     <div class="sc"><div class="scl">At-risk members</div><div class="scv ${ar>0?'d':''}">${ar}</div></div>`;
   const pendingCount=getPendingMembers().length;
   const pendingBtn=pendingCount?`<button class="btn btn-sm" style="background:var(--warnp);border:1.5px solid #E8C07A;color:var(--warn);" onclick="openPendingMembers()">⚠ ${pendingCount} member${pendingCount!==1?'s':''} pending review</button>`:'';
-  document.getElementById('mgr-stats').innerHTML+=`<div style="grid-column:1/-1;text-align:right;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">${pendingBtn}<button class="btn btn-p btn-sm" onclick="openUploadVisits()">📤 Upload visits report</button><button class="btn btn-p btn-sm" onclick="openUploadMembers()">📤 Upload member roster</button><button class="btn btn-g btn-sm" onclick="exportGuests()">Export CSV</button></div>`;
+  document.getElementById('mgr-stats').innerHTML+=`<div style="grid-column:1/-1;text-align:right;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">${pendingBtn}<button class="btn btn-p btn-sm" onclick="openUploadVisits()">📤 Upload visits report</button><button class="btn btn-p btn-sm" onclick="openUploadMembers()">📤 Sync member roster</button><button class="btn btn-g btn-sm" onclick="exportGuests()">Export CSV</button></div>`;
   if(!activeGuests.length){document.getElementById('mgr-list').innerHTML=`<div class="empty"><div class="empty-icon">○</div><p>No active clients.</p></div>`;return;}
   document.getElementById('mgr-list').innerHTML=staffList.map(s=>{
     const sc=activeGuests.filter(c=>c.assignedStaff===s.id);if(!sc.length)return'';
@@ -3741,21 +3741,47 @@ async function updateStaffRole(staffId,role){
 // Weekly tasks reset Sunday at midnight ET. Monthly tasks reset on the 1st.
 const TEAM_LEAD_TASKS=[
   // ── DAILY (always-show checkboxes — reset every midnight ET) ──
-  {key:'tl-emails',freq:'daily',title:'Check PTC Admin email'},
-  // ── WEEKLY ──
-  {key:'tl-members-at-risk',freq:'weekly',title:'Conduct members-at-risk outreach',
+  {key:'tl-emails',freq:'daily',title:'Check PTC Admin email',
     steps:[
-      'Go to Mindbody → Insights → Reports',
-      'First, go to Membership, filter status to "Active", press Generate',
-      'Under "Tag actions", select "Tag new"',
-      'Then go to the "Last Visit" report',
-      'Under dates: select "Last 365 days"',
-      'Under filters: select "show tagged clients only" and click "hide clients with future visits"',
-      'Under options: ensure "Detail" is selected and it shows guests with 1 or more visits on or before that day\'s date',
-      'The first column the report shows is "Last Visit" — click that header to sort by who hasn\'t visited in the longest',
-      'Export the report to Excel (.xls) and filter as needed',
-      'Text any member who hasn\'t visited in 7+ days (use the 7-day script in the Scripts section)',
-      'Call any member who hasn\'t visited in 14+ days (use the 14-day call script — voicemail / email backups in Scripts section)'
+      'Check for the Monday 8 AM ET reminder email from the manager dashboard (lists which reports to pull that day)',
+      'Check for the Monday/Tuesday 7 PM ET briefing email — the week\'s headlines you should walk into Tuesday knowing',
+      'Handle any other member/team emails in the inbox as usual'
+    ]},
+  {key:'tl-manager-today',freq:'daily',title:'Open Manager Dashboard → Today tab',
+    note:'First thing each morning — sets your focus for the day',
+    steps:[
+      'Open the manager dashboard (bookmarked link)',
+      'Go to the Today tab',
+      'Work the prioritized queue top-down — it ranks urgent items across every other tab (expiring packs, stale leads, at-risk members)',
+      'Glance at the Milestone Celebrations tile for any members hitting 25/50/75/100/etc. this week'
+    ]},
+  // ── WEEKLY ──
+  {key:'tl-manager-uploads',freq:'weekly',title:'Upload weekly reports to the manager dashboard',
+    note:'Monday afternoon — the whole rest of your week runs on this',
+    steps:[
+      'Pull each report from Mindbody (Members, Sales, Autopay, Contact Logs, Referral Types, Tabling Referrals, Outstanding Series, Series Expirations, Last Visit, No-Show)',
+      'Pull this week\'s leads export from Axle',
+      'Open the manager dashboard → Uploads page',
+      'Upload each report — buttons on the page show which are missing/current at a glance',
+      'Takes ~20 minutes total. If you skip this, the Monday/Tuesday briefing email and all the Missed Sales lists will go stale.'
+    ]},
+  {key:'tl-manager-briefing',freq:'weekly',title:'Read the weekly briefing email',
+    note:'Monday 7 PM ET (or Tuesday 7 PM if the reports weren\'t up yet) — read before Tuesday morning',
+    steps:[
+      'Check inbox for the "This week at Perspire" briefing email from the manager dashboard',
+      'Skim last week\'s revenue + comparison, top At Risk members, top Upgrade Ready + Re-up candidates, staff coaching status, and autopay anomalies',
+      'This should shape what you tackle this week — use it as your Tuesday morning starting point',
+      'Not delivered? Check spam; if it\'s not there, text Amanda'
+    ]},
+  {key:'tl-members-at-risk',freq:'weekly',title:'Conduct members-at-risk outreach',
+    note:'Uses the manager dashboard — no separate Mindbody report needed for this',
+    steps:[
+      'Open the manager dashboard → Missed Sales → At Risk tab',
+      'Click "📤 Export as follow-up sheet" to download a CSV with names, phone, email, tier, days since last visit, and recommended action per person',
+      'Drop the CSV in a shared Google Sheet and assign rows to the team (or work them yourself)',
+      'For members who haven\'t visited in 7-13 days: text them (use the 7-day script below)',
+      'For members who haven\'t visited in 14+ days: call them (use the 14-day script below — voicemail/text/email backups included)',
+      'Each person logs their outreach directly in the tracking columns of the sheet (Contacted by / Date / Method / Response / Follow-up)'
     ],
     scripts:[
       {label:'📱 7-day inactive — TEXT',channels:{
@@ -3773,10 +3799,12 @@ const TEAM_LEAD_TASKS=[
 
   // RETENTION RECOVERY — directly affects keeping members
   {key:'tl-care-calls',freq:'weekly',title:'Perform care calls',
+    note:'Uses the manager dashboard — no separate Contact Log pull needed',
     steps:[
-      'Pull "Contact Log" report for previous 1 week',
-      'Review all contact logs made',
-      'For any contact log that cites a bad experience, give the customer a call to check in, let them know we\'re here and are working to resolve whatever the issue was — use the scripts below'
+      'Open the manager dashboard → Contact Logs → Needs Action tab',
+      'Focus on logs categorized as facility issue, cancel request, or complaint (these are the bad-experience signals worth a personal call)',
+      'For each: give the member a call using the script below, let them know we\'re working to make it right',
+      'Mark the log handled on the dashboard once you\'ve done the outreach'
     ],
     scripts:[
       {label:'🤝 Care call — bad-experience check-in',channels:{
@@ -3830,7 +3858,8 @@ const TEAM_LEAD_TASKS=[
       'Update B2B tracking sheet with new numbers',
       'Review studio schedule for following month',
       'Reach out to old and new B2B partners to schedule additional tabling opportunities',
-      'Update B2B Partners list with any new partner information, as needed'
+      'Update B2B Partners list with any new partner information, as needed',
+      '⚡ NEW: after each tabling event, log it on the manager dashboard → Tabling tab AND upload a photo of the paper sign-up sheet. The AI extracts every name automatically so we can cross-reference with new-member sign-ups and measure which events actually pay off. Do NOT skip this step — it\'s how we prove ROI per event.'
     ]},
   {key:'tl-comms-calendar',freq:'weekly',title:'Communications calendar review',
     steps:[
@@ -3838,14 +3867,13 @@ const TEAM_LEAD_TASKS=[
       'For any manual messages, review when upcoming dates are'
     ]},
   {key:'tl-milestone-outreach',freq:'weekly',title:'Milestone update outreach',
+    note:'Uses the manager dashboard — no separate Attendance Analysis pull needed for this task (the Attendance Analysis upload here on the team dashboard now feeds both dashboards)',
     steps:[
-      'In Mindbody, go to Insights / Reports and open "Attendance Analysis"',
-      'Section 1 — Date range: use the "Quick date setting" dropdown and select Last 365 days',
-      'Section 2 — Service categories: click the dropdown, then under "IR Sauna Session" select IR Sauna Session',
-      'Section 3 — Analysis: set "Analysis by" → Guest, click Detail report (NOT Summary — Summary will give the wrong columns), then in "Show clients with [x] or more visits" enter 20',
-      'Review every active client (members + package holders) approaching a milestone band: 25, 50, 75, 100, 150, 200, 250, 300, 350, 400, 450, 500+',
-      'For anyone within ~3 sessions of the next milestone, reach out with the encouraging script below to push them across the line',
-      'For anyone who just crossed a milestone since last week, send a celebration message (use the "milestone reached" script)'
+      'Open the manager dashboard → Today tab',
+      'Scroll to the Milestone Celebrations tile — it lists every active member at or one session away from bands 10 / 25 / 50 / 75 / 100 / 150 / 200 / 250 / 300 / 350 / 400 / 450 / 500',
+      'For anyone within 1 session of the next milestone: use the "approaching milestone" script below to nudge them across the line',
+      'For anyone who just crossed a milestone: use the "milestone reached" script to celebrate',
+      'Freshness note: the Celebrations tile only stays current if you\'ve uploaded the Attendance Analysis report to THIS dashboard in the last few days. If the numbers look stale, upload it here first, then refresh the manager dashboard.'
     ],
     scripts:[
       {label:'🎯 Approaching milestone — encouragement (within 3 sessions of 25/50/75/100/etc.)',channels:{
@@ -3864,11 +3892,15 @@ const TEAM_LEAD_TASKS=[
 
   // STAFF DEVELOPMENT — long-term capability that compounds
   {key:'tl-staff-coaching',freq:'weekly',title:'Staff coaching',
-    subItemsFromStaff:true,subItemsExcludeStaff:['mohogany'],
+    note:'Per-staff tracking now lives on the manager dashboard — no duplicate checkboxes here',
     steps:[
-      'Update each staff member\'s "Upskilling/Training" spreadsheet — note any progress from the current week',
-      'Plan upskilling/training topic for staff member for the next week & set a date for the following week to complete the task',
-      'Check off each staff member below as you complete their coaching for the week'
+      'Open the manager dashboard → Coaching tab',
+      'Drag each staff member\'s card to the day of the week their 1:1 is scheduled',
+      'This week\'s topic (top of the tab) sets the focus — adjust per-staff if someone needs a different angle',
+      'After each 1:1: mark the card ✓ Completed (or ✗ Missed if it didn\'t happen — flag for reschedule)',
+      'Also update each staff member\'s "Upskilling/Training" spreadsheet with notes from the session',
+      'Plan next week\'s topic/date per staff member as you close each 1:1',
+      'Check the Staff Activity Scorecard (below the kanban) to see everyone\'s status at a glance'
     ],
     examples:[
       'Conduct mock phone calls to staff (act as a lead inquiring, act as member wanting to cancel, act as member asking studio policies questions)',
@@ -4053,7 +4085,7 @@ async function renderMgrTeamLead(){
   const lastMemberUpload=memberUploadLogs[0]?new Date(memberUploadLogs[0].createdAt):null;
   const daysSinceMemberUpload=lastMemberUpload?Math.floor((new Date()-lastMemberUpload)/86400000):null;
   if(daysSinceMemberUpload===null||daysSinceMemberUpload>=3){
-    dailyItems.push({label:`👥 Upload the New Members roster ${daysSinceMemberUpload===null?'(never uploaded)':`(${daysSinceMemberUpload} day${daysSinceMemberUpload!==1?'s':''} ago)`}`,action:`openUploadMembers()`,urgent:daysSinceMemberUpload!==null&&daysSinceMemberUpload>=5});
+    dailyItems.push({label:`👥 Sync the member roster from manager dashboard ${daysSinceMemberUpload===null?'(never synced)':`(${daysSinceMemberUpload} day${daysSinceMemberUpload!==1?'s':''} ago)`}`,action:`openUploadMembers()`,urgent:daysSinceMemberUpload!==null&&daysSinceMemberUpload>=8});
   }
   // Declined payments overdue 14+ days
   const declinedOverdue=nurtures.filter(n=>{
