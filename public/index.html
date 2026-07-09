@@ -4919,16 +4919,21 @@ async function updateVisitCount(id,val){
 // ── UPLOAD VISITS REPORT ──────────────────────────────────────────────────
 
 let _pendingUploadMatches=[];
+let _pendingUploadAllRows=[];
+let _pendingUploadFileName='';
 function openUploadVisits(){
   document.getElementById('upload-result').innerHTML='';
   document.getElementById('upload-apply-btn').style.display='none';
   document.getElementById('upload-file').value='';
   _pendingUploadMatches=[];
+  _pendingUploadAllRows=[];
+  _pendingUploadFileName='';
   document.getElementById('upload-modal').classList.add('open');
 }
 
 function handleVisitsUpload(event){
   const file=event.target.files[0];if(!file)return;
+  _pendingUploadFileName=file.name||'';
   const reader=new FileReader();
   reader.onload=function(e){
     try{
@@ -4997,6 +5002,7 @@ function processUploadRows(rows){
   // we silently ignore unmatched names from the attendance report.
   const activeMembers=guests.filter(g=>g.type==='member'&&!g.deactivated);
   const matches=[];
+  const allRows=[]; // full parsed set for cross-dashboard use (manager dashboard reads this)
   let unmatchedCount=0;
   rows.forEach(r=>{
     let name='';
@@ -5012,12 +5018,14 @@ function processUploadRows(rows){
     }
     const visits=parseInt(r[visitsCol]);
     if(!name||isNaN(visits))return;
+    allRows.push({name,visits});
     const match=activeMembers.find(g=>g.name.toLowerCase().trim()===name.toLowerCase());
     if(match){matches.push({name,visits,guestId:match.id});}
     else{unmatchedCount++;}
   });
 
   _pendingUploadMatches=matches;
+  _pendingUploadAllRows=allRows;
 
   let html=`<div style="margin-top:14px;font-weight:600;">${matches.length} member${matches.length!==1?'s':''} will be updated · ${unmatchedCount} other name${unmatchedCount!==1?'s':''} ignored</div>`;
   html+=`<div style="font-size:12px;color:var(--mid);margin-top:6px;">Only members already in your New Guest tracker get visit-count updates. Anyone not in the tracker (historical members or not-yet-added members) is silently ignored — use the <strong>Member roster upload</strong> first to add new members.</div>`;
@@ -5512,6 +5520,26 @@ function cleanupPendingMembers(){
 }
 
 async function applyUploadedVisits(){
+  // Share the raw attendance report with the manager dashboard (which reads
+  // this table for its milestone celebration tile). Do this BEFORE the
+  // guest-update loop so even zero-match uploads still land the report.
+  // Failures here should never block the guest updates or alert the user —
+  // the report share is a bonus for the other dashboard, not the primary
+  // purpose of this upload. (Using bare fetch to sidestep api()'s alerts.)
+  if(_pendingUploadAllRows.length&&!useLocalStorage){
+    try{
+      const r=await fetch('/api/attendance-uploads',{method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          uploaded_by:(window.CURRENT_STAFF_ID||null),
+          file_name:_pendingUploadFileName||null,
+          parsed_data:{rows:_pendingUploadAllRows,summary:{total_rows:_pendingUploadAllRows.length}},
+        }),
+      });
+      if(!r.ok)console.warn('[attendance-uploads share]',r.status,await r.text().catch(()=>''));
+    }catch(e){console.warn('[attendance-uploads share]',e.message||e);}
+  }
+
   const updates=_pendingUploadMatches.filter(m=>m.guestId);
   if(!updates.length){alert('No guests to update.');return;}
   let newMilestonesCount=0;
