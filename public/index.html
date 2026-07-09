@@ -1401,14 +1401,26 @@
 <!-- MEMBER REPORT UPLOAD MODAL -->
 <div class="modal-ov" id="member-upload-modal">
   <div class="modal" style="max-width:680px;">
-    <div class="modal-title">Upload member roster from Mindbody</div>
-    <div class="modal-sub">Upload your Mindbody member/client report (.xls, .xlsx, or .csv). We'll compare it against the New Guest tracker and show any members that aren't here yet so you can add them.</div>
-    <div style="margin-bottom:10px;"><a href="#" onclick="event.preventDefault();closeModal('member-upload-modal');openModal('member-instructions-modal');" style="font-size:12px;color:var(--info);text-decoration:underline;">📖 How to pull the New Members report from Mindbody</a></div>
-    <label class="upload-zone">
-      <input type="file" id="member-upload-file" accept=".xls,.xlsx,.csv" onchange="handleMembersUpload(event)">
-      <div style="font-size:14px;color:var(--mid);">📤 Click to choose file or drop here</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:6px;">Excel or CSV file</div>
-    </label>
+    <div class="modal-title">Sync member roster</div>
+    <div class="modal-sub">Pulls the latest Members report from the manager dashboard (perspire-admin) and compares it against the New Guest tracker. Anyone not tracked yet gets flagged for you to add.</div>
+    <div style="background:var(--sand);border-radius:8px;padding:12px 14px;margin:10px 0 14px;font-size:12px;color:var(--mid);line-height:1.5;">
+      <strong style="color:var(--dark);">Where the data comes from:</strong> The Members report you upload weekly to the manager dashboard on Monday. As long as that upload is current, you don't need to run a separate report here.
+    </div>
+    <div style="text-align:center;margin:14px 0;">
+      <button class="btn btn-p" style="font-size:14px;padding:10px 22px;" onclick="syncMembersFromAdmin()">🔄 Sync from manager dashboard</button>
+    </div>
+    <details style="margin-top:14px;font-size:12px;color:var(--muted);">
+      <summary style="cursor:pointer;">Manual upload (fallback only)</summary>
+      <div style="margin-top:10px;padding:10px;background:var(--sand);border-radius:8px;line-height:1.5;">
+        Use this if the sync failed, or if you need to load an older report. Otherwise sync is the preferred path — no double-upload of Mindbody reports.
+        <div style="margin-top:8px;"><a href="#" onclick="event.preventDefault();closeModal('member-upload-modal');openModal('member-instructions-modal');" style="color:var(--info);text-decoration:underline;">📖 How to pull the New Members report from Mindbody</a></div>
+        <label class="upload-zone" style="margin-top:10px;">
+          <input type="file" id="member-upload-file" accept=".xls,.xlsx,.csv" onchange="handleMembersUpload(event)">
+          <div style="font-size:13px;color:var(--mid);">📤 Click to choose file or drop here</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px;">Excel or CSV file</div>
+        </label>
+      </div>
+    </details>
     <div class="upload-result" id="member-upload-result"></div>
     <div class="modal-actions">
       <button class="btn btn-g" onclick="closeModal('member-upload-modal')">Close</button>
@@ -5051,10 +5063,52 @@ let _pendingMemberMatches=[];
 
 function openUploadMembers(){
   document.getElementById('member-upload-result').innerHTML='';
-  document.getElementById('member-upload-file').value='';
+  const fileInput=document.getElementById('member-upload-file');
+  if(fileInput)fileInput.value='';
   _pendingMemberMatches=[];
   document.getElementById('member-upload-modal').classList.add('open');
 }
+
+async function syncMembersFromAdmin(){
+  // Pulls the latest Members roster from the manager dashboard (perspire-admin)
+  // via the shared mgr_uploads.members table and runs it through the same
+  // review pipeline the file upload uses. Rows are pre-shaped server-side
+  // to match the parser's expected column names.
+  const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const resEl=document.getElementById('member-upload-result');
+  resEl.innerHTML='<div style="padding:12px;color:var(--muted);font-style:italic;">Syncing from manager dashboard…</div>';
+  if(useLocalStorage){
+    resEl.innerHTML='<div style="color:var(--err);padding:10px;line-height:1.5;">Sync is unavailable in local-storage mode. Use the manual upload below.</div>';
+    return;
+  }
+  try{
+    const r=await fetch('/api/daily?resource=members-roster');
+    if(!r.ok){
+      const t=await r.text().catch(()=>String(r.status));
+      resEl.innerHTML=`<div style="color:var(--err);padding:10px;line-height:1.5;"><strong>Sync failed (${r.status}).</strong> Try the manual upload below.<br><span style="font-size:11px;color:var(--muted);">${esc(t.slice(0,180))}</span></div>`;
+      return;
+    }
+    const j=await r.json();
+    if(!j.uploaded_at){
+      resEl.innerHTML='<div style="color:var(--err);padding:10px;line-height:1.5;"><strong>No Members report on the manager dashboard yet.</strong> Upload the Members report there first, then come back and sync. Or use the manual upload below.</div>';
+      return;
+    }
+    if(!j.rows||!j.rows.length){
+      resEl.innerHTML='<div style="color:var(--warn);padding:10px;line-height:1.5;">The manager dashboard has a Members report, but no active members joined in the last 90 days matched. Nothing to review.</div>';
+      return;
+    }
+    // Freshness banner — helps Mohogany see whether she's syncing against a stale upload.
+    const uploadedAt=new Date(j.uploaded_at);
+    const ageDays=Math.floor((Date.now()-uploadedAt.getTime())/(24*60*60*1000));
+    const ageStr=ageDays===0?'today':ageDays===1?'1 day ago':`${ageDays} days ago`;
+    const ageColor=ageDays>=8?'var(--warn)':'var(--muted)';
+    resEl.innerHTML=`<div style="padding:8px 10px;font-size:11px;color:${ageColor};background:var(--sand);border-radius:6px;margin-bottom:10px;">Manager-dashboard Members report was uploaded <strong>${ageStr}</strong>${ageDays>=8?' — worth re-uploading over there before you rely on this.':''}</div>`;
+    processMemberRows(j.rows);
+  }catch(e){
+    resEl.innerHTML=`<div style="color:var(--err);padding:10px;line-height:1.5;"><strong>Sync failed.</strong> ${esc(e.message||String(e))}<br>Try the manual upload below.</div>`;
+  }
+}
+window.syncMembersFromAdmin=syncMembersFromAdmin;
 
 function handleMembersUpload(event){
   const file=event.target.files[0];if(!file)return;

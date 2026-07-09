@@ -10,6 +10,51 @@ module.exports = async function handler(req, res) {
   const staffId = req.query.staffId;
   const taskKey = req.query.taskKey;
 
+  // ── Cross-dashboard: latest Members roster from perspire-admin ─────────
+  // Mohogany uploads the Members report to the manager dashboard weekly.
+  // We read from that same table so she doesn't need to run + upload a
+  // separate "New Members" report here. Returns rows shaped to match the
+  // team dashboard's file-upload parser (Client Name / Membership Tier /
+  // Date Joined) so no client-side transform is needed.
+  if (resource === 'members-roster') {
+    if (req.method === 'GET') {
+      const { data, error } = await supabase
+        .from('mgr_uploads')
+        .select('uploaded_at, parsed_data')
+        .eq('report_type', 'members')
+        .order('uploaded_at', { ascending: false })
+        .limit(1);
+      if (error) return res.status(500).json({ error: error.message });
+      if (!data || !data[0]) return res.status(200).json({ uploaded_at: null, rows: [] });
+
+      const upload = data[0];
+      const src = (upload.parsed_data && upload.parsed_data.rows) || [];
+      // Filter to Active members joined in the last ~90 days — matches the
+      // scope of Mindbody's "New Members" report the tracker used to consume,
+      // but broader so historical missed adds still surface via the tracker's
+      // MEMBER_TRACKING_START_DATE cutoff on the client.
+      const cutoffMs = Date.now() - 90 * 24 * 60 * 60 * 1000;
+      const rows = [];
+      for (const r of src) {
+        if ((r.Status || '').trim() !== 'Active') continue;
+        const joined = r['Joined On'];
+        if (joined) {
+          const t = Date.parse(joined);
+          if (!isNaN(t) && t < cutoffMs) continue;
+        }
+        rows.push({
+          'Client Name': r['Client Name'] || '',
+          'Membership Tier': r['Membership Tier'] || '',
+          'Date Joined': r['Joined On'] || '',
+          'Phone': r['Phone'] || '',
+          'Email Address': r['Email Address'] || '',
+        });
+      }
+      return res.status(200).json({ uploaded_at: upload.uploaded_at, rows });
+    }
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   // ── Cross-dashboard: latest Attendance Analysis upload ─────────────────
   // Folded here (rather than its own endpoint) because Vercel Hobby caps
   // this project at 12 serverless functions. Table lives on the shared
