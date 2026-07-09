@@ -5,10 +5,41 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const supabase = getSupabase();
-  const resource = req.query.resource; // 'tasks' or 'logs'
+  const resource = req.query.resource; // 'tasks' | 'logs' | 'attendance-upload'
   const date = req.query.date; // YYYY-MM-DD
   const staffId = req.query.staffId;
   const taskKey = req.query.taskKey;
+
+  // ── Cross-dashboard: latest Attendance Analysis upload ─────────────────
+  // Folded here (rather than its own endpoint) because Vercel Hobby caps
+  // this project at 12 serverless functions. Table lives on the shared
+  // Supabase and is also read directly by perspire-admin.
+  if (resource === 'attendance-upload') {
+    if (req.method === 'GET') {
+      const { data, error } = await supabase
+        .from('attendance_uploads')
+        .select('id, uploaded_at, uploaded_by, file_name, row_count, parsed_data')
+        .order('uploaded_at', { ascending: false })
+        .limit(1);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json((data && data[0]) || null);
+    }
+    if (req.method === 'POST') {
+      const b = req.body || {};
+      if (!b.parsed_data || !Array.isArray(b.parsed_data.rows)) {
+        return res.status(400).json({ error: 'Missing parsed_data.rows' });
+      }
+      const { error } = await supabase.from('attendance_uploads').insert({
+        uploaded_by: b.uploaded_by || null,
+        file_name: b.file_name || null,
+        row_count: b.parsed_data.rows.length,
+        parsed_data: b.parsed_data,
+      });
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(201).json({ ok: true });
+    }
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
   if (resource === 'tasks') {
     if (req.method === 'GET') {

@@ -5528,7 +5528,7 @@ async function applyUploadedVisits(){
   // purpose of this upload. (Using bare fetch to sidestep api()'s alerts.)
   if(_pendingUploadAllRows.length&&!useLocalStorage){
     try{
-      const r=await fetch('/api/attendance-uploads',{method:'POST',
+      const r=await fetch('/api/daily?resource=attendance-upload',{method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
           uploaded_by:(window.CURRENT_STAFF_ID||null),
