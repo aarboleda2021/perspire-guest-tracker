@@ -2531,18 +2531,25 @@ let useLocalStorage=false;
 // ── API HELPERS ───────────────────────────────────────────────────────────
 
 async function api(path, opts={}){
+  // Pass {silent:true} for background polling calls — the browser can briefly
+  // lose network connectivity when a laptop wakes from sleep or a tab returns
+  // from long inactivity, and we don't want to flash "Connection error" alerts
+  // for auto-refresh calls that will just retry a minute later.
+  const silent=opts.silent===true;
+  const fetchOpts={
+    headers:{'Content-Type':'application/json',...(opts.headers||{})},
+    ...opts,
+    body:opts.body?JSON.stringify(opts.body):undefined
+  };
+  delete fetchOpts.silent;
   let res;
   try{
-    res=await fetch('/api/'+path,{
-      headers:{'Content-Type':'application/json',...(opts.headers||{})},
-      ...opts,
-      body:opts.body?JSON.stringify(opts.body):undefined
-    });
+    res=await fetch('/api/'+path,fetchOpts);
   }catch(e){
-    alert('Connection error — your change may not have saved. Please check your internet and try again.');
+    if(!silent)alert('Connection error — your change may not have saved. Please check your internet and try again.');
     throw e;
   }
-  if(!res.ok){const e=await res.json().catch(()=>({}));alert('Save error: '+(e.error||res.statusText));throw new Error(e.error||res.statusText);}
+  if(!res.ok){const e=await res.json().catch(()=>({}));if(!silent)alert('Save error: '+(e.error||res.statusText));throw new Error(e.error||res.statusText);}
   return res.json();
 }
 
@@ -2578,17 +2585,17 @@ async function loadNurtures(){
   if(useLocalStorage){nurtures=lsGet(LS_NURTURES,[]);return;}
   nurtures=await api('nurtures');
 }
-async function loadShiftNotes(){
+async function loadShiftNotes(opts={}){
   if(useLocalStorage){shiftNotes=lsGet(LS_NOTES,[]);return;}
-  shiftNotes=await api('shift-notes');
+  shiftNotes=await api('shift-notes',{...(opts.silent?{silent:true}:{})});
 }
-async function loadEvents(){
+async function loadEvents(opts={}){
   if(useLocalStorage){events=lsGet(LS_EVENTS,[]);return;}
-  events=await api('events');
+  events=await api('events',{...(opts.silent?{silent:true}:{})});
 }
-async function loadAnnouncements(){
+async function loadAnnouncements(opts={}){
   if(useLocalStorage){announcements=lsGet(LS_ANNOUNCE,[]);return;}
-  announcements=await api('announcements');
+  announcements=await api('announcements',{...(opts.silent?{silent:true}:{})});
 }
 async function loadRecordings(){
   if(useLocalStorage){recordings=lsGet(LS_RECORDINGS,[]);return;}
@@ -8971,7 +8978,10 @@ loadAll().then(()=>{
   // within a reasonable window without a manual reload.
   setInterval(async ()=>{
     if(useLocalStorage)return;
-    try{await Promise.all([loadShiftNotes(),loadAnnouncements()]);updateNotifBadges();maybeShowIdentCheckin();}catch(e){}
+    // Silent polling — if the browser just woke up from sleep, the network
+    // may not be ready yet, and we don't want to show a "Connection error"
+    // alert for a call that will retry in another 60 seconds anyway.
+    try{await Promise.all([loadShiftNotes({silent:true}),loadAnnouncements({silent:true})]);updateNotifBadges();maybeShowIdentCheckin();}catch(e){}
   },60000);
 });
 
