@@ -1140,8 +1140,8 @@
       <div style="display:flex;gap:8px;align-items:center;">
         <span class="tlbl">Show</span>
         <select class="fi" id="rec-filter" style="width:auto;padding:6px 10px;font-size:12px;" onchange="renderRecordings()">
-          <option value="active">Active (still has team members to watch)</option>
-          <option value="completed">Completed (everyone has watched)</option>
+          <option value="mine-todo">I still need to watch</option>
+          <option value="mine-done">I've already watched</option>
           <option value="all">All recordings</option>
         </select>
         <button class="btn btn-p btn-sm" onclick="toggleAddRecording()">+ Add recording</button>
@@ -7385,17 +7385,23 @@ function renderRecordings(){
   const teamStaff=activeStaff().filter(s=>s.id!=='mohogany'&&s.role!=='sa');
   const allStaff=activeStaff().filter(s=>s.role!=='sa');
 
-  // Filter dropdown — default to active (still has people to watch)
+  // Filter dropdown — per-person by default. Uses the "Working as" identity
+  // so team members see their own to-do / completed lists. If no identity is
+  // set, fall back to "all" so the page still shows something meaningful.
   const filterEl=document.getElementById('rec-filter');
   const savedFilter=localStorage.getItem('psp-v7-rec-filter');
   if(filterEl&&savedFilter&&[...filterEl.options].some(o=>o.value===savedFilter))filterEl.value=savedFilter;
-  const filter=filterEl?filterEl.value:'active';
+  const me=getWorkingAs();
+  let filter=filterEl?filterEl.value:'mine-todo';
+  // If the user hasn't picked "Working as," the personal filters can't work —
+  // silently fall through to All so they're not staring at a mysteriously empty list.
+  if(!me&&(filter==='mine-todo'||filter==='mine-done'))filter='all';
   if(filterEl)localStorage.setItem('psp-v7-rec-filter',filter);
-  const isFullyComplete=r=>allStaff.length>0&&allStaff.every(s=>r.completions&&r.completions[s.id]);
+  const isCompletedByMe=r=>!!(me&&r.completions&&r.completions[me]);
   const visibleRecs=recordings.filter(r=>{
     if(filter==='all')return true;
-    if(filter==='completed')return isFullyComplete(r);
-    return !isFullyComplete(r); // active
+    if(filter==='mine-done')return isCompletedByMe(r);
+    return !isCompletedByMe(r); // mine-todo
   });
 
   // Summary grid: staff x recordings (filtered to match cards below)
@@ -7422,7 +7428,11 @@ function renderRecordings(){
 
   if(!recordings.length){el.innerHTML=`<div class="empty" style="padding:24px;"><div class="empty-icon">📹</div><p>No training recordings yet. Click "+ Add recording" to post the first one.</p></div>`;return;}
   if(!visibleRecs.length){
-    const msg=filter==='completed'?'No recordings have been completed by the whole team yet.':filter==='active'?'🎉 Every recording has been watched by the whole team! Switch the filter to "Completed" or "All" to see them.':'No recordings.';
+    const msg=filter==='mine-todo'
+      ?"🎉 You're all caught up! You've marked every recording complete. Switch the filter to \"I've already watched\" to review your past takeaways."
+      :filter==='mine-done'
+      ?"You haven't marked any recordings complete yet. Switch to \"I still need to watch\" to see what's pending, or \"All recordings\" to browse everything."
+      :'No recordings.';
     el.innerHTML=`<div class="empty" style="padding:24px;"><div class="empty-icon">📹</div><p>${msg}</p></div>`;return;
   }
 
