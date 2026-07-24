@@ -7401,6 +7401,30 @@ function fmtWeekOf(s){
   return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
 }
 
+// Copy a recording's passcode to the clipboard and briefly flash the button
+// so the user gets clear visual confirmation. Falls back to a manual-copy
+// prompt if the Clipboard API isn't available.
+async function copyPasscode(evt,passcode,btn){
+  if(evt&&evt.stopPropagation)evt.stopPropagation();
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(passcode);
+    } else {
+      // Fallback for older browsers: use a temp textarea + document.execCommand
+      const ta=document.createElement('textarea');
+      ta.value=passcode;ta.style.position='fixed';ta.style.opacity='0';
+      document.body.appendChild(ta);ta.select();
+      document.execCommand('copy');document.body.removeChild(ta);
+    }
+    const originalText=btn.textContent;
+    btn.textContent='✓ Copied';
+    btn.style.background='var(--ok)';
+    setTimeout(()=>{btn.textContent=originalText;btn.style.background='var(--info)';},1500);
+  } catch(e){
+    prompt('Copy the passcode below:',passcode);
+  }
+}
+
 function renderRecordings(){
   const el=document.getElementById('recordings-list');
   const summaryEl=document.getElementById('learning-summary');
@@ -7464,7 +7488,7 @@ function renderRecordings(){
   el.innerHTML=sortedList.map(r=>{
     const completedCount=Object.keys(r.completions||{}).length;
     const totalStaff=allStaff.length;
-    const passcodeHtml=r.passcode?`<span style="display:inline-block;margin-left:10px;padding:3px 10px;background:var(--sand);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:12px;">🔒 ${r.passcode}</span>`:'';
+    const passcodeHtml=r.passcode?`<span style="display:inline-flex;align-items:center;gap:6px;margin-left:10px;padding:3px 6px 3px 10px;background:var(--sand);border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:12px;">🔒 ${r.passcode}<button title="Copy passcode" onclick="copyPasscode(event,'${(r.passcode||'').replace(/'/g,'\\\'').replace(/"/g,'&quot;')}',this)" style="border:none;background:var(--info);color:white;font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px;cursor:pointer;font-family:inherit;">Copy</button></span>`:'';
     // Completions + takeaways list (everyone can see all)
     const completionsList=Object.entries(r.completions||{}).map(([sid,when])=>{
       const s=allStaff.find(x=>x.id===sid);if(!s)return'';
