@@ -7015,8 +7015,9 @@ function renderShiftNotes(){
     // "Needs attention" excludes items created before this person started
     // tracking on this device — those are old, and treated as "already handled"
     // even though they don't have an explicit ack.
+    const isLead=me==='mohogany';
+    const activeTeam=activeStaff();
     const unread=list.filter(n=>!n.resolvedAt&&!(n.acknowledgments||{})[me]&&inTrackingRange(n.createdAt));
-    const readAlready=list.filter(n=>!n.resolvedAt&&((n.acknowledgments||{})[me]||!inTrackingRange(n.createdAt)));
     let html=banner;
     if(unread.length){
       html+=`<div class="sec-hdr" style="border-bottom:2px solid var(--info);margin-bottom:8px;"><div class="sec-title" style="color:var(--info);">🔔 Needs your attention</div><div class="sec-ct">${unread.length}</div></div>`;
@@ -7024,8 +7025,27 @@ function renderShiftNotes(){
     } else {
       html+=`<div style="padding:18px;background:var(--okp);border-left:3px solid var(--ok);border-radius:6px;font-size:13px;color:var(--ok);margin-bottom:14px;text-align:center;">✓ <strong>You're caught up!</strong> All active notes have been read.</div>`;
     }
-    if(readAlready.length){
-      html+=`<details style="margin-top:14px;border-top:1px dashed var(--border);padding-top:12px;"><summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:600;padding:6px 0;">✓ ${readAlready.length} item${readAlready.length!==1?'s':''} you've already read this shift</summary><div style="margin-top:8px;">${readAlready.map(n=>_renderNoteCard(n,me)).join('')}</div></details>`;
+    // For Mohogany (team lead): split her "already-acked" items into "team still
+    // needs to acknowledge" vs "everyone has read." Regular staff see a single
+    // collapsed "already read by you" section.
+    const iAcked=list.filter(n=>!n.resolvedAt&&(n.acknowledgments||{})[me]&&inTrackingRange(n.createdAt));
+    const historicalAcked=list.filter(n=>!n.resolvedAt&&(n.acknowledgments||{})[me]&&!inTrackingRange(n.createdAt));
+    if(isLead){
+      const teamPulse=iAcked.filter(n=>{const acks=n.acknowledgments||{};return activeTeam.some(s=>s.id!==me&&!acks[s.id]);});
+      const fullyRead=iAcked.filter(n=>{const acks=n.acknowledgments||{};return !activeTeam.some(s=>s.id!==me&&!acks[s.id]);}).concat(historicalAcked);
+      if(teamPulse.length){
+        html+=`<div class="sec-hdr" style="margin-top:20px;border-bottom:2px solid var(--warn);margin-bottom:8px;"><div class="sec-title" style="color:var(--warn);">🎯 Team still needs to acknowledge</div><div class="sec-ct">${teamPulse.length}</div></div>`;
+        html+=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px;font-style:italic;">You've read these — some team members haven't yet. The "Read by:" footer on each card shows who's caught up.</div>`;
+        html+=teamPulse.map(n=>_renderNoteCard(n,me)).join('');
+      }
+      if(fullyRead.length){
+        html+=`<details style="margin-top:14px;border-top:1px dashed var(--border);padding-top:12px;"><summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:600;padding:6px 0;">✓ ${fullyRead.length} item${fullyRead.length!==1?'s':''} everyone has acknowledged</summary><div style="margin-top:8px;">${fullyRead.map(n=>_renderNoteCard(n,me)).join('')}</div></details>`;
+      }
+    } else {
+      const readAlready=iAcked.concat(historicalAcked);
+      if(readAlready.length){
+        html+=`<details style="margin-top:14px;border-top:1px dashed var(--border);padding-top:12px;"><summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:600;padding:6px 0;">✓ ${readAlready.length} item${readAlready.length!==1?'s':''} you've already read this shift</summary><div style="margin-top:8px;">${readAlready.map(n=>_renderNoteCard(n,me)).join('')}</div></details>`;
+      }
     }
     el.innerHTML=html;
     return;
@@ -7242,8 +7262,8 @@ function renderAnnouncements(){
   if(useGrouping){
     const trackingFrom=getTrackingFrom(me);
     const inRange=createdAt=>!trackingFrom||(createdAt&&new Date(createdAt)>=trackingFrom);
+    const isLead=me==='mohogany';
     const unread=list.filter(a=>!a.resolvedAt&&!(a.acknowledgments||{})[me]&&inRange(a.createdAt));
-    const readAlready=list.filter(a=>!a.resolvedAt&&((a.acknowledgments||{})[me]||!inRange(a.createdAt)));
     let html='';
     if(unread.length){
       html+=`<div class="sec-hdr" style="border-bottom:2px solid var(--info);margin-bottom:8px;"><div class="sec-title" style="color:var(--info);">📣 Needs your acknowledgment</div><div class="sec-ct">${unread.length}</div></div>`;
@@ -7251,8 +7271,26 @@ function renderAnnouncements(){
     } else {
       html+=`<div style="padding:14px;background:var(--okp);border-left:3px solid var(--ok);border-radius:6px;font-size:13px;color:var(--ok);margin-bottom:14px;text-align:center;">✓ <strong>You're caught up!</strong> All announcements have been acknowledged.</div>`;
     }
-    if(readAlready.length){
-      html+=`<details style="margin-top:14px;border-top:1px dashed var(--border);padding-top:12px;"><summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:600;padding:6px 0;">✓ ${readAlready.length} announcement${readAlready.length!==1?'s':''} you've already acknowledged</summary><div style="margin-top:8px;">${readAlready.map(a=>_renderAnnouncementCard(a,activeStaffList,totalStaff,me)).join('')}</div></details>`;
+    // For Mohogany (team lead): split her "already-acked" items into "team still
+    // needs to acknowledge" vs "fully acknowledged." Regular staff see one collapsed section.
+    const iAcked=list.filter(a=>!a.resolvedAt&&(a.acknowledgments||{})[me]&&inRange(a.createdAt));
+    const historicalAcked=list.filter(a=>!a.resolvedAt&&(a.acknowledgments||{})[me]&&!inRange(a.createdAt));
+    if(isLead){
+      const teamPulse=iAcked.filter(a=>{const acks=a.acknowledgments||{};return activeStaffList.some(s=>s.id!==me&&!acks[s.id]);});
+      const fullyRead=iAcked.filter(a=>{const acks=a.acknowledgments||{};return !activeStaffList.some(s=>s.id!==me&&!acks[s.id]);}).concat(historicalAcked);
+      if(teamPulse.length){
+        html+=`<div class="sec-hdr" style="margin-top:20px;border-bottom:2px solid var(--warn);margin-bottom:8px;"><div class="sec-title" style="color:var(--warn);">🎯 Team still needs to acknowledge</div><div class="sec-ct">${teamPulse.length}</div></div>`;
+        html+=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px;font-style:italic;">You've acknowledged these — some team members haven't yet. The "Still needs to acknowledge:" line on each card shows exactly who.</div>`;
+        html+=teamPulse.map(a=>_renderAnnouncementCard(a,activeStaffList,totalStaff,me)).join('');
+      }
+      if(fullyRead.length){
+        html+=`<details style="margin-top:14px;border-top:1px dashed var(--border);padding-top:12px;"><summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:600;padding:6px 0;">✓ ${fullyRead.length} announcement${fullyRead.length!==1?'s':''} everyone has acknowledged</summary><div style="margin-top:8px;">${fullyRead.map(a=>_renderAnnouncementCard(a,activeStaffList,totalStaff,me)).join('')}</div></details>`;
+      }
+    } else {
+      const readAlready=iAcked.concat(historicalAcked);
+      if(readAlready.length){
+        html+=`<details style="margin-top:14px;border-top:1px dashed var(--border);padding-top:12px;"><summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:600;padding:6px 0;">✓ ${readAlready.length} announcement${readAlready.length!==1?'s':''} you've already acknowledged</summary><div style="margin-top:8px;">${readAlready.map(a=>_renderAnnouncementCard(a,activeStaffList,totalStaff,me)).join('')}</div></details>`;
+      }
     }
     el.innerHTML=html;
     return;
