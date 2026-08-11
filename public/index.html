@@ -7907,8 +7907,9 @@ const STUDIO_TASKS=[
   {key:'mow-sign',label:'Update the Member of the Week sign at the front desk',suggestedFor:'closing',days:[0],season:{from:'06-01',to:'08-31'},note:'Get this week\'s member name from the Events & Promos section of the Daily Hub (Mohogany uploads it weekly). Write their name on the desk sign for the week ahead.'},
   {key:'mow-text',label:'Text this week\'s Member of the Week',suggestedFor:'opening',days:[1],season:{from:'06-01',to:'08-31'},scripts:'member-week-text',note:'Get this week\'s member name from the Events & Promos section. Send the text below encouraging them to book and come in for their free perk.'},
   {key:'call-green-stars',label:'Call tomorrow\'s Green ⭐ first-time visitors',suggestedFor:'closing',days:[0,1,2,3,4,5,6],scripts:'green-star'},
-  {key:'daily-cleaning',label:'Daily cleaning tasks complete',days:[0,1,2,3,4,5,6],scripts:'cleaning'},
-  {key:'halo-clean',label:'Clean halotherapy machines',days:[2],link:'https://docs.google.com/document/d/1VddlJh1Urc8RpQln0Fu0hp7Hc-98ygN1ItEhoRsRPrQ/edit?pli=1&tab=t.0#heading=h.bt97gz4kb186'},
+  {key:'call-yesterday-first-visits',label:'Follow up with yesterday\'s Green ⭐ first-time visitors',suggestedFor:'opening',days:[0,1,2,3,4,5,6],scripts:'yesterday-first-visit',note:'Check the Mindbody contact log for each first-time visitor from yesterday to see how their visit went. Call to say thanks, get their honest feedback, and help them book their next session while it\'s still fresh in their mind.'},
+  {key:'text-yesterday-visits',label:'Text yesterday\'s visitors to help them book their next session',suggestedFor:'opening',days:[0,1,2,3,4,5,6],scripts:'yesterday-book-text',note:'For each visitor from yesterday, check their Mindbody profile to see if a future visit is already booked. If not, send them the text template below to nudge them to schedule. Repeat visits = deeper results and longer retention.'},
+  {key:'sunday-cleaning-review',label:'Review the weekly cleaning list in the back — complete anything still outstanding',suggestedFor:'opening',days:[0],note:'Walk to the back and review the physical weekly cleaning checklist. Complete any items still unchecked before end of shift so we start the new week fresh.'},
   {key:'fridge-front',label:'Defrost front fridge at closing',days:[6],link:'https://docs.google.com/document/d/1X4fgZw_mgRCxw3ILLLBwYbwN33xf-_oeUvuKVZjiHH0/edit?tab=t.0#heading=h.tvjv9ryqveop'},
   {key:'fridge-back',label:'Defrost back fridge at closing',days:[0],link:'https://docs.google.com/document/d/1X4fgZw_mgRCxw3ILLLBwYbwN33xf-_oeUvuKVZjiHH0/edit?tab=t.0#heading=h.tvjv9ryqveop'},
 ];
@@ -8022,6 +8023,8 @@ async function renderToday(){
     if(t.scripts==='green-star')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openGreenStarScripts()">📞 View call scripts</button>`;
     else if(t.scripts==='cleaning')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openCleaningList()">📋 View today's cleaning list</button>`;
     else if(t.scripts==='member-week-text')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openMemberWeekText()">📱 View text template</button>`;
+    else if(t.scripts==='yesterday-first-visit')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openYesterdayFirstVisitScripts()">📞 View follow-up scripts</button>`;
+    else if(t.scripts==='yesterday-book-text')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openYesterdayBookText()">📱 View text template</button>`;
     else if(t.special==='cintas'&&!done)scriptBtn=`<button class="btn btn-p btn-sm" style="font-size:11px;" onclick="event.stopPropagation();openCintas()">👆 Click to log supply levels</button>`;
     let cintasSummary='';
     if(t.special==='cintas'&&done&&done.taskData){
@@ -8112,6 +8115,45 @@ function showGreenStarScript(ch,btn){
   document.getElementById('tp-script-body').textContent=GREEN_STAR_SCRIPTS[ch]||'';
   btn.closest('.stabs').querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
   btn.classList.add('active');
+}
+
+// Follow-up call scripts for yesterday's Green ⭐ first-time visitors.
+// Purpose: personalize based on the contact log, hear how their first visit
+// went, and warmly help them book their next session while it's fresh.
+const YESTERDAY_FIRST_VISIT_SCRIPTS={
+  call:`Hi [Guest Name], this is [Your Name] from Perspire Peachtree Corners! I just wanted to give you a quick call to check in — how did you feel after your first sauna session yesterday?\n\n[Listen and reflect back what they share — reference anything specific from their contact log so it feels personal, not scripted.]\n\nI'm so glad you came in. A lot of our members find that stacking a few sessions in the first couple weeks really helps them start to feel the deeper benefits — better sleep, faster recovery, steadier energy.\n\nWhile I have you, would it be helpful if I got your next session on the books? I'm happy to look at times that work for your schedule.`,
+  voicemail:`Hi [Guest Name], it's [Your Name] from Perspire Peachtree Corners — just calling to check in after your first sauna session yesterday. I'd love to hear how you felt and help you get your next visit on the books while it's fresh! Give us a call back at 404-947-8084 or text us anytime.`,
+  text:`Hi [Name]! It's [Your Name] from Perspire 🧡 Just checking in after your first session yesterday — how are you feeling today? Also happy to help you get your next visit booked while you're on my mind. Just reply with a day/time that works and I'll grab a spot for you!`,
+  email:`Hi [Name],\n\nJust a quick note to check in after your first sauna session with us yesterday — I hope you felt great afterward!\n\nA lot of our members tell us the benefits really start to compound with a consistent rhythm, and the first two weeks are the best time to build that momentum. If you'd like help getting your next session on the books, just reply to this email or call us at 404-947-8084 and we'll get you set up in a time that works.\n\nWarmly,\n[Your Name]\nPerspire Sauna Studio Peachtree Corners`
+};
+function openYesterdayFirstVisitScripts(){
+  const s=YESTERDAY_FIRST_VISIT_SCRIPTS;
+  document.getElementById('tp-script-title').textContent='📞 Yesterday\'s first-visit follow-up scripts';
+  document.getElementById('tp-script-sub').textContent='Reference the guest\'s Mindbody contact log first so the call feels personal — mention something specific they experienced yesterday.';
+  document.getElementById('tp-script-body').textContent=s.call;
+  document.getElementById('tp-script-tabs').innerHTML=
+    `<button class="stab active" onclick="showYesterdayFirstVisitScript('call',this)">Phone call</button>`+
+    `<button class="stab" onclick="showYesterdayFirstVisitScript('voicemail',this)">Voicemail</button>`+
+    `<button class="stab" onclick="showYesterdayFirstVisitScript('text',this)">Text</button>`+
+    `<button class="stab" onclick="showYesterdayFirstVisitScript('email',this)">Email</button>`;
+  document.getElementById('tp-script-modal').classList.add('open');
+}
+function showYesterdayFirstVisitScript(ch,btn){
+  document.getElementById('tp-script-body').textContent=YESTERDAY_FIRST_VISIT_SCRIPTS[ch]||'';
+  btn.closest('.stabs').querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// Text template for nudging yesterday's visitors to book their next session.
+// Only send if they don't already have a future visit scheduled (staff checks
+// Mindbody profile first — instructions in the task's note field).
+const YESTERDAY_BOOK_TEXT=`Hi [Name]! It's [Your Name] from Perspire 🧡 Loved seeing you yesterday!\n\nI noticed you don't have your next sauna session on the books yet. Consistency is what unlocks the deepest benefits — better sleep, faster recovery, more energy — so I'd love to help you find a time that fits your week.\n\nJust reply with a day and I'll grab a spot for you!`;
+function openYesterdayBookText(){
+  document.getElementById('tp-script-title').textContent='📱 "Book your next visit" text template';
+  document.getElementById('tp-script-sub').textContent='For visitors from yesterday who don\'t already have their next session scheduled. Personalize [Name] and [Your Name].';
+  document.getElementById('tp-script-tabs').innerHTML='';
+  document.getElementById('tp-script-body').textContent=YESTERDAY_BOOK_TEXT;
+  document.getElementById('tp-script-modal').classList.add('open');
 }
 
 // Daily cleaning list popup (view-only)
