@@ -7907,8 +7907,8 @@ const STUDIO_TASKS=[
   {key:'mow-sign',label:'Update the Member of the Week sign at the front desk',suggestedFor:'closing',days:[0],season:{from:'06-01',to:'08-31'},note:'Get this week\'s member name from the Events & Promos section of the Daily Hub (Mohogany uploads it weekly). Write their name on the desk sign for the week ahead.'},
   {key:'mow-text',label:'Text this week\'s Member of the Week',suggestedFor:'opening',days:[1],season:{from:'06-01',to:'08-31'},scripts:'member-week-text',note:'Get this week\'s member name from the Events & Promos section. Send the text below encouraging them to book and come in for their free perk.'},
   {key:'call-green-stars',label:'Call tomorrow\'s Green ⭐ first-time visitors',suggestedFor:'closing',days:[0,1,2,3,4,5,6],scripts:'green-star'},
-  {key:'call-yesterday-first-visits',label:'Follow up with yesterday\'s Green ⭐ first-time visitors',suggestedFor:'opening',days:[0,1,2,3,4,5,6],scripts:'yesterday-first-visit',note:'Check the Mindbody contact log for each first-time visitor from yesterday to see how their visit went. Call to say thanks, get their honest feedback, and help them book their next session while it\'s still fresh in their mind.'},
-  {key:'text-yesterday-visits',label:'Text yesterday\'s visitors to help them book their next session',suggestedFor:'opening',days:[0,1,2,3,4,5,6],scripts:'yesterday-book-text',note:'For each visitor from yesterday, check their Mindbody profile to see if a future visit is already booked. If not, send them the text template below to nudge them to schedule. Repeat visits = deeper results and longer retention.'},
+  {key:'call-yesterday-first-visits',label:'Follow up with yesterday\'s Green ⭐ first-time visitors',suggestedFor:'opening',days:[0,1,2,3,4,5,6],scripts:'yesterday-first-visit',instructions:'yesterday-first-visit'},
+  {key:'text-yesterday-visits',label:'Text yesterday\'s visitors to help them book their next session',suggestedFor:'opening',days:[0,1,2,3,4,5,6],scripts:'yesterday-book-text',instructions:'yesterday-book-text'},
   {key:'sunday-cleaning-review',label:'Review the weekly cleaning list in the back — complete anything still outstanding',suggestedFor:'opening',days:[0],note:'Walk to the back and review the physical weekly cleaning checklist. Complete any items still unchecked before end of shift so we start the new week fresh.'},
   {key:'fridge-front',label:'Defrost front fridge at closing',days:[6],link:'https://docs.google.com/document/d/1X4fgZw_mgRCxw3ILLLBwYbwN33xf-_oeUvuKVZjiHH0/edit?tab=t.0#heading=h.tvjv9ryqveop'},
   {key:'fridge-back',label:'Defrost back fridge at closing',days:[0],link:'https://docs.google.com/document/d/1X4fgZw_mgRCxw3ILLLBwYbwN33xf-_oeUvuKVZjiHH0/edit?tab=t.0#heading=h.tvjv9ryqveop'},
@@ -8025,6 +8025,12 @@ async function renderToday(){
     else if(t.scripts==='member-week-text')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openMemberWeekText()">📱 View text template</button>`;
     else if(t.scripts==='yesterday-first-visit')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openYesterdayFirstVisitScripts()">📞 View follow-up scripts</button>`;
     else if(t.scripts==='yesterday-book-text')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openYesterdayBookText()">📱 View text template</button>`;
+    // Optional "View steps" instruction popup (keeps the card compact — the
+    // workflow steps live in a modal instead of a long note).
+    let instructionsBtn='';
+    if(t.instructions==='yesterday-first-visit')instructionsBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;margin-left:6px;" onclick="event.stopPropagation();openYesterdayFirstVisitInstructions()">📋 View steps</button>`;
+    else if(t.instructions==='yesterday-book-text')instructionsBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;margin-left:6px;" onclick="event.stopPropagation();openYesterdayBookTextInstructions()">📋 View steps</button>`;
+    if(instructionsBtn)scriptBtn=(scriptBtn||'')+instructionsBtn;
     else if(t.special==='cintas'&&!done)scriptBtn=`<button class="btn btn-p btn-sm" style="font-size:11px;" onclick="event.stopPropagation();openCintas()">👆 Click to log supply levels</button>`;
     let cintasSummary='';
     if(t.special==='cintas'&&done&&done.taskData){
@@ -8117,36 +8123,84 @@ function showGreenStarScript(ch,btn){
   btn.classList.add('active');
 }
 
-// Follow-up call scripts for yesterday's Green ⭐ first-time visitors.
-// Purpose: personalize based on the contact log, hear how their first visit
-// went, and warmly help them book their next session while it's fresh.
-const YESTERDAY_FIRST_VISIT_SCRIPTS={
-  call:`Hi [Guest Name], this is [Your Name] from Perspire Peachtree Corners! I just wanted to give you a quick call to check in — how did you feel after your first sauna session yesterday?\n\n[Listen and reflect back what they share — reference anything specific from their contact log so it feels personal, not scripted.]\n\nI'm so glad you came in. A lot of our members find that stacking a few sessions in the first couple weeks really helps them start to feel the deeper benefits — better sleep, faster recovery, steadier energy.\n\nWhile I have you, would it be helpful if I got your next session on the books? I'm happy to look at times that work for your schedule.`,
-  voicemail:`Hi [Guest Name], it's [Your Name] from Perspire Peachtree Corners — just calling to check in after your first sauna session yesterday. I'd love to hear how you felt and help you get your next visit on the books while it's fresh! Give us a call back at 404-947-8084 or text us anytime.`,
-  text:`Hi [Name]! It's [Your Name] from Perspire 🧡 Just checking in after your first session yesterday — how are you feeling today? Also happy to help you get your next visit booked while you're on my mind. Just reply with a day/time that works and I'll grab a spot for you!`,
-  email:`Hi [Name],\n\nJust a quick note to check in after your first sauna session with us yesterday — I hope you felt great afterward!\n\nA lot of our members tell us the benefits really start to compound with a consistent rhythm, and the first two weeks are the best time to build that momentum. If you'd like help getting your next session on the books, just reply to this email or call us at 404-947-8084 and we'll get you set up in a time that works.\n\nWarmly,\n[Your Name]\nPerspire Sauna Studio Peachtree Corners`
-};
-function openYesterdayFirstVisitScripts(){
-  const s=YESTERDAY_FIRST_VISIT_SCRIPTS;
-  document.getElementById('tp-script-title').textContent='📞 Yesterday\'s first-visit follow-up scripts';
-  document.getElementById('tp-script-sub').textContent='Reference the guest\'s Mindbody contact log first so the call feels personal — mention something specific they experienced yesterday.';
-  document.getElementById('tp-script-body').textContent=s.call;
-  document.getElementById('tp-script-tabs').innerHTML=
-    `<button class="stab active" onclick="showYesterdayFirstVisitScript('call',this)">Phone call</button>`+
-    `<button class="stab" onclick="showYesterdayFirstVisitScript('voicemail',this)">Voicemail</button>`+
-    `<button class="stab" onclick="showYesterdayFirstVisitScript('text',this)">Text</button>`+
-    `<button class="stab" onclick="showYesterdayFirstVisitScript('email',this)">Email</button>`;
+// Workflow instructions popup for yesterday's first-visit follow-up call task.
+// Rendered inside the tp-script modal as a numbered list for consistency.
+function openYesterdayFirstVisitInstructions(){
+  document.getElementById('tp-script-title').textContent='📋 Follow-up call — how to prep';
+  document.getElementById('tp-script-sub').textContent='Do this BEFORE calling each first-timer so the conversation is personal and lands the right ask.';
+  document.getElementById('tp-script-tabs').innerHTML='';
+  const steps=[
+    'In Mindbody, pull up <strong>yesterday\'s schedule</strong> and find every Green ⭐ first-time visitor.',
+    'Click each visitor\'s appointment → go into their <strong>profile → Contact Log</strong> and read the notes from their visit yesterday. Look for: what they said about the experience, any specific benefit they mentioned, whether staff already brought up membership.',
+    '<strong>Check if they purchased</strong> a membership or package that day. This determines which script you use:<br>&nbsp;&nbsp;• <span style="color:var(--ok);font-weight:600;">If yes</span> → warm check-in call. Say thanks, make them feel like family. NO sales pressure.<br>&nbsp;&nbsp;• <span style="color:var(--warn);font-weight:600;">If no</span> → this is the <strong>#1 opportunity to catch a missed sale.</strong> Bridge from "how did it feel?" to "let me share how our memberships work — most first-timers save a lot compared to paying per visit."',
+    'Open the <strong>📞 View follow-up scripts</strong> button and pick the right scenario tab. Reference something specific from the contact log so the call doesn\'t feel scripted.',
+    'Log the outcome of each call back in Mindbody\'s Contact Log — even a voicemail — so we can track conversion attempts and the next person to touch this guest has context.'
+  ];
+  document.getElementById('tp-script-body').innerHTML=`<ol style="margin:0 0 0 18px;padding:0;font-size:13px;line-height:1.7;">${steps.map(s=>`<li style="margin-bottom:10px;">${s}</li>`).join('')}</ol>`;
   document.getElementById('tp-script-modal').classList.add('open');
 }
-function showYesterdayFirstVisitScript(ch,btn){
-  document.getElementById('tp-script-body').textContent=YESTERDAY_FIRST_VISIT_SCRIPTS[ch]||'';
-  btn.closest('.stabs').querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
-  btn.classList.add('active');
+
+// Follow-up call scripts for yesterday's Green ⭐ first-time visitors.
+// TWO scenarios — the tone changes based on whether they already purchased.
+// Purchased = warm "we care" check-in (no sales pressure).
+// Didn't purchase = the primary purpose of the call: catch a missed sale
+// with a warm, consultative tone.
+const YESTERDAY_FIRST_VISIT_SCRIPTS={
+  purchased:{
+    call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners! I wanted to give you a quick call to check in — how did you feel after your first sauna session yesterday?\n\n[Listen and reflect back what they share — reference something specific from their contact log so it feels personal, not scripted.]\n\nSo glad to hear that. I also wanted to say thank you for signing up with us — that means a lot and we don't take it for granted. My job is to make sure your experience going forward is even better than day one, so I'm your go-to for anything you need — scheduling help, questions about the tiers, anything.\n\nAny questions I can answer while I have you?`,
+    voicemail:`Hi [Name], it's [Your Name] from Perspire Peachtree Corners — just checking in after your first session yesterday and wanting to say thank you again for signing up. I'm your point of contact anytime — questions, scheduling, anything. Give us a call back at 404-947-8084 whenever!`,
+    text:`Hi [Name]! It's [Your Name] from Perspire 🧡 Just checking in after your first session yesterday — how are you feeling today? Also wanted to say thanks again for signing up with us. I'm your go-to for anything you need going forward! 🌿`,
+    email:`Hi [Name],\n\nJust a quick note after your first sauna session with us yesterday — how are you feeling today?\n\nI also wanted to say thank you for signing up with us. Trusting a new studio is a real thing, and we don't take it for granted. My goal is to make sure every visit going forward is better than the last, so please consider me your go-to for anything — scheduling questions, tier upgrades, add-on info, whatever.\n\nWelcome to the Perspire family 🧡\n\n[Your Name]\nPerspire Sauna Studio Peachtree Corners`
+  },
+  no_purchase:{
+    call:`Hi [Name], this is [Your Name] from Perspire Peachtree Corners! I wanted to give you a quick call to check in after your first sauna session yesterday — how are you feeling today?\n\n[Listen — reflect back something specific from the contact log so it feels personal.]\n\nThat's exactly what we love to hear. So the real reason I'm calling: I know you came in for a single session yesterday, and I wanted to make sure you know that if you're planning to come back a few more times, our memberships make it a LOT more affordable than paying per visit — and the benefits really start to compound around the 3rd or 4th session.\n\nWould you have a couple minutes for me to walk you through the options and help you pick the one that fits how often you'd realistically like to come in? Or I'm also happy to text you a quick summary if that's easier.\n\n[If they hesitate on price] Totally understand — the good news is our lowest tier is under $100/month for 2 sessions, and any unused sessions roll over so you never lose them. Want to hear what that looks like?\n\n[If they hesitate on time] Consistency is the biggest factor for feeling the benefits, and even 2 sessions a month makes a real difference. What does a typical week look like for you? Let's find a rhythm that actually fits.`,
+    voicemail:`Hi [Name], it's [Your Name] from Perspire Peachtree Corners! Just calling to check in after your first session yesterday — I'd love to hear how you felt. I also wanted to share our membership options with you — most first-time guests find them a LOT more affordable than paying per visit if they're planning to come back a few times. Give us a call back at 404-947-8084 or text us anytime and we'll walk you through it.`,
+    text:`Hi [Name]! It's [Your Name] from Perspire 🧡 Just checking in after your first session yesterday — how are you feeling? Also wanted to share that our memberships make coming back a LOT more affordable if you're planning multiple visits (and the benefits really compound after a few sessions!). Reply if you'd like me to send over the tier options 🌿`,
+    email:`Hi [Name],\n\nJust following up after your first sauna session with us yesterday — I hope you felt great afterward.\n\nA lot of our first-time guests tell us the benefits really start to compound with a consistent rhythm, and that's why most of them switch from paying per visit to a membership — even coming in just 2 times a month is significantly cheaper on our IRevive plan than paying single-session pricing.\n\nHere's a quick snapshot of our options:\n• <strong>IRevive</strong> — 2 sauna sessions per month\n• <strong>IRelax</strong> — 4 sauna sessions per month\n• <strong>IRecover</strong> — 8 sauna sessions per month\n• <strong>IRitual Unlimited</strong> — unlimited sauna sessions\n\nAll tiers include perks like 20% off retail and free guest passes each month. If you'd like help picking the one that fits how often you'd realistically come in, just reply to this email or call us at 404-947-8084 — we'll walk you through it in a couple minutes.\n\nWarmly,\n[Your Name]\nPerspire Sauna Studio Peachtree Corners`
+  }
+};
+let _yfvActiveScenario='no_purchase';
+function openYesterdayFirstVisitScripts(){
+  document.getElementById('tp-script-title').textContent='📞 Yesterday\'s first-visit follow-up scripts';
+  document.getElementById('tp-script-sub').innerHTML='Pick the scenario first (did they purchase yesterday?), then the channel. The <span style="color:var(--warn);font-weight:600;">"didn\'t purchase"</span> path is the primary sales opportunity — the <span style="color:var(--ok);font-weight:600;">"purchased"</span> path is a no-pressure check-in.';
+  _yfvActiveScenario='no_purchase';
+  renderYFVScripts('call');
+  document.getElementById('tp-script-modal').classList.add('open');
+}
+function renderYFVScripts(channel){
+  document.getElementById('tp-script-tabs').innerHTML=
+    `<div style="width:100%;margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap;">`+
+    `<button class="stab ${_yfvActiveScenario==='no_purchase'?'active':''}" style="${_yfvActiveScenario==='no_purchase'?'background:var(--warn);color:white;border-color:var(--warn);':''}" onclick="setYFVScenario('no_purchase','${channel}')">💰 Didn't purchase — sales-focused</button>`+
+    `<button class="stab ${_yfvActiveScenario==='purchased'?'active':''}" style="${_yfvActiveScenario==='purchased'?'background:var(--ok);color:white;border-color:var(--ok);':''}" onclick="setYFVScenario('purchased','${channel}')">💚 Purchased — warm check-in</button>`+
+    `</div>`+
+    `<button class="stab ${channel==='call'?'active':''}" onclick="showYFVChannel('call',this)">Phone call</button>`+
+    `<button class="stab ${channel==='voicemail'?'active':''}" onclick="showYFVChannel('voicemail',this)">Voicemail</button>`+
+    `<button class="stab ${channel==='text'?'active':''}" onclick="showYFVChannel('text',this)">Text</button>`+
+    `<button class="stab ${channel==='email'?'active':''}" onclick="showYFVChannel('email',this)">Email</button>`;
+  const script=YESTERDAY_FIRST_VISIT_SCRIPTS[_yfvActiveScenario][channel]||'';
+  if(channel==='email')document.getElementById('tp-script-body').innerHTML=`<div style="white-space:pre-wrap;line-height:1.6;">${script}</div>`;
+  else document.getElementById('tp-script-body').textContent=script;
+}
+function setYFVScenario(scenario,channel){_yfvActiveScenario=scenario;renderYFVScripts(channel);}
+function showYFVChannel(channel,btn){renderYFVScripts(channel);}
+
+// Workflow instructions popup for the "text yesterday's visitors" task.
+function openYesterdayBookTextInstructions(){
+  document.getElementById('tp-script-title').textContent='📋 How to check if a visitor needs a booking nudge';
+  document.getElementById('tp-script-sub').textContent='Only text visitors who don\'t already have a future session scheduled — otherwise it comes off as spammy.';
+  document.getElementById('tp-script-tabs').innerHTML='';
+  const steps=[
+    'In Mindbody, pull up <strong>yesterday\'s schedule</strong>.',
+    'For each visitor on the schedule, click on their appointment → click into their <strong>profile</strong>.',
+    'Click the <strong>"Schedule" button</strong> in the profile.',
+    'Look at their upcoming appointments — do they have a future sauna session already booked?<br>&nbsp;&nbsp;• <strong>Yes → skip them.</strong> No need to nudge — they\'re already coming back.<br>&nbsp;&nbsp;• <strong>No →</strong> open <strong>📱 View text template</strong> and send them the nudge to book their next session.',
+    'Log any responses in Mindbody\'s Contact Log so we track the outreach.'
+  ];
+  document.getElementById('tp-script-body').innerHTML=`<ol style="margin:0 0 0 18px;padding:0;font-size:13px;line-height:1.7;">${steps.map(s=>`<li style="margin-bottom:10px;">${s}</li>`).join('')}</ol>`;
+  document.getElementById('tp-script-modal').classList.add('open');
 }
 
 // Text template for nudging yesterday's visitors to book their next session.
-// Only send if they don't already have a future visit scheduled (staff checks
-// Mindbody profile first — instructions in the task's note field).
 const YESTERDAY_BOOK_TEXT=`Hi [Name]! It's [Your Name] from Perspire 🧡 Loved seeing you yesterday!\n\nI noticed you don't have your next sauna session on the books yet. Consistency is what unlocks the deepest benefits — better sleep, faster recovery, more energy — so I'd love to help you find a time that fits your week.\n\nJust reply with a day and I'll grab a spot for you!`;
 function openYesterdayBookText(){
   document.getElementById('tp-script-title').textContent='📱 "Book your next visit" text template';
