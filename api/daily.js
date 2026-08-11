@@ -158,6 +158,7 @@ module.exports = async function handler(req, res) {
         preBooked: l.pre_booked || 0,
         contactLogsDone: l.contact_logs_done || false,
         axleFollowupsDone: l.axle_followups_done || false,
+        metricNotes: l.metric_notes || {},
         updatedAt: l.updated_at
       }));
       return res.status(200).json(result);
@@ -174,6 +175,7 @@ module.exports = async function handler(req, res) {
       if (b.preBooked !== undefined) updates.pre_booked = b.preBooked;
       if (b.contactLogsDone !== undefined) updates.contact_logs_done = b.contactLogsDone;
       if (b.axleFollowupsDone !== undefined) updates.axle_followups_done = b.axleFollowupsDone;
+      if (b.metricNotes !== undefined) updates.metric_notes = b.metricNotes;
       const { error } = await supabase.from('daily_logs').upsert(updates, { onConflict: 'staff_id,log_date' });
       if (error) return res.status(500).json({ error: error.message });
       return res.status(200).json({ ok: true });

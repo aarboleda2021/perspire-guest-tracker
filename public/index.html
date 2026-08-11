@@ -392,6 +392,18 @@
   <button class="suites-btn" onclick="setView('suites')" id="btn-suites" title="Update suite status for the lobby display"><span class="suites-btn-icon">🛋</span> Suite Status</button>
 </div>
 
+<!-- SHIFT-END REMINDER STRIP (visible from every view; only shows for the signed-in
+     MSA within ~30 min of a shift-end when they have missed goals with no note yet) -->
+<div id="shift-end-reminder" style="display:none;background:#FFF3D6;border-bottom:2px solid #D4A017;padding:10px 20px;">
+  <div style="max-width:1400px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+    <div style="font-size:13px;color:#5A3D0A;font-weight:500;" id="shift-end-reminder-text">🕐 Your shift ends soon — add a quick "why?" note for any missed goals before you head out.</div>
+    <div style="display:flex;gap:8px;flex-shrink:0;">
+      <button class="btn btn-p btn-sm" onclick="setView('daily');setDailyTab('today');dismissShiftEndReminder(true);" style="background:#B8841F;border-color:#B8841F;">📊 Go to my log</button>
+      <button class="btn btn-g btn-sm" style="border-color:#5A3D0A;color:#5A3D0A;" onclick="dismissShiftEndReminder(false)">Dismiss</button>
+    </div>
+  </div>
+</div>
+
 <div class="main">
 
 <!-- IDENTITY CHECK-IN BANNER (shown after long idle gaps on shared devices) -->
@@ -6729,6 +6741,7 @@ function setWorkingAs(sid){
   applyWorkingAsStyling();
   hideIdentCheckin();
   updateNotifBadges();
+  updateShiftEndReminder();
   // Re-render whatever is visible so per-person UI (acks, auto-filter) updates
   if(currentView==='guests')renderGuests();
   if(currentView==='daily'&&currentDailyTab==='notes'){
@@ -6808,6 +6821,69 @@ function openIdentitySwitch(){
   hideIdentCheckin();
   const sel=document.getElementById('working-as');
   if(sel){sel.focus();try{sel.click();}catch(e){}}
+}
+
+// ── Shift-end "add a why" reminder ──────────────────────────────────────
+// Shows a yellow banner below the main nav when it's within SHIFT_END_WARNING_MIN
+// of any shift end AND the signed-in MSA has at least one missed goal without a
+// "why" note. Runs on page load, when logs update, and every 60s in the poll.
+const SHIFT_END_DISMISS_KEY='psp-v7-shift-end-dismissed';
+function _getCurrentShiftEndWindow(){
+  const nowET=new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'}));
+  const dow=nowET.getDay();
+  const ends=SHIFT_END_TIMES[dow]||[];
+  for(const s of ends){
+    const start=s.h*60+s.m-SHIFT_END_WARNING_MIN;
+    const end=s.h*60+s.m;
+    const cur=nowET.getHours()*60+nowET.getMinutes();
+    if(cur>=start&&cur<=end)return {label:s.label,endMinuteKey:`${dow}-${s.h}-${s.m}`};
+  }
+  return null;
+}
+function _todayKey(){
+  const nowET=new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'}));
+  return`${nowET.getFullYear()}-${String(nowET.getMonth()+1).padStart(2,'0')}-${String(nowET.getDate()).padStart(2,'0')}`;
+}
+function _isShiftEndDismissed(windowKey){
+  const stored=localStorage.getItem(SHIFT_END_DISMISS_KEY);
+  if(!stored)return false;
+  try{const parsed=JSON.parse(stored);return parsed.date===_todayKey()&&parsed.windows&&parsed.windows.includes(windowKey);}catch(e){return false;}
+}
+function dismissShiftEndReminder(_wentToLog){
+  const win=_getCurrentShiftEndWindow();if(!win)return;
+  const today=_todayKey();
+  let parsed={date:today,windows:[]};
+  try{const stored=localStorage.getItem(SHIFT_END_DISMISS_KEY);if(stored){const p=JSON.parse(stored);if(p.date===today)parsed=p;}}catch(e){}
+  if(!parsed.windows.includes(win.endMinuteKey))parsed.windows.push(win.endMinuteKey);
+  localStorage.setItem(SHIFT_END_DISMISS_KEY,JSON.stringify(parsed));
+  document.getElementById('shift-end-reminder').style.display='none';
+}
+function updateShiftEndReminder(){
+  const banner=document.getElementById('shift-end-reminder');if(!banner)return;
+  const me=getWorkingAs();
+  if(!me){banner.style.display='none';return;}
+  // Only MSAs get the reminder — SAs aren't tracked on the sales grid
+  const staff=staffList.find(s=>s.id===me);
+  if(!staff||staff.role==='sa'||staff.id==='mohogany'){banner.style.display='none';return;}
+  const win=_getCurrentShiftEndWindow();
+  if(!win){banner.style.display='none';return;}
+  if(_isShiftEndDismissed(win.endMinuteKey)){banner.style.display='none';return;}
+  // Check TODAY'S log for this staff (the daily log grid uses getViewDate — for
+  // this reminder we always evaluate against today, not a past date being viewed)
+  const today=_todayKey();
+  const logs=(getViewDate()===today)?dailyLogs:lsGet('psp-v7-dlogs-'+today,[]);
+  const log=logs.find(l=>l.staffId===me);
+  if(!log){banner.style.display='none';return;} // no activity today, don't nag
+  const notes=log.metricNotes||{};
+  const missing=[];
+  LOG_COLS.forEach(c=>{
+    if(c.goalValue===undefined)return;
+    const v=Number(log[c.key]);
+    if(!isNaN(v)&&v<c.goalValue&&!(notes[c.key]||'').trim())missing.push(c.label);
+  });
+  if(!missing.length){banner.style.display='none';return;}
+  document.getElementById('shift-end-reminder-text').innerHTML=`🕐 <strong>${sName(me)}</strong>, your ${win.label} shift ends soon — add a quick "why?" note for missed goal${missing.length!==1?'s':''}: <strong>${missing.join(' · ')}</strong>`;
+  banner.style.display='block';
 }
 
 function updateNotifBadges(){
@@ -7963,14 +8039,29 @@ const CLEANING_TASKS_BY_DAY={
 
 const CINTAS_ITEMS=['Toilet Paper','Paper Towel','Hand Soap (Bathroom)','Hand Sanitizer (At Towel drop)','Chemical Levels (Disinfectant, Glass Cleaner, Floor Cleaner)','Mop Heads (2 front Drawers)'];
 
+// goalValue is the per-shift numeric target — used to check whether staff hit
+// the goal and to trigger the shift-end "add a why" reminder when they didn't.
 const LOG_COLS=[
   {key:'opportunities',label:'Green ⭐ Opportunities',tip:'Log the total number of first-time guest visits you assisted during your shift (whether or not they purchased).'},
-  {key:'firstVisitsBooked',label:'First Visits Booked',goal:'Goal: 3/shift',tip:'Each MSA must book 3 first visits per shift. Visits do not need to occur that day, but they must be scheduled.'},
+  {key:'firstVisitsBooked',label:'First Visits Booked',goal:'Goal: 3/shift',goalValue:3,tip:'Each MSA must book 3 first visits per shift. Visits do not need to occur that day, but they must be scheduled.'},
   {key:'membershipSales',label:'Membership Sales',tip:'Record the number of memberships you sold during your shift.'},
   {key:'packageSales',label:'Package Sales',tip:'Record the number of packages you sold during your shift.'},
-  {key:'outboundCalls',label:'Outbound Calls',goal:'Goal: 10/shift',tip:'Each MSA is expected to complete 10 outbound lead calls per shift (log each call, even if no contact is reached).'},
-  {key:'preBooked',label:'Pre-booked Guests',goal:'Goal: 10/shift',tip:'Each MSA is expected to pre-book 10 guests per shift (future appointments only — at least one day in advance).'},
+  {key:'outboundCalls',label:'Outbound Calls',goal:'Goal: 10/shift',goalValue:10,tip:'Each MSA is expected to complete 10 outbound lead calls per shift (log each call, even if no contact is reached).'},
+  {key:'preBooked',label:'Pre-booked Guests',goal:'Goal: 10/shift',goalValue:10,tip:'Each MSA is expected to pre-book 10 guests per shift (future appointments only — at least one day in advance).'},
 ];
+
+// Shift-end times (24h) by day of week. Used to fire the "add a why" reminder
+// within the last ~30 min of any shift. 0 = Sunday ... 6 = Saturday.
+const SHIFT_END_TIMES={
+  0:[{h:13,m:30,label:'opening'},{h:18,m:0,label:'swing'},{h:20,m:0,label:'closing'}], // Sunday
+  1:[{h:13,m:0,label:'opening'},{h:21,m:0,label:'closing'}], // Monday
+  2:[{h:13,m:0,label:'opening'},{h:21,m:0,label:'closing'}],
+  3:[{h:13,m:0,label:'opening'},{h:21,m:0,label:'closing'}],
+  4:[{h:13,m:0,label:'opening'},{h:21,m:0,label:'closing'}],
+  5:[{h:13,m:0,label:'opening'},{h:21,m:0,label:'closing'}],
+  6:[{h:13,m:30,label:'opening'},{h:18,m:0,label:'swing'},{h:20,m:0,label:'closing'}] // Saturday
+};
+const SHIFT_END_WARNING_MIN=30;
 
 let dailyTasks=[],dailyLogs=[];
 
@@ -8057,7 +8148,19 @@ async function renderToday(){
   const colsHeader=LOG_COLS.map(c=>`<th title="${c.tip}">${c.label}${c.goal?`<div style="font-weight:400;font-size:10px;color:var(--muted);margin-top:2px;font-style:italic;text-transform:none;letter-spacing:0;">${c.goal}</div>`:''}</th>`).join('');
   const rows=staff.map(s=>{
     const log=dailyLogs.find(l=>l.staffId===s.id)||{staffId:s.id};
-    const cells=LOG_COLS.map(c=>{const v=log[c.key];const display=(v===0||v>0)?v:'';return`<td><input type="number" min="0" value="${display}" onblur="updateDailyLogCell('${s.id}','${c.key}',this.value)"></td>`;}).join('');
+    const notes=log.metricNotes||{};
+    const cells=LOG_COLS.map(c=>{
+      const v=log[c.key];
+      const display=(v===0||v>0)?v:'';
+      const numVal=Number(v);
+      const missedGoal=c.goalValue!==undefined&&(numVal>=0)&&numVal<c.goalValue;
+      const noteVal=(notes[c.key]||'').replace(/"/g,'&quot;');
+      const noteBg=missedGoal&&!noteVal?'background:#FFF3D6;border-color:#D4A017;':'';
+      const noteInput=c.goalValue!==undefined
+        ?`<input type="text" class="dlg-note-in" value="${noteVal}" placeholder="${missedGoal?'Why?':'Note (optional)'}" title="If you didn\\'t hit your ${c.goalValue}/shift goal, tell us why (e.g., focused on texts, no answer on calls)" onblur="updateDailyLogNote('${s.id}','${c.key}',this.value)" style="width:100%;font-size:10px;padding:3px 6px;border:1px solid ${noteBg?'#D4A017':'var(--border)'};border-radius:4px;margin-top:3px;${noteBg}">`
+        :'';
+      return`<td style="vertical-align:top;"><input type="number" min="0" value="${display}" onblur="updateDailyLogCell('${s.id}','${c.key}',this.value)">${noteInput}</td>`;
+    }).join('');
     const cl=log.contactLogsDone,ax=log.axleFollowupsDone;
     const clCell=`<button class="dlg-cb-btn ${cl?'done':''}" onclick="toggleContactLogs('${s.id}')">${cl?'✓ Done':'Mark'}</button>`;
     const axCell=`<button class="dlg-cb-btn ${ax?'done':''}" onclick="toggleAxleFollowups('${s.id}')">${ax?'✓ Done':'Mark'}</button>`;
@@ -8309,6 +8412,24 @@ async function confirmCintasComplete(){
   renderToday();
 }
 
+// Save a "why didn't you hit the goal" note for a specific metric on a specific staff's daily log.
+async function updateDailyLogNote(staffId,colKey,val){
+  const d=getViewDate();
+  let log=dailyLogs.find(l=>l.staffId===staffId);
+  if(!log){log={staffId,date:d,contactLogsDone:false,axleFollowupsDone:false,metricNotes:{}};dailyLogs.push(log);}
+  if(!log.metricNotes)log.metricNotes={};
+  const trimmed=(val||'').trim();
+  if(trimmed)log.metricNotes[colKey]=trimmed;
+  else delete log.metricNotes[colKey];
+  log.updatedAt=new Date().toISOString();
+  if(useLocalStorage){
+    localStorage.setItem('psp-v7-dlogs-'+d,JSON.stringify(dailyLogs));
+  } else {
+    await api('daily?resource=logs&date='+d+'&staffId='+staffId,{method:'PUT',body:{metricNotes:log.metricNotes}});
+  }
+  updateShiftEndReminder();
+}
+
 // Daily log cell updates
 async function updateDailyLogCell(staffId,colKey,val){
   const d=getViewDate();
@@ -8355,6 +8476,7 @@ async function updateDailyLogCell(staffId,colKey,val){
       promptNonConvertedFollowup(staffName,nonConverted,!log.contactLogsDone,!log.axleFollowupsDone);
     }
   }
+  updateShiftEndReminder();
 }
 
 // Track which (staff,date,reminder) combos we've shown so we don't nag every keystroke
@@ -9154,6 +9276,7 @@ loadAll().then(()=>{
   ensureTrackingFrom(getWorkingAs());
   updateNotifBadges();
   maybeShowIdentCheckin();
+  updateShiftEndReminder();
   // Auto-sync attendance + members from the manager dashboard, once per
   // calendar day. Fires after the initial view render so it never blocks
   // the UI. If it produces new pending items, the manager view's Sync
@@ -9173,7 +9296,7 @@ loadAll().then(()=>{
     // Silent polling — if the browser just woke up from sleep, the network
     // may not be ready yet, and we don't want to show a "Connection error"
     // alert for a call that will retry in another 60 seconds anyway.
-    try{await Promise.all([loadShiftNotes({silent:true}),loadAnnouncements({silent:true})]);updateNotifBadges();maybeShowIdentCheckin();}catch(e){}
+    try{await Promise.all([loadShiftNotes({silent:true}),loadAnnouncements({silent:true})]);updateNotifBadges();maybeShowIdentCheckin();updateShiftEndReminder();}catch(e){}
   },60000);
 });
 
