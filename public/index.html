@@ -8153,24 +8153,19 @@ async function renderToday(){
   const rows=staff.map(s=>{
     const log=dailyLogs.find(l=>l.staffId===s.id)||{staffId:s.id};
     const notes=log.metricNotes||{};
-    // Short, metric-specific example prompts so staff know what to type in the note box
-    const noteExamples={
-      firstVisitsBooked:'e.g., no walk-ins, all leads booked out',
-      outboundCalls:'e.g., focused on 250 texts instead, all VMs',
-      preBooked:'e.g., everyone rejected, no replies to yesterday\'s texts'
-    };
     const cells=LOG_COLS.map(c=>{
       const v=log[c.key];
       const display=(v===0||v>0)?v:'';
       const numVal=Number(v);
       const missedGoal=c.goalValue!==undefined&&(numVal>=0)&&numVal<c.goalValue;
       const noteVal=(notes[c.key]||'').replace(/"/g,'&quot;');
+      // Only render the "why?" input when the goal was actually missed. If they
+      // hit the goal (or haven't logged yet) we don't clutter the cell with a note box.
+      // If a stale note exists on a now-met goal, we still show it so they can clear it.
+      const showNoteBox=c.goalValue!==undefined&&(missedGoal||noteVal);
       const noteBg=missedGoal&&!noteVal?'background:#FFF3D6;border-color:#D4A017;':'';
-      const helperText=c.goalValue!==undefined
-        ?`<div style="font-size:9px;color:var(--muted);margin-top:5px;line-height:1.3;">${missedGoal?`<strong style="color:#A87A0F;">Why didn't you hit the goal?</strong>`:'Note (optional):'}<br><span style="font-style:italic;">${noteExamples[c.key]||''}</span></div>`
-        :'';
-      const noteInput=c.goalValue!==undefined
-        ?`${helperText}<input type="text" class="dlg-note-in" value="${noteVal}" onblur="updateDailyLogNote('${s.id}','${c.key}',this.value)" style="width:100%;font-size:10px;padding:3px 6px;border:1px solid ${noteBg?'#D4A017':'var(--border)'};border-radius:4px;margin-top:2px;${noteBg}">`
+      const noteInput=showNoteBox
+        ?`<input type="text" class="dlg-note-in" value="${noteVal}" placeholder="why goal wasn't reached?" onblur="updateDailyLogNote('${s.id}','${c.key}',this.value)" style="width:100%;font-size:10px;padding:3px 6px;border:1px solid ${noteBg?'#D4A017':'var(--border)'};border-radius:4px;margin-top:3px;${noteBg}">`
         :'';
       return`<td style="vertical-align:top;"><input type="number" min="0" value="${display}" onblur="updateDailyLogCell('${s.id}','${c.key}',this.value)">${noteInput}</td>`;
     }).join('');
@@ -8200,6 +8195,12 @@ async function renderToday(){
 
   document.getElementById('today-daily-log').innerHTML=`<div class="sec-hdr"><div class="sec-title">Team daily log</div></div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Tap the ⓘ next to any column header for details on what it tracks. Anyone can fill in any row.</div>
+    <div style="background:#FFF8E1;border-left:3px solid #D4A017;border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#5A3D0A;line-height:1.5;">
+      💡 <strong>If you missed a goal, a small "why?" box appears under that cell.</strong> Add a quick note explaining what happened so leadership can spot patterns and support you. Examples:<br>
+      &nbsp;&nbsp;• <em>First Visits Booked:</em> "no walk-ins, all leads booked out"<br>
+      &nbsp;&nbsp;• <em>Outbound Calls:</em> "focused on 250 texts instead" or "all VMs, no live pickups"<br>
+      &nbsp;&nbsp;• <em>Pre-booked Guests:</em> "everyone declined" or "no replies to yesterday's texts"
+    </div>
     <div class="dlg-wrap"><table class="dlg">
       <thead><tr>
         <th class="dlg-staff">Staff</th>
