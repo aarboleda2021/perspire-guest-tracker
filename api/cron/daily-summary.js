@@ -177,6 +177,44 @@ module.exports = async function handler(req, res) {
   const clCount = staff.filter(s => { const log = logs.find(l => l.staff_id === s.id); return log && log.contact_logs_done; }).length;
   const axCount = staff.filter(s => { const log = logs.find(l => l.staff_id === s.id); return log && log.axle_followups_done; }).length;
 
+  // ── MISSED-GOAL EXPLANATIONS SECTION ──
+  // Any staff/metric combo where they were below goal AND left a "why" note.
+  // Lets Amanda + Mohogany spot patterns (e.g. "pre-book keeps failing on Sundays
+  // because nobody replies to Saturday texts") without digging into the app.
+  const missedGoalExplanations = [];
+  staff.forEach(s => {
+    const log = logs.find(l => l.staff_id === s.id);
+    if (!log) return;
+    const notes = log.metric_notes || {};
+    goalCols.forEach(k => {
+      const dbKey = k.replace(/[A-Z]/g, m => '_' + m.toLowerCase());
+      const v = log[dbKey];
+      const goal = DAILY_GOALS[k];
+      if (!(v === 0 || v > 0)) return; // nothing logged
+      if (v >= goal) return; // met the goal
+      const note = notes[k]; // metric_notes uses camelCase keys (frontend LOG_COLS keys)
+      if (!note || !String(note).trim()) return;
+      missedGoalExplanations.push({
+        staffName: s.name,
+        metric: LOG_COL_LABELS[k],
+        value: v,
+        goal: goal,
+        note: String(note).trim()
+      });
+    });
+  });
+  const missedGoalsSection = missedGoalExplanations.length
+    ? `<div style="font-size:11px;font-weight:600;color:#9A9A9A;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Why Goals Were Missed (${missedGoalExplanations.length})</div>
+       <div style="margin-bottom:24px;">
+         ${missedGoalExplanations.map(m => `
+           <div style="padding:10px 12px;margin-bottom:6px;background:#FFF3D6;border-left:3px solid #D4A017;border-radius:4px;">
+             <div style="font-size:12px;font-weight:600;color:#5A3D0A;">${escapeHtml(m.staffName)} · ${escapeHtml(m.metric)}: <strong>${m.value}/${m.goal}</strong></div>
+             <div style="font-size:13px;color:#2A2A2A;margin-top:4px;font-style:italic;">"${escapeHtml(m.note)}"</div>
+           </div>
+         `).join('')}
+       </div>`
+    : '';
+
   // ── SHIFT NOTES SECTION ──
   const notesHtml = notes.length
     ? notes.map(n => {
@@ -224,6 +262,8 @@ module.exports = async function handler(req, res) {
           </tbody>
         </table>
       </div>
+
+      ${missedGoalsSection}
 
       <div style="font-size:11px;font-weight:600;color:#9A9A9A;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">New Shift Notes (${notes.length})</div>
       <div style="margin-bottom:24px;">${notesHtml}</div>
