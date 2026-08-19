@@ -1,15 +1,9 @@
 const { getSupabase } = require('../_supabase');
 
-// Studio tasks (mirror of frontend STUDIO_TASKS). days is 0=Sun..6=Sat
-const STUDIO_TASKS = [
-  { key:'call-green-stars', label:"Call tomorrow's Green ⭐ first-time visitors", days:[0,1,2,3,4,5,6] },
-  { key:'listen360',         label:'Log all Listen360 scores & call respective guests', days:[0,1,2,3,4,5,6] },
-  { key:'daily-cleaning',    label:'Daily cleaning tasks complete', days:[0,1,2,3,4,5,6] },
-  { key:'halo-clean',        label:'Clean halotherapy machines', days:[2] },
-  { key:'cintas',            label:'Cintas supplies check', days:[5] },
-  { key:'fridge-front',      label:'Defrost front fridge at closing', days:[6] },
-  { key:'fridge-back',       label:'Defrost back fridge at closing', days:[0] },
-];
+// Studio tasks + season helper come from the SAME file the browser loads, so
+// the recap email always reflects the current app config. Add/remove/rename
+// tasks in ONE place (public/studio-tasks-shared.js) and both stay in sync.
+const { STUDIO_TASKS, taskInSeason } = require('../../public/studio-tasks-shared');
 
 // Daily-shift goals (matches frontend LOG_COLS goal field)
 const DAILY_GOALS = {
@@ -86,12 +80,14 @@ module.exports = async function handler(req, res) {
   const windowStart = new Date(Date.UTC(y, m - 1, d - 1, 0, 0, 0)).toISOString();
   const windowEnd = new Date(Date.UTC(y, m - 1, d + 2, 0, 0, 0)).toISOString();
 
-  // Fetch all data in parallel
-  const [tasksRes, logsRes, staffRes, notesRes] = await Promise.all([
+  // Fetch all data in parallel (including custom_tasks — Amanda's one-off tasks
+  // now show up in the recap alongside the standard studio tasks).
+  const [tasksRes, logsRes, staffRes, notesRes, customTasksRes] = await Promise.all([
     supabase.from('daily_task_completions').select('*').eq('date', todayStr),
     supabase.from('daily_logs').select('*').eq('log_date', todayStr),
     supabase.from('staff').select('*').eq('active', true).order('name'),
-    supabase.from('shift_notes').select('*').gte('created_at', windowStart).lte('created_at', windowEnd)
+    supabase.from('shift_notes').select('*').gte('created_at', windowStart).lte('created_at', windowEnd),
+    supabase.from('custom_tasks').select('*')
   ]);
 
   if (tasksRes.error || logsRes.error || staffRes.error || notesRes.error) {
@@ -116,7 +112,26 @@ module.exports = async function handler(req, res) {
   });
 
   // ── BUILD STUDIO TASKS SECTION ──
-  const applicableTasks = STUDIO_TASKS.filter(t => t.days.includes(dayOfWeek));
+  // Include:
+  //  - Standard STUDIO_TASKS scheduled on this day-of-week AND within any season window
+  //  - Amanda's custom one-off tasks that apply to this specific date
+  // Custom tasks use the same 'custom-<id>' completion key pattern as the frontend.
+  const applicableStandard = STUDIO_TASKS.filter(t =>
+    t.days.includes(dayOfWeek) && taskInSeason(t, todayStr)
+  );
+  const allCustomTasks = customTasksRes && customTasksRes.data ? customTasksRes.data : [];
+  const applicableCustom = allCustomTasks.filter(ct => {
+    if (ct.start_date && todayStr < ct.start_date) return false;
+    if (ct.end_date && todayStr > ct.end_date) return false;
+    if (ct.days_of_week && ct.days_of_week.length > 0 && !ct.days_of_week.includes(dayOfWeek)) return false;
+    return true;
+  }).map(ct => ({
+    key: 'custom-' + ct.id,
+    label: ct.title + ' (custom)',
+    days: [0,1,2,3,4,5,6],
+    isCustom: true
+  }));
+  const applicableTasks = [...applicableStandard, ...applicableCustom];
   const tasksRows = applicableTasks.map(t => {
     const done = tasks.find(x => x.task_key === t.key);
     const staffName = done ? (allStaff.find(s => s.id === done.completed_by)?.name || done.completed_by || '?') : '';
