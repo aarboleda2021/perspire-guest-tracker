@@ -7024,6 +7024,11 @@ async function unresolveNote(id){
 }
 
 async function removeNote(id){
+  // Deletion is restricted to leadership (Amanda + Mohogany). Client-side gate;
+  // for full lockdown we'd also need to enforce this in the API/RLS, but this
+  // matches the trust model of the rest of the app.
+  const me=getWorkingAs();
+  if(me!=='mohogany'&&me!=='amanda'){alert('Only Amanda or Mohogany can delete shift notes. Sign in as one of them via the top-right "Working as" picker if you need to remove a note.');return;}
   if(!confirm('Delete this note permanently?'))return;
   if(useLocalStorage){shiftNotes=shiftNotes.filter(x=>x.id!==id);lsSave();}
   else{await api('shift-notes?id='+id,{method:'DELETE'});await loadShiftNotes();}
@@ -7164,7 +7169,7 @@ function _renderNoteCard(n,me){
       <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap;">
         ${resolved?`<button class="btn btn-g btn-sm" onclick="unresolveNote('${n.id}')">Reopen</button>`:`<select id="resolve-by-${n.id}" class="fi" style="font-size:12px;padding:5px 8px;width:auto;"><option value="" ${me?'':'disabled selected'}>Your name</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===me?'selected':''}>${s.name}</option>`).join('')}</select><button class="btn btn-g btn-sm" onclick="resolveNote('${n.id}')">Resolve ✓</button>`}
         <button class="btn btn-sm btn-g" onclick="editNote('${n.id}')">Edit</button>
-        <button class="btn btn-sm btn-do" onclick="removeNote('${n.id}')">Delete</button>
+        ${(me==='mohogany'||me==='amanda')?`<button class="btn btn-sm btn-do" onclick="removeNote('${n.id}')">Delete</button>`:''}
       </div>
     </div>
   </div>`;
