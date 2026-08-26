@@ -8109,12 +8109,10 @@ async function renderToday(){
     else if(t.scripts==='cleaning')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openCleaningList()">📋 View today's cleaning list</button>`;
     else if(t.scripts==='member-week-text')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openMemberWeekText()">📱 View text template</button>`;
     else if(t.scripts==='yesterday-first-visit')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openYesterdayFirstVisitScripts()">📞 View follow-up scripts</button>`;
-    else if(t.scripts==='yesterday-book-text')scriptBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="event.stopPropagation();openYesterdayBookText()">📱 View text template</button>`;
     // Optional "View steps" instruction popup (keeps the card compact — the
     // workflow steps live in a modal instead of a long note).
     let instructionsBtn='';
     if(t.instructions==='yesterday-first-visit')instructionsBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;margin-left:6px;" onclick="event.stopPropagation();openYesterdayFirstVisitInstructions()">📋 View steps</button>`;
-    else if(t.instructions==='yesterday-book-text')instructionsBtn=`<button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;margin-left:6px;" onclick="event.stopPropagation();openYesterdayBookTextInstructions()">📋 View steps</button>`;
     if(instructionsBtn)scriptBtn=(scriptBtn||'')+instructionsBtn;
     else if(t.special==='cintas'&&!done)scriptBtn=`<button class="btn btn-p btn-sm" style="font-size:11px;" onclick="event.stopPropagation();openCintas()">👆 Click to log supply levels</button>`;
     let cintasSummary='';
@@ -8294,32 +8292,6 @@ function renderYFVScripts(channel){
 }
 function setYFVScenario(scenario,channel){_yfvActiveScenario=scenario;renderYFVScripts(channel);}
 function showYFVChannel(channel,btn){renderYFVScripts(channel);}
-
-// Workflow instructions popup for the "text yesterday's visitors" task.
-function openYesterdayBookTextInstructions(){
-  document.getElementById('tp-script-title').textContent='📋 How to check if a visitor needs a booking nudge';
-  document.getElementById('tp-script-sub').textContent='Only text visitors who don\'t already have a future session scheduled — otherwise it comes off as spammy.';
-  document.getElementById('tp-script-tabs').innerHTML='';
-  const steps=[
-    'In Mindbody, pull up <strong>yesterday\'s schedule</strong>.',
-    'For each visitor on the schedule, click on their appointment → click into their <strong>profile</strong>.',
-    'Click the <strong>"Schedule" button</strong> in the profile.',
-    'Look at their upcoming appointments — do they have a future sauna session already booked?<br>&nbsp;&nbsp;• <strong>Yes → skip them.</strong> No need to nudge — they\'re already coming back.<br>&nbsp;&nbsp;• <strong>No →</strong> open <strong>📱 View text template</strong> and send them the nudge to book their next session.',
-    'Log any responses in Mindbody\'s Contact Log so we track the outreach.'
-  ];
-  document.getElementById('tp-script-body').innerHTML=`<ol style="margin:0 0 0 18px;padding:0;font-size:13px;line-height:1.7;">${steps.map(s=>`<li style="margin-bottom:10px;">${s}</li>`).join('')}</ol>`;
-  document.getElementById('tp-script-modal').classList.add('open');
-}
-
-// Text template for nudging yesterday's visitors to book their next session.
-const YESTERDAY_BOOK_TEXT=`Hi [Name]! It's [Your Name] from Perspire 🧡 Loved seeing you yesterday!\n\nI noticed you don't have your next sauna session on the books yet. Consistency is what unlocks the deepest benefits — better sleep, faster recovery, more energy — so I'd love to help you find a time that fits your week.\n\nJust reply with a day and I'll grab a spot for you!`;
-function openYesterdayBookText(){
-  document.getElementById('tp-script-title').textContent='📱 "Book your next visit" text template';
-  document.getElementById('tp-script-sub').textContent='For visitors from yesterday who don\'t already have their next session scheduled. Personalize [Name] and [Your Name].';
-  document.getElementById('tp-script-tabs').innerHTML='';
-  document.getElementById('tp-script-body').textContent=YESTERDAY_BOOK_TEXT;
-  document.getElementById('tp-script-modal').classList.add('open');
-}
 
 // Daily cleaning list popup (view-only)
 function openCleaningList(){
