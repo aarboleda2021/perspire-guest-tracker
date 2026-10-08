@@ -2700,7 +2700,13 @@ function windowDates(startDate,ws,we){
 function initials(n){return n.trim().split(' ').map(p=>p[0]).join('').toUpperCase().slice(0,2);}
 function getTPs(t){return t==='member'?MEMBER_TPS:PACKAGE_TPS;}
 function getWins(t){return t==='member'?MEMBER_WINS:PACKAGE_WINS;}
-function sName(id){if(!id)return'(removed)';const s=staffList.find(x=>x.id===id);return s?s.name:'(removed)';}
+function sName(id){
+  if(!id)return'(removed)';
+  const s=staffList.find(x=>x.id===id);if(s)return s.name;
+  // Leadership IDs (e.g., Amanda) aren't in the staff table but are valid signers
+  if(id==='amanda')return'Amanda';
+  return'(removed)';
+}
 function activeStaff(){return[...staffList].filter(s=>s.active).sort((a,b)=>a.name.localeCompare(b.name));}
 // MSAs only — used for dropdowns that only make sense for sales/member-service
 // staff (assigning new guests, change-request submitter, daily log grid, etc.).
@@ -6749,13 +6755,24 @@ function setWorkingAs(sid){
     renderShiftNotes();renderAnnouncements();
   }
 }
+// Leadership IDs that can sign in via the "Working as" picker even though
+// they aren't in the staff table (e.g., Amanda, the owner). Keeps them out
+// of staff-facing dropdowns while still giving them an app identity.
+const LEADERSHIP_SIGN_IN_IDS=['amanda'];
+function isKnownWorkingAsId(id){
+  if(!id)return false;
+  if(LEADERSHIP_SIGN_IN_IDS.includes(id))return true;
+  return activeStaff().some(s=>s.id===id);
+}
 function populateWorkingAsPicker(){
   const sel=document.getElementById('working-as');if(!sel)return;
   const cur=getWorkingAs();
-  const opts=activeStaff().map(s=>`<option value="${s.id}" ${s.id===cur?'selected':''}>👤 ${s.name}</option>`).join('');
-  sel.innerHTML=`<option value="">👤 Pick your name…</option>${opts}`;
-  // If a saved value isn't in the active list anymore (e.g., staff deactivated), clear
-  if(cur&&!activeStaff().some(s=>s.id===cur)){localStorage.removeItem(WORKING_AS_KEY);sel.value='';}
+  const staffOpts=activeStaff().map(s=>`<option value="${s.id}" ${s.id===cur?'selected':''}>👤 ${s.name}</option>`).join('');
+  // Owner shortcut — always available even though Amanda isn't in the staff table
+  const ownerOpt=`<option value="amanda" ${cur==='amanda'?'selected':''}>👑 Amanda (owner)</option>`;
+  sel.innerHTML=`<option value="">👤 Pick your name…</option>${ownerOpt}${staffOpts}`;
+  // If a saved value isn't recognizable anymore (staff deactivated, etc.), clear
+  if(cur&&!isKnownWorkingAsId(cur)){localStorage.removeItem(WORKING_AS_KEY);sel.value='';}
   applyWorkingAsStyling();
 }
 function applyWorkingAsStyling(){
@@ -8125,16 +8142,35 @@ async function renderToday(){
       const statusLabels={good:'<span style="color:var(--ok);">✓ Good</span>',half:'<span style="color:var(--warn);">⚠ Half way</span>',low:'<span style="color:var(--err);">⚠ Need More</span>'};
       cintasSummary=`<div style="margin-top:8px;padding:10px 12px;background:white;border:1px solid var(--border);border-radius:8px;font-size:12px;line-height:1.7;">${CINTAS_ITEMS.map((item,i)=>{const d=done.taskData[i]||{};return`<div><strong>${item}:</strong> ${statusLabels[d.status]||'—'}${d.notes?` <span style="color:var(--muted);">— ${d.notes}</span>`:''}</div>`;}).join('')}</div>`;
     }
-    const clickHandler=t.special==='cintas'?`openCintas()`:`openTaskComplete('${t.key}')`;
+    // N/A support: a task can be marked "Not applicable today" (e.g., no first
+    // visits yesterday → nobody to follow up with). Stored on the same
+    // completion row via taskData.na = true so it reads differently in UI + email.
+    const isNA=done&&done.taskData&&done.taskData.na;
+    const naReason=isNA?(done.taskData.naReason||''):'';
+    const clickHandler=t.special==='cintas'?`openCintas()`:(done?'':`openTaskComplete('${t.key}')`);
     const customBadge=t.isCustom?`<span class="badge" style="background:var(--purp);color:var(--pur);font-size:9px;margin-left:6px;vertical-align:middle;">CUSTOM</span>`:'';
-    const customStyle=t.isCustom?'style="border:1.5px dashed var(--pur);background:var(--purp);"':'';
-    return`<div class="stask ${done?'done':''}" onclick="${clickHandler}" ${t.holiday?'style="border:1.5px dashed var(--warn);background:var(--warnp);"':customStyle}>
-      <div class="stask-chk">${done?'<svg width="12" height="12" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div>
+    const customStyle=t.isCustom?'border:1.5px dashed var(--pur);background:var(--purp);':'';
+    const naStyle=isNA?'opacity:.7;background:#F3F2EE;':'';
+    const chkInner=isNA
+      ?`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10" fill="#9A9A9A" stroke="#9A9A9A"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`
+      :(done?'<svg width="12" height="12" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':'');
+    const chkStyle=isNA?'background:#9A9A9A;border-color:#9A9A9A;':'';
+    const statusLine=isNA
+      ?`<div class="stask-meta" style="color:#5C5C5C;">🚫 Marked N/A by ${by} at ${when}${naReason?` — <em>"${naReason}"</em>`:''}</div>`
+      :(done?`<div class="stask-meta">✓ Completed by ${by} at ${when}${t.special==='cintas'?' · click to view/edit levels':''}</div>${cintasSummary}`:scriptBtn);
+    const containerStyle=t.holiday
+      ?'border:1.5px dashed var(--warn);background:var(--warnp);'
+      :customStyle;
+    const rightSide=done
+      ?`<button class="btn btn-g btn-sm" onclick="event.stopPropagation();undoTask('${t.key}')" style="font-size:11px;">Undo</button>`
+      :(t.special==='cintas'?'':`<button class="btn btn-g btn-sm" onclick="event.stopPropagation();markTaskNA('${t.key}')" style="font-size:11px;color:#5C5C5C;border-color:#B8B8B8;" title="Mark not applicable for today (e.g., nothing to call about)">N/A today</button>`);
+    return`<div class="stask ${done&&!isNA?'done':''}" ${clickHandler?`onclick="${clickHandler}"`:''} style="${containerStyle}${naStyle}">
+      <div class="stask-chk" style="${chkStyle}">${chkInner}</div>
       <div class="stask-body">
         <div class="stask-lbl">${t.label}${customBadge}${t.link?`<a class="stask-link" href="${t.link}" target="_blank" onclick="event.stopPropagation()">How-to guide ↗</a>`:''}${t.suggestedFor?`<div style="font-size:11px;color:var(--muted);font-weight:400;margin-top:2px;font-style:italic;">💡 Suggested for ${t.suggestedFor} shift</div>`:''}${t.note?`<div style="font-size:11px;color:var(--mid);font-weight:400;margin-top:4px;line-height:1.4;">${t.note}</div>`:''}</div>
-        ${done?`<div class="stask-meta">✓ Completed by ${by} at ${when}${t.special==='cintas'?' · click to view/edit levels':''}</div>${cintasSummary}`:scriptBtn}
+        ${statusLine}
       </div>
-      ${done?`<button class="btn btn-g btn-sm" onclick="event.stopPropagation();undoTask('${t.key}')" style="font-size:11px;">Undo</button>`:''}
+      ${rightSide}
     </div>`;
   }).join('');
   document.getElementById('today-studio-tasks').innerHTML=`<div class="sec-hdr"><div class="sec-title">Studio tasks</div><div class="sec-ct">${applicable.length}</div></div>${tasksHtml||'<div class="empty"><p>No studio tasks for this day.</p></div>'}`;
@@ -8348,6 +8384,27 @@ async function undoTask(key){
     localStorage.setItem('psp-v7-dtasks-'+d,JSON.stringify(dailyTasks));
   } else {
     await api('daily?resource=tasks&date='+d+'&taskKey='+encodeURIComponent(key),{method:'DELETE'});
+  }
+  renderToday();
+}
+// Mark a task as not applicable today (e.g., no first visits yesterday → nobody
+// to call). Saves to the same completion row with taskData.na = true so the
+// recap email + UI can distinguish "staff checked, nothing to do" from "staff
+// never looked at this task."
+async function markTaskNA(key){
+  const me=getWorkingAs&&getWorkingAs();
+  const by=me||prompt('Who is marking this N/A? (your name)');
+  if(!by)return;
+  const reason=prompt('Why is this task not applicable today? (optional)\n\nExamples:\n • "no first visits yesterday"\n • "no Listen360 responses to log"\n • "no green stars booked for tomorrow"');
+  if(reason===null)return;
+  const d=getViewDate();
+  const rec={date:d,taskKey:key,completedBy:by,completedAt:new Date().toISOString(),taskData:{na:true,naReason:(reason||'').trim()}};
+  if(useLocalStorage){
+    dailyTasks=dailyTasks.filter(t=>t.taskKey!==key);
+    dailyTasks.push(rec);
+    localStorage.setItem('psp-v7-dtasks-'+d,JSON.stringify(dailyTasks));
+  } else {
+    await api('daily?resource=tasks',{method:'POST',body:rec});
   }
   renderToday();
 }

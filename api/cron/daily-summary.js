@@ -134,13 +134,23 @@ module.exports = async function handler(req, res) {
   const applicableTasks = [...applicableStandard, ...applicableCustom];
   const tasksRows = applicableTasks.map(t => {
     const done = tasks.find(x => x.task_key === t.key);
+    const isNA = done && done.task_data && done.task_data.na;
+    const naReason = isNA ? (done.task_data.naReason || '') : '';
     const staffName = done ? (allStaff.find(s => s.id === done.completed_by)?.name || done.completed_by || '?') : '';
     const time = done ? new Date(done.completed_at).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', timeZone:'America/New_York' }) : '';
-    const status = done
-      ? `<td style="color:#3D7A4F;font-weight:600;">✓ Completed</td><td>${escapeHtml(staffName)} at ${time}</td>`
-      : `<td style="color:#B85C38;font-weight:600;">✗ Not completed</td><td style="color:#888;">—</td>`;
+    let status;
+    if (isNA) {
+      const reasonBit = naReason ? ` — <em>"${escapeHtml(naReason)}"</em>` : '';
+      status = `<td style="color:#5C5C5C;font-weight:600;">🚫 N/A today</td><td>${escapeHtml(staffName)} at ${time}${reasonBit}</td>`;
+    } else if (done) {
+      status = `<td style="color:#3D7A4F;font-weight:600;">✓ Completed</td><td>${escapeHtml(staffName)} at ${time}</td>`;
+    } else {
+      status = `<td style="color:#B85C38;font-weight:600;">✗ Not completed</td><td style="color:#888;">—</td>`;
+    }
     return `<tr><td style="padding:8px 10px;border-bottom:1px solid #E8E0D8;">${escapeHtml(t.label)}</td>${status.replace(/<td>/g, '<td style="padding:8px 10px;border-bottom:1px solid #E8E0D8;">').replace(/<td style="padding/g, '<td style="padding')}</tr>`;
   }).join('');
+  // Only count tasks that are TRULY not done (no row at all) as incomplete.
+  // An N/A task counts as handled — staff checked and confirmed it didn't apply.
   const incompleteTasks = applicableTasks.filter(t => !tasks.find(x => x.task_key === t.key)).length;
 
   // ── BUILD PER-STAFF DAILY LOG SECTION ──
