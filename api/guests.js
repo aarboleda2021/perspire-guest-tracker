@@ -70,6 +70,10 @@ module.exports = async function handler(req, res) {
       compedSource: g.comped_source || null,
       compedDetails: g.comped_details || null,
       compedExpiresAt: g.comped_expires_at || null,
+      returning: g.returning || false,
+      returningType: g.returning_type || null,
+      firstVisitBack: g.first_visit_back || null,
+      returningNote: g.returning_note || null,
       totalVisits: g.total_visits || 0,
       visitsUpdatedAt: g.visits_updated_at || null,
       milestonesCompleted: g.milestones_completed || {},
@@ -95,7 +99,11 @@ module.exports = async function handler(req, res) {
       notes: b.notes || null,
       comped_source: b.compedSource || null,
       comped_details: b.compedDetails || null,
-      comped_expires_at: b.compedExpiresAt || null
+      comped_expires_at: b.compedExpiresAt || null,
+      returning: b.returning || false,
+      returning_type: b.returningType || null,
+      first_visit_back: b.firstVisitBack || null,
+      returning_note: b.returningNote || null
     });
     if (error) return res.status(500).json({ error: error.message });
     return res.status(201).json({ ok: true });
@@ -131,6 +139,10 @@ module.exports = async function handler(req, res) {
     if (body.welcomeEmailSent !== undefined) updates.welcome_email_sent = body.welcomeEmailSent;
     if (body.agreementSigned !== undefined) updates.agreement_signed = body.agreementSigned;
     if (body.notes !== undefined) updates.notes = body.notes;
+    if (body.returning !== undefined) updates.returning = body.returning;
+    if (body.returningType !== undefined) updates.returning_type = body.returningType;
+    if (body.firstVisitBack !== undefined) updates.first_visit_back = body.firstVisitBack;
+    if (body.returningNote !== undefined) updates.returning_note = body.returningNote;
 
     const { error } = await supabase.from('guests').update(updates).eq('id', id);
     if (error) return res.status(500).json({ error: error.message });

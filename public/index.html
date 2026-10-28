@@ -478,6 +478,23 @@
       </div>
       <div class="fg" style="margin:6px 0 0;"><label class="fl">Details (optional)</label><input type="text" class="fi" id="ng-comped-details" placeholder="e.g., Summer Sizzle raffle at Amazon HQ, or GC #142 to XYZ auction"></div>
     </div>
+    <div class="fci" style="margin-top:6px;">
+      <input type="checkbox" class="fchk" id="ng-returning" onchange="onReturningChange('ng')">
+      <div><div class="fchk-lbl">Returning / reactivated client or package repurchase</div><div class="fchk-desc">Member re-joining after a lapse, or a package holder buying another package. We'll flag them for a warm "welcome back" touch the day after their first visit back. If they haven't booked yet, they'll show up on today's hub so staff can help them book.</div></div>
+    </div>
+    <div id="ng-returning-wrap" style="display:none;padding:12px;background:var(--sand);border-radius:8px;border:1px dashed var(--tc);margin-top:4px;">
+      <div class="fg" style="margin:0 0 10px;"><label class="fl">Which one?<span class="req">*</span></label>
+        <div style="display:flex;gap:14px;align-items:center;font-size:13px;margin-top:4px;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="ng-returning-type" value="member" checked> Returning member (reactivated)</label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="ng-returning-type" value="package"> Repurchasing package holder</label>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="fg" style="margin:0;"><label class="fl">First visit back (optional)</label><input type="date" class="fi" id="ng-returning-first-visit"></div>
+        <div class="fg" style="margin:0;"><label class="fl">What brought them back? (optional)</label><input type="text" class="fi" id="ng-returning-note" placeholder="e.g., responded to win-back email, friend referred"></div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;">Leave the date blank if they haven't booked yet — they'll show up on today's hub under "Returning — needs to book" so staff can help them schedule.</div>
+    </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
       <button class="btn btn-g" onclick="toggleAddGuest()">Cancel</button>
       <button class="btn btn-p" onclick="addGuest()">Add client</button>
@@ -1142,6 +1159,7 @@
   <div id="daily-today" style="display:none;">
     <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Complete your daily studio tasks and log your shift numbers. Everyone fills in their own row.</div>
     <div id="today-header" style="margin-bottom:18px;"></div>
+    <div id="today-returning" style="margin-bottom:22px;"></div>
     <div id="today-studio-tasks"></div>
     <div id="today-daily-log" style="margin-top:26px;"></div>
   </div>
@@ -1264,6 +1282,22 @@
       <div class="fg" style="margin:6px 0 0;"><label class="fl">Details (optional)</label><input type="text" class="fi" id="eg-comped-details"></div>
     </div>
     <div class="fg"><label class="fl">Notes</label><textarea class="fi" id="eg-notes" placeholder="Any helpful context — medical concerns, goals, referral source, preferred contact time, etc."></textarea></div>
+    <div class="fci" style="margin-top:6px;">
+      <input type="checkbox" class="fchk" id="eg-returning" onchange="onReturningChange('eg')">
+      <div><div class="fchk-lbl">Returning / reactivated client or package repurchase</div><div class="fchk-desc">Flag for a warm "welcome back" touch, or (if no visit booked yet) a prompt on today's hub to help them schedule.</div></div>
+    </div>
+    <div id="eg-returning-wrap" style="display:none;padding:12px;background:var(--sand);border-radius:8px;border:1px dashed var(--tc);margin-top:4px;">
+      <div class="fg" style="margin:0 0 10px;"><label class="fl">Which one?</label>
+        <div style="display:flex;gap:14px;align-items:center;font-size:13px;margin-top:4px;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="eg-returning-type" value="member" checked> Returning member (reactivated)</label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="eg-returning-type" value="package"> Repurchasing package holder</label>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="fg" style="margin:0;"><label class="fl">First visit back (optional)</label><input type="date" class="fi" id="eg-returning-first-visit"></div>
+        <div class="fg" style="margin:0;"><label class="fl">What brought them back?</label><input type="text" class="fi" id="eg-returning-note"></div>
+      </div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-g" onclick="closeModal('edit-guest-modal')">Cancel</button>
       <button class="btn btn-p" onclick="saveEditGuest()">Save changes</button>
@@ -3057,7 +3091,7 @@ function renderGuestCard(c,actions,prefix=''){
     <div class="chdr" onclick="toggleCard('${prefix}ccard-${c.id}')">
       <div class="cav">${initials(c.name)}</div>
       <div class="ci"><div class="cn">${c.name}</div><div class="cm">${c.totalVisits||0} visits · ${nxt?`Next: ${nxt.label} ${nxt.text} · `:'All touchpoints complete · '}${sName(c.assignedStaff)}</div></div>
-      <div class="cbdg">${!c.deactivated&&!c.welcomeEmailSent?'<span class="badge bdu" title="Welcome email not sent">📧</span>':''}${!c.deactivated&&c.type==='member'&&!c.agreementSigned?'<span class="badge bod" title="Agreement not signed">📋</span>':''}${tBdg}${!c.deactivated?compedBdg:''}${c.deactivated?`<span class="badge bia">Deactivated</span>`:sBdg}${!c.deactivated&&c.visitStatus==='at-risk'?`<span class="badge bod">At-risk</span>`:''}</div>
+      <div class="cbdg">${!c.deactivated&&!c.welcomeEmailSent?'<span class="badge bdu" title="Welcome email not sent">📧</span>':''}${!c.deactivated&&c.type==='member'&&!c.agreementSigned?'<span class="badge bod" title="Agreement not signed">📋</span>':''}${tBdg}${!c.deactivated?compedBdg:''}${c.deactivated?`<span class="badge bia">Deactivated</span>`:sBdg}${!c.deactivated&&c.visitStatus==='at-risk'?`<span class="badge bod">At-risk</span>`:''}${!c.deactivated&&c.returning?`<span class="badge" style="background:#D9ECF5;color:#1E6D8C;" title="${c.returningType==='package'?'Repurchasing package holder':'Returning member (reactivated)'}${c.returningNote?` — ${c.returningNote.replace(/"/g,'&quot;')}`:''}">${c.returningType==='package'?'📦 Repurchase':'🔁 Returning'}</span>`:''}</div>
       <svg class="xic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
     </div>
     <div class="cbody">
@@ -4981,6 +5015,12 @@ function toggleAddGuest(){
     document.getElementById('ng-comped-expires').value='';
     document.getElementById('ng-comped-details').value='';
     document.getElementById('ng-comped-wrap').style.display='none';
+    // Reset returning-client fields on fresh open
+    document.getElementById('ng-returning').checked=false;
+    document.getElementById('ng-returning-first-visit').value='';
+    document.getElementById('ng-returning-note').value='';
+    const defRad=document.querySelector('input[name="ng-returning-type"][value="member"]');if(defRad)defRad.checked=true;
+    document.getElementById('ng-returning-wrap').style.display='none';
   }
 }
 
@@ -4997,6 +5037,17 @@ function onCompedChange(prefix){
     document.getElementById(prefix+'-comped-details').value='';
   }
 }
+function onReturningChange(prefix){
+  const cb=document.getElementById(prefix+'-returning');
+  const wrap=document.getElementById(prefix+'-returning-wrap');
+  if(!cb||!wrap)return;
+  wrap.style.display=cb.checked?'block':'none';
+  if(!cb.checked){
+    const fv=document.getElementById(prefix+'-returning-first-visit');if(fv)fv.value='';
+    const nt=document.getElementById(prefix+'-returning-note');if(nt)nt.value='';
+    const rad=document.querySelector(`input[name="${prefix}-returning-type"][value="member"]`);if(rad)rad.checked=true;
+  }
+}
 async function addGuest(){
   const name=document.getElementById('ng-name').value.trim();
   const type=document.getElementById('ng-type').value;
@@ -5009,22 +5060,28 @@ async function addGuest(){
   const compedSource=isComped?(document.getElementById('ng-comped-source').value||null):null;
   const compedExpires=isComped?(document.getElementById('ng-comped-expires').value||null):null;
   const compedDetails=isComped?(document.getElementById('ng-comped-details').value.trim()||null):null;
+  const isReturning=document.getElementById('ng-returning').checked;
+  const returningTypeEl=isReturning?document.querySelector('input[name="ng-returning-type"]:checked'):null;
+  const returningType=returningTypeEl?returningTypeEl.value:null;
+  const firstVisitBack=isReturning?(document.getElementById('ng-returning-first-visit').value||null):null;
+  const returningNote=isReturning?(document.getElementById('ng-returning-note').value.trim()||null):null;
   if(!name){alert('Please enter a client name.');return;}
   if(!parseDate(dv)){alert('Please enter a valid contract start date.');return;}
   if(isComped){
     if(!compedSource){alert('Please pick what the comp came from (Raffle, Gift certificate, etc.).');return;}
     if(!compedExpires){alert('Please set an expiration date for the comped membership/package.');return;}
   }
+  if(isReturning && !returningType){alert('Please pick whether they\'re a returning member or repurchasing package holder.');return;}
   const dup=guests.find(c=>c.name.toLowerCase()===name.toLowerCase());
   if(dup&&!confirm(`A client named "${dup.name}" already exists (assigned to ${sName(dup.assignedStaff)}). Add another with this name?`))return;
   const id=Date.now().toString();
   const d=parseDate(dv);
   const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   if(useLocalStorage){
-    guests.push({id,name,type,tier,contractStartDate:d.toISOString(),assignedStaff:staff,visitStatus:'healthy',welcomeEmailSent,agreementSigned:false,notes,logs:{},compedSource,compedDetails,compedExpiresAt:compedExpires,createdAt:new Date().toISOString()});
+    guests.push({id,name,type,tier,contractStartDate:d.toISOString(),assignedStaff:staff,visitStatus:'healthy',welcomeEmailSent,agreementSigned:false,notes,logs:{},compedSource,compedDetails,compedExpiresAt:compedExpires,returning:isReturning,returningType,firstVisitBack,returningNote,createdAt:new Date().toISOString()});
     lsSave();
   } else {
-    await api('guests',{method:'POST',body:{id,name,type,tier,contractStartDate:dateStr,assignedStaff:staff,visitStatus:'healthy',welcomeEmailSent,notes,compedSource,compedDetails,compedExpiresAt:compedExpires}});
+    await api('guests',{method:'POST',body:{id,name,type,tier,contractStartDate:dateStr,assignedStaff:staff,visitStatus:'healthy',welcomeEmailSent,notes,compedSource,compedDetails,compedExpiresAt:compedExpires,returning:isReturning,returningType,firstVisitBack,returningNote}});
     await loadGuests();
   }
   document.getElementById('ng-name').value='';document.getElementById('ng-welcome-email').checked=false;document.getElementById('ng-notes').value='';toggleAddGuest();renderGuests();
@@ -6325,6 +6382,14 @@ function openEditGuest(id){
   document.getElementById('eg-comped-source').value=c.compedSource||'';
   document.getElementById('eg-comped-expires').value=c.compedExpiresAt?toInputDate(c.compedExpiresAt):'';
   document.getElementById('eg-comped-details').value=c.compedDetails||'';
+  // Populate returning fields
+  const isReturning=!!c.returning;
+  document.getElementById('eg-returning').checked=isReturning;
+  document.getElementById('eg-returning-wrap').style.display=isReturning?'block':'none';
+  const rType=c.returningType||'member';
+  const rRad=document.querySelector(`input[name="eg-returning-type"][value="${rType}"]`);if(rRad)rRad.checked=true;
+  document.getElementById('eg-returning-first-visit').value=c.firstVisitBack?toInputDate(c.firstVisitBack):'';
+  document.getElementById('eg-returning-note').value=c.returningNote||'';
   document.getElementById('edit-guest-modal').classList.add('open');
 }
 async function saveEditGuest(){
@@ -6348,8 +6413,14 @@ async function saveEditGuest(){
     if(!compedExpires){alert('Please set an expiration date for the comped membership/package.');return;}
   }
   c.compedSource=compedSource;c.compedDetails=compedDetails;c.compedExpiresAt=compedExpires;
+  const isReturning=document.getElementById('eg-returning').checked;
+  const rTypeEl=isReturning?document.querySelector('input[name="eg-returning-type"]:checked'):null;
+  const returningType=rTypeEl?rTypeEl.value:null;
+  const firstVisitBack=isReturning?(document.getElementById('eg-returning-first-visit').value||null):null;
+  const returningNote=isReturning?(document.getElementById('eg-returning-note').value.trim()||null):null;
+  c.returning=isReturning; c.returningType=returningType; c.firstVisitBack=firstVisitBack; c.returningNote=returningNote;
   if(useLocalStorage){lsSave();}
-  else{await api('guests?id='+editGuestId,{method:'PUT',body:{name:c.name,type:c.type,tier:c.tier,contractStartDate:c.contractStartDate,assignedStaff:c.assignedStaff,welcomeEmailSent:c.welcomeEmailSent,agreementSigned:c.agreementSigned,notes:c.notes,compedSource,compedDetails,compedExpiresAt:compedExpires}});await loadGuests();}
+  else{await api('guests?id='+editGuestId,{method:'PUT',body:{name:c.name,type:c.type,tier:c.tier,contractStartDate:c.contractStartDate,assignedStaff:c.assignedStaff,welcomeEmailSent:c.welcomeEmailSent,agreementSigned:c.agreementSigned,notes:c.notes,compedSource,compedDetails,compedExpiresAt:compedExpires,returning:isReturning,returningType,firstVisitBack,returningNote}});await loadGuests();}
   closeModal('edit-guest-modal');renderGuests();
 }
 
@@ -8173,6 +8244,39 @@ async function renderToday(){
       ${rightSide}
     </div>`;
   }).join('');
+  // Returning-client sections — "Welcome back today" (yesterday's first visit
+  // back → warm follow-up) and "Needs to book" (returning tag but no visit on
+  // the calendar yet → help them schedule). Package repurchases and member
+  // reactivations use the same two sections; the script changes slightly by
+  // type and whether they already visited.
+  const todayStr=viewDate;
+  const yStr=(()=>{const d=parseDate(viewDate);if(!d)return'';d.setDate(d.getDate()-1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;})();
+  const returningActive=guests.filter(g=>g.returning&&!g.deactivated);
+  const welcomeBack=returningActive.filter(g=>g.firstVisitBack===yStr);
+  const needsToBook=returningActive.filter(g=>!g.firstVisitBack || g.firstVisitBack>todayStr);
+  const rCard=(g,ctx)=>{
+    const typeLbl=g.returningType==='package'?'📦 Package repurchase':'🔁 Returning member';
+    const noteLine=g.returningNote?`<div style="font-size:11px;color:var(--muted);margin-top:3px;">💬 ${g.returningNote}</div>`:'';
+    const dateLine=g.firstVisitBack?`<div style="font-size:11px;color:var(--muted);margin-top:3px;">First visit back: ${new Date(g.firstVisitBack+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</div>`:(ctx==='book'?`<div style="font-size:11px;color:var(--err);margin-top:3px;">⚠ No visit booked yet</div>`:'');
+    return `<div class="stask" style="cursor:default;">
+      <div class="stask-chk" style="background:var(--info);border-color:var(--info);"><svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="2" fill="white"/></svg></div>
+      <div class="stask-body">
+        <div class="stask-lbl">${g.name} <span style="font-size:11px;color:var(--muted);font-weight:400;">— ${typeLbl}</span></div>
+        ${dateLine}
+        ${noteLine}
+      </div>
+      <button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="openReturningScript('${ctx}','${g.id}')">📞 View script</button>
+    </div>`;
+  };
+  let returningHtml='';
+  if(welcomeBack.length){
+    returningHtml+=`<div style="margin-bottom:14px;"><div class="sec-hdr"><div class="sec-title">👋 Welcome back today</div><div class="sec-ct">${welcomeBack.length}</div></div><div style="font-size:12px;color:var(--muted);margin:0 0 10px;">These clients had their first visit back yesterday. A short, warm follow-up text or call — no sales pitch, just "glad to see you back."</div>${welcomeBack.map(g=>rCard(g,'welcome')).join('')}</div>`;
+  }
+  if(needsToBook.length){
+    returningHtml+=`<div><div class="sec-hdr"><div class="sec-title">📅 Returning — needs to book</div><div class="sec-ct">${needsToBook.length}</div></div><div style="font-size:12px;color:var(--muted);margin:0 0 10px;">Tagged as returning / repurchasing but no first visit back on the calendar yet. Reach out and help them get a session scheduled.</div>${needsToBook.map(g=>rCard(g,'book')).join('')}</div>`;
+  }
+  document.getElementById('today-returning').innerHTML=returningHtml;
+
   document.getElementById('today-studio-tasks').innerHTML=`<div class="sec-hdr"><div class="sec-title">Studio tasks</div><div class="sec-ct">${applicable.length}</div></div>${tasksHtml||'<div class="empty"><p>No studio tasks for this day.</p></div>'}`;
 
   // Daily log grid — exclude Mohogany and Studio Assistants (SAs handle BOH,
@@ -8333,6 +8437,60 @@ function renderYFVScripts(channel){
 }
 function setYFVScenario(scenario,channel){_yfvActiveScenario=scenario;renderYFVScripts(channel);}
 function showYFVChannel(channel,btn){renderYFVScripts(channel);}
+
+// Returning / repurchase scripts — opened per-client from the "Welcome back
+// today" and "Returning — needs to book" sections on today's hub. Script copy
+// changes by context (ctx='welcome' after a first visit back, 'book' when
+// there's no visit on the calendar yet) and by returning type (member vs
+// repurchasing package holder).
+let _returningCtx='welcome';
+let _returningGuestId='';
+function openReturningScript(ctx,guestId){
+  _returningCtx=ctx; _returningGuestId=guestId;
+  const g=guests.find(x=>x.id===guestId); if(!g)return;
+  const title=ctx==='welcome'?`👋 Welcome back — ${g.name}`:`📅 Help ${g.name} get booked`;
+  const sub=ctx==='welcome'
+    ?'Short, warm, no sales pitch. The goal is to make them feel seen and glad they came back.'
+    :'The goal is one thing: get them on the schedule. Keep it light and offer to help them pick a time.';
+  document.getElementById('tp-script-title').textContent=title;
+  document.getElementById('tp-script-sub').textContent=sub;
+  renderReturningScript('text');
+  document.getElementById('tp-script-modal').classList.add('open');
+}
+function renderReturningScript(channel){
+  const g=guests.find(x=>x.id===_returningGuestId);
+  const name=g?g.name.split(' ')[0]:'[Name]';
+  const isPkg=g&&g.returningType==='package';
+  document.getElementById('tp-script-tabs').innerHTML=
+    `<button class="stab ${channel==='text'?'active':''}" onclick="renderReturningScript('text')">Text</button>`+
+    `<button class="stab ${channel==='call'?'active':''}" onclick="renderReturningScript('call')">Phone call</button>`+
+    `<button class="stab ${channel==='voicemail'?'active':''}" onclick="renderReturningScript('voicemail')">Voicemail</button>`;
+  let script='';
+  if(_returningCtx==='welcome'){
+    // Day-after follow-up: visit already happened.
+    if(channel==='text'){
+      script=isPkg
+        ?`Hi ${name}! It's [Your Name] from Perspire Peachtree Corners — so glad to have you back in the studio yesterday! Hope you felt right at home. If anything felt off or you have questions about your package, just text me back. Otherwise, see you at your next session! 🧖‍♀️`
+        :`Hi ${name}! It's [Your Name] from Perspire Peachtree Corners — so good to see you back with us yesterday! Welcome home 💛 If there's anything we can do to make this stretch feel even better than before, just let me know. Can't wait to see you at your next session!`;
+    } else if(channel==='call'){
+      script=`Hi ${name}, this is [Your Name] from Perspire Peachtree Corners — just wanted to personally welcome you back! We saw you come in yesterday and I didn't want to let the moment pass without saying how glad we are to have you with us again.\n\n[Pause for them to respond — let them share whatever's on their mind]\n\nIs there anything you'd like us to know this time around — anything that would make your experience even better? And is there anything I can help you with before your next session?`;
+    } else {
+      script=`Hi ${name}, this is [Your Name] from Perspire Peachtree Corners. I just wanted to say welcome back — we're so glad to have you with us again! No need to call me back, just wanted you to hear a friendly voice. See you at your next session!`;
+    }
+  } else {
+    // Needs to book: no visit on the calendar yet. The one goal is scheduling.
+    if(channel==='text'){
+      script=isPkg
+        ?`Hi ${name}! It's [Your Name] from Perspire Peachtree Corners — so excited to have you back with us! When were you thinking of coming in to kick off your package? Happy to help you grab a spot that fits your schedule.`
+        :`Hi ${name}! It's [Your Name] from Perspire Peachtree Corners — SO glad to have you back with us! When were you thinking of coming in for your first session back? Happy to help you grab a spot that works.`;
+    } else if(channel==='call'){
+      script=`Hi ${name}, this is [Your Name] from Perspire Peachtree Corners — I saw you're back with us and I had to call to say welcome home! We've missed you.\n\n[Pause — let them share what brought them back]\n\nI'd love to help you get your first session back on the calendar so we can see you in person. Do you have a day of the week or time of day that usually works best for you? I can look at what we have open and lock something in right now.`;
+    } else {
+      script=`Hi ${name}, this is [Your Name] from Perspire Peachtree Corners — just wanted to say welcome back! We're so glad to have you with us again. Give me a call back when you have a minute and I'll help you get your first session back on the schedule. Talk soon!`;
+    }
+  }
+  document.getElementById('tp-script-body').textContent=script;
+}
 
 // Daily cleaning list popup (view-only)
 function openCleaningList(){
