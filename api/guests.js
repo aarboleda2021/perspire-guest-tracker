@@ -74,6 +74,7 @@ module.exports = async function handler(req, res) {
       returningType: g.returning_type || null,
       firstVisitBack: g.first_visit_back || null,
       returningNote: g.returning_note || null,
+      introExtension: g.intro_extension || null,
       totalVisits: g.total_visits || 0,
       visitsUpdatedAt: g.visits_updated_at || null,
       milestonesCompleted: g.milestones_completed || {},
@@ -103,7 +104,8 @@ module.exports = async function handler(req, res) {
       returning: b.returning || false,
       returning_type: b.returningType || null,
       first_visit_back: b.firstVisitBack || null,
-      returning_note: b.returningNote || null
+      returning_note: b.returningNote || null,
+      intro_extension: b.introExtension || null
     });
     if (error) return res.status(500).json({ error: error.message });
     return res.status(201).json({ ok: true });
@@ -143,6 +145,7 @@ module.exports = async function handler(req, res) {
     if (body.returningType !== undefined) updates.returning_type = body.returningType;
     if (body.firstVisitBack !== undefined) updates.first_visit_back = body.firstVisitBack;
     if (body.returningNote !== undefined) updates.returning_note = body.returningNote;
+    if (body.introExtension !== undefined) updates.intro_extension = body.introExtension;
 
     const { error } = await supabase.from('guests').update(updates).eq('id', id);
     if (error) return res.status(500).json({ error: error.message });

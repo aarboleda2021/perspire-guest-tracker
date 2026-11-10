@@ -450,8 +450,18 @@
       <div class="fg"><label class="fl">Type<span class="req">*</span></label><select class="fi" id="ng-type" onchange="updateTierOpts()"><option value="member">Member</option><option value="package">Package holder</option></select></div>
     </div>
     <div class="frow">
-      <div class="fg"><label class="fl">Tier / Package<span class="req">*</span></label><select class="fi" id="ng-tier"></select></div>
+      <div class="fg"><label class="fl">Tier / Package<span class="req">*</span></label><select class="fi" id="ng-tier" onchange="onIntroTierChange('ng')"></select></div>
       <div class="fg"><label class="fl">Contract start date<span class="req">*</span></label><input type="date" class="fi" id="ng-date"></div>
+    </div>
+    <div id="ng-intro-ext-wrap" style="display:none;padding:12px;background:var(--sand);border-radius:8px;border:1px dashed var(--tc);margin-bottom:10px;">
+      <div class="fg" style="margin:0;"><label class="fl">Intro expiration window</label>
+        <select class="fi" id="ng-intro-ext">
+          <option value="30">30 days (standard)</option>
+          <option value="60">60 days (extended)</option>
+          <option value="90">90 days (extended)</option>
+        </select>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5;">Default is 30. Pick 60 or 90 if an extension has already been granted. Drives the touchpoint cadence (30 = 4 weekly TPs, 60 = 6, 90 = 7). You can edit this later if staff extends after the fact.</div>
+      </div>
     </div>
     <div class="fg"><label class="fl">Assigned staff<span class="req">*</span></label><select class="fi" id="ng-staff"></select></div>
     <div class="fg"><label class="fl">Notes (optional)</label><textarea class="fi" id="ng-notes" placeholder="Any helpful context — medical concerns, goals, referral source, preferred contact time, etc."></textarea></div>
@@ -1248,7 +1258,17 @@
     <div class="fg"><label class="fl">Client name<span class="req">*</span></label><input type="text" class="fi" id="eg-name"></div>
     <div class="frow">
       <div class="fg"><label class="fl">Type</label><select class="fi" id="eg-type" onchange="updateEditTierOpts()"><option value="member">Member</option><option value="package">Package holder</option></select></div>
-      <div class="fg"><label class="fl">Tier</label><select class="fi" id="eg-tier"></select></div>
+      <div class="fg"><label class="fl">Tier</label><select class="fi" id="eg-tier" onchange="onIntroTierChange('eg')"></select></div>
+    </div>
+    <div id="eg-intro-ext-wrap" style="display:none;padding:12px;background:var(--sand);border-radius:8px;border:1px dashed var(--tc);margin-bottom:10px;">
+      <div class="fg" style="margin:0;"><label class="fl">Intro expiration window</label>
+        <select class="fi" id="eg-intro-ext">
+          <option value="30">30 days (standard)</option>
+          <option value="60">60 days (extended)</option>
+          <option value="90">90 days (extended)</option>
+        </select>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5;">Change this when staff grants an extension. The touchpoint schedule updates immediately.</div>
+      </div>
     </div>
     <div class="frow">
       <div class="fg"><label class="fl">Contract start date</label><input type="date" class="fi" id="eg-date"></div>
@@ -2026,6 +2046,47 @@ const PACKAGE_TPS=[
 const MEMBER_WINS=[[2,4],[9,12],[18,22],[26,30],[40,45],[55,60],[75,80]];
 const PACKAGE_WINS=[[7,10],[21,25],[40,45],[75,80]];
 
+// Intro Package touchpoints — 4-session, $99 conversion-focused product.
+// Standard expiration is 30 days; staff can extend to 60 or 90. Cadence is
+// one touchpoint per week in the first 30 days (each visit matters since
+// there are only 4), then slows during any extension period. Every TP works
+// toward the SAME goal: convert them into a member or recurring package.
+const INTRO_TPS_30=[
+  {label:'TP 1',window:'Day 5–7',  goal:'2nd visit booked? Momentum check',             channel:'call'},
+  {label:'TP 2',window:'Day 12–14',goal:'Experience check — getting what they hoped?', channel:'call'},
+  {label:'TP 3',window:'Day 19–21',goal:'Halfway + plant the seed: "what comes next?"',channel:'call'},
+  {label:'TP 4',window:'Day 26–30',goal:'The close — convert to member or package',     channel:'call'},
+];
+const INTRO_WINS_30=[[5,7],[12,14],[19,21],[26,30]];
+
+const INTRO_TPS_60=[
+  ...INTRO_TPS_30,
+  {label:'TP 5',window:'Day 38–42',goal:'Mid-extension warm check-in',                  channel:'call'},
+  {label:'TP 6',window:'Day 54–58',goal:'Final close before new 60-day expiration',     channel:'call'},
+];
+const INTRO_WINS_60=[...INTRO_WINS_30,[38,42],[54,58]];
+
+const INTRO_TPS_90=[
+  ...INTRO_TPS_30,
+  {label:'TP 5',window:'Day 42–46',goal:'Light check-in — how are the extra weeks going?',channel:'call'},
+  {label:'TP 6',window:'Day 68–72',goal:'Pre-close setup — what\'s working, what\'s next?', channel:'call'},
+  {label:'TP 7',window:'Day 82–88',goal:'Final close before new 90-day expiration',       channel:'call'},
+];
+const INTRO_WINS_90=[...INTRO_WINS_30,[42,46],[68,72],[82,88]];
+
+// Pick the right intro schedule based on the guest's extension setting
+// (defaults to 30 when nothing is set). A guest that gets re-extended later
+// just updates the field — the schedule refreshes automatically.
+function introSchedule(guest){
+  const ext=guest&&guest.introExtension?Number(guest.introExtension):30;
+  if(ext===90)return {tps:INTRO_TPS_90, wins:INTRO_WINS_90};
+  if(ext===60)return {tps:INTRO_TPS_60, wins:INTRO_WINS_60};
+  return {tps:INTRO_TPS_30, wins:INTRO_WINS_30};
+}
+function isIntroGuest(guest){
+  return guest&&guest.type==='package'&&guest.tier&&guest.tier.toLowerCase().includes('intro');
+}
+
 // ── SCRIPTS ───────────────────────────────────────────────────────────────
 
 const SCRIPTS={
@@ -2743,8 +2804,24 @@ function windowDates(startDate,ws,we){
   return`${fmt(d1)} – ${fmt(d2)}`;
 }
 function initials(n){return n.trim().split(' ').map(p=>p[0]).join('').toUpperCase().slice(0,2);}
-function getTPs(t){return t==='member'?MEMBER_TPS:PACKAGE_TPS;}
-function getWins(t){return t==='member'?MEMBER_WINS:PACKAGE_WINS;}
+// getTPs / getWins accept either a guest object (preferred — intro packages
+// use their own 30/60/90 schedule based on guest.introExtension) or a bare
+// type string ('member' | 'package') for the few places that only know the
+// type (e.g. new-guest preview, before the full record exists).
+function getTPs(guestOrType){
+  if(typeof guestOrType==='string')return guestOrType==='member'?MEMBER_TPS:PACKAGE_TPS;
+  const g=guestOrType;
+  if(!g)return PACKAGE_TPS;
+  if(isIntroGuest(g))return introSchedule(g).tps;
+  return g.type==='member'?MEMBER_TPS:PACKAGE_TPS;
+}
+function getWins(guestOrType){
+  if(typeof guestOrType==='string')return guestOrType==='member'?MEMBER_WINS:PACKAGE_WINS;
+  const g=guestOrType;
+  if(!g)return PACKAGE_WINS;
+  if(isIntroGuest(g))return introSchedule(g).wins;
+  return g.type==='member'?MEMBER_WINS:PACKAGE_WINS;
+}
 function sName(id){
   if(!id)return'(removed)';
   const s=staffList.find(x=>x.id===id);if(s)return s.name;
@@ -2772,17 +2849,20 @@ function billUrgency(bs){
   return'normal';
 }
 function tpStatus(c,i){
-  const[ws,we]=getWins(c.type)[i],d=daysSince(c.contractStartDate);
+  const[ws,we]=getWins(c)[i],d=daysSince(c.contractStartDate);
   if(c.logs?.[i]?.date)return'completed';
   if(d<ws)return'future';
   if(d<=we+3)return'due-now';
   return'overdue';
 }
 function guestStatus(c){
-  const w=getWins(c.type);
+  const w=getWins(c);
   for(let i=0;i<w.length;i++)if(tpStatus(c,i)==='overdue')return'overdue';
   for(let i=0;i<w.length;i++)if(tpStatus(c,i)==='due-now')return'due-now';
-  if(daysSince(c.contractStartDate)>80)return'complete';
+  // Flag "complete" once we're past the final TP window + buffer. Uses the
+  // actual schedule length so a 30-day intro completes at day ~33, not day 80.
+  const lastEnd=w.length?w[w.length-1][1]:80;
+  if(daysSince(c.contractStartDate)>lastEnd+3)return'complete';
   return'on-track';
 }
 function chLabel(ch){
@@ -2803,11 +2883,25 @@ function fillStaff(id){
   const opts=source.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
   el.innerHTML=id==='staff-sel'?`<option value="all">All staff</option>${opts}`:opts;
 }
-function updateTierOpts(){const t=document.getElementById('ng-type').value;document.getElementById('ng-tier').innerHTML=(t==='member'?MEMBER_TIERS:PACKAGE_TIERS).map(x=>`<option value="${x}">${x}</option>`).join('');}
+function updateTierOpts(){
+  const t=document.getElementById('ng-type').value;
+  document.getElementById('ng-tier').innerHTML=(t==='member'?MEMBER_TIERS:PACKAGE_TIERS).map(x=>`<option value="${x}">${x}</option>`).join('');
+  onIntroTierChange('ng');
+}
 function updateEditTierOpts(){
   const t=document.getElementById('eg-type').value,cur=document.getElementById('eg-tier').value;
   const opts=(t==='member'?MEMBER_TIERS:PACKAGE_TIERS);
   document.getElementById('eg-tier').innerHTML=opts.map(x=>`<option value="${x}" ${x===cur?'selected':''}>${x}</option>`).join('');
+  onIntroTierChange('eg');
+}
+// Show the "Extension granted" dropdown only when the selected tier is the
+// Intro Package. Tier change on the <select> triggers this too so the field
+// appears/hides live as staff pick.
+function onIntroTierChange(prefix){
+  const tier=document.getElementById(prefix+'-tier').value||'';
+  const wrap=document.getElementById(prefix+'-intro-ext-wrap');
+  if(!wrap)return;
+  wrap.style.display=tier.toLowerCase().includes('intro')?'block':'none';
 }
 function fillAll(){fillStaff('staff-sel');fillStaff('ng-staff');fillStaff('mc-submitter');fillStaff('ec-submitter');fillStaff('rd-staff');updateTierOpts();const ss=document.getElementById('status-sel');if(ss){const v=localStorage.getItem('psp-v7-guests-status');if(v)ss.value=v;}populateWorkingAsPicker();}
 
@@ -2984,7 +3078,7 @@ function renderGuests(){
   else if(fil==='milestones')list=mine.filter(c=>hasApproachingOrReached(c));
   if(searchQ)list=list.filter(c=>c.name.toLowerCase().includes(searchQ));
   function nextTpUrgency(c){
-    const tps=getTPs(c.type),wins=getWins(c.type),d=daysSince(c.contractStartDate);
+    const tps=getTPs(c),wins=getWins(c),d=daysSince(c.contractStartDate);
     for(let i=0;i<tps.length;i++){
       const s=tpStatus(c,i);
       if(s==='overdue')return d-wins[i][1];// how many days overdue (higher = more urgent)
@@ -3043,7 +3137,7 @@ function renderGuests(){
 }
 
 function nextTpInfo(c){
-  const tps=getTPs(c.type),wins=getWins(c.type),d=daysSince(c.contractStartDate);
+  const tps=getTPs(c),wins=getWins(c),d=daysSince(c.contractStartDate);
   for(let i=0;i<tps.length;i++){
     const s=tpStatus(c,i);
     if(s==='overdue')return{label:tps[i].label,text:'overdue',urgent:true};
@@ -3053,7 +3147,7 @@ function nextTpInfo(c){
   return null;
 }
 function renderGuestCard(c,actions,prefix=''){
-  const st=guestStatus(c),tps=getTPs(c.type),days=daysSince(c.contractStartDate),g=cadenceGuide(c.tier);
+  const st=guestStatus(c),tps=getTPs(c),days=daysSince(c.contractStartDate),g=cadenceGuide(c.tier);
   const done=tps.filter((_,i)=>tpStatus(c,i)==='completed').length;
   const nxt=nextTpInfo(c);
   const nxtTxt=nxt?` · Next: ${nxt.label} ${nxt.text}`:'';
@@ -3082,7 +3176,7 @@ function renderGuestCard(c,actions,prefix=''){
       compedBox=`<div style="background:${urgencyBg};border-left:3px solid ${urgencyBorder};border-radius:6px;padding:10px 14px;margin-top:12px;"><div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">🎁 Comped ${label.toLowerCase()}${exp?` · expires ${fmtDate(c.compedExpiresAt)}`:''}${urgencyTxt?` <span style="color:${(days!==null&&days<=7)?'var(--err)':(days!==null&&days<=30)?'var(--warn)':'var(--muted)'};">(${urgencyTxt})</span>`:''}</div>${c.compedDetails?`<div style="font-size:13px;color:var(--mid);white-space:pre-wrap;">${c.compedDetails}</div>`:''}<div style="font-size:11px;color:var(--muted);margin-top:4px;font-style:italic;">Reach out before expiration to try to convert to a paying client.</div></div>`;
     }
   }
-  const wins=getWins(c.type);
+  const wins=getWins(c);
   const tpHtml=tps.map((tp,i)=>{
     const s=tpStatus(c,i),log=c.logs?.[i],ch=chLabel(tp.channel);
     const canLog=actions&&!log;
@@ -4218,7 +4312,7 @@ async function renderMgrTeamLead(){
   // New guest touchpoint outreach (overdue + due-now across all active guests)
   let guestTpsDue=0;
   guests.filter(g=>!g.deactivated).forEach(g=>{
-    const tps=getTPs(g.type);
+    const tps=getTPs(g);
     tps.forEach((_,i)=>{const s=tpStatus(g,i);if(s==='overdue'||s==='due-now')guestTpsDue++;});
   });
   if(guestTpsDue){
@@ -4573,7 +4667,7 @@ function renderMgrGraduated(){
     html+=`<div class="sec-hdr"><div class="sec-title">Pending graduation</div><div class="sec-ct">${pending.length}</div></div>`;
     html+=`<div class="clist">${pending.sort((a,b)=>daysSince(b.contractStartDate)-daysSince(a.contractStartDate)).map(c=>{
       const days=daysSince(c.contractStartDate);
-      const tps=getTPs(c.type),done=tps.filter((_,i)=>tpStatus(c,i)==='completed').length;
+      const tps=getTPs(c),done=tps.filter((_,i)=>tpStatus(c,i)==='completed').length;
       return`<div class="mccard" style="padding:14px 16px;margin-bottom:9px;">
         <div style="display:flex;gap:12px;align-items:flex-start;">
           <div class="cav">${initials(c.name)}</div>
@@ -5032,6 +5126,9 @@ function toggleAddGuest(){
     document.getElementById('ng-returning-note').value='';
     const defRad=document.querySelector('input[name="ng-returning-type"][value="member"]');if(defRad)defRad.checked=true;
     document.getElementById('ng-returning-wrap').style.display='none';
+    // Reset intro extension to the default 30-day window
+    document.getElementById('ng-intro-ext').value='30';
+    document.getElementById('ng-intro-ext-wrap').style.display='none';
   }
 }
 
@@ -5083,16 +5180,18 @@ async function addGuest(){
     if(!compedExpires){alert('Please set an expiration date for the comped membership/package.');return;}
   }
   if(isReturning && !returningType){alert('Please pick whether they\'re a returning member or repurchasing package holder.');return;}
+  const isIntro=tier.toLowerCase().includes('intro');
+  const introExtension=isIntro?Number(document.getElementById('ng-intro-ext').value||30):null;
   const dup=guests.find(c=>c.name.toLowerCase()===name.toLowerCase());
   if(dup&&!confirm(`A client named "${dup.name}" already exists (assigned to ${sName(dup.assignedStaff)}). Add another with this name?`))return;
   const id=Date.now().toString();
   const d=parseDate(dv);
   const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   if(useLocalStorage){
-    guests.push({id,name,type,tier,contractStartDate:d.toISOString(),assignedStaff:staff,visitStatus:'healthy',welcomeEmailSent,agreementSigned:false,notes,logs:{},compedSource,compedDetails,compedExpiresAt:compedExpires,returning:isReturning,returningType,firstVisitBack,returningNote,createdAt:new Date().toISOString()});
+    guests.push({id,name,type,tier,contractStartDate:d.toISOString(),assignedStaff:staff,visitStatus:'healthy',welcomeEmailSent,agreementSigned:false,notes,logs:{},compedSource,compedDetails,compedExpiresAt:compedExpires,returning:isReturning,returningType,firstVisitBack,returningNote,introExtension,createdAt:new Date().toISOString()});
     lsSave();
   } else {
-    await api('guests',{method:'POST',body:{id,name,type,tier,contractStartDate:dateStr,assignedStaff:staff,visitStatus:'healthy',welcomeEmailSent,notes,compedSource,compedDetails,compedExpiresAt:compedExpires,returning:isReturning,returningType,firstVisitBack,returningNote}});
+    await api('guests',{method:'POST',body:{id,name,type,tier,contractStartDate:dateStr,assignedStaff:staff,visitStatus:'healthy',welcomeEmailSent,notes,compedSource,compedDetails,compedExpiresAt:compedExpires,returning:isReturning,returningType,firstVisitBack,returningNote,introExtension}});
     await loadGuests();
   }
   document.getElementById('ng-name').value='';document.getElementById('ng-welcome-email').checked=false;document.getElementById('ng-notes').value='';toggleAddGuest();renderGuests();
@@ -6401,6 +6500,9 @@ function openEditGuest(id){
   const rRad=document.querySelector(`input[name="eg-returning-type"][value="${rType}"]`);if(rRad)rRad.checked=true;
   document.getElementById('eg-returning-first-visit').value=c.firstVisitBack?toInputDate(c.firstVisitBack):'';
   document.getElementById('eg-returning-note').value=c.returningNote||'';
+  // Populate intro extension (only shown when tier is Intro Package, which
+  // onIntroTierChange handled from updateEditTierOpts above)
+  document.getElementById('eg-intro-ext').value=String(c.introExtension||30);
   document.getElementById('edit-guest-modal').classList.add('open');
 }
 async function saveEditGuest(){
@@ -6430,8 +6532,11 @@ async function saveEditGuest(){
   const firstVisitBack=isReturning?(document.getElementById('eg-returning-first-visit').value||null):null;
   const returningNote=isReturning?(document.getElementById('eg-returning-note').value.trim()||null):null;
   c.returning=isReturning; c.returningType=returningType; c.firstVisitBack=firstVisitBack; c.returningNote=returningNote;
+  const isIntro=(c.tier||'').toLowerCase().includes('intro');
+  const introExtension=isIntro?Number(document.getElementById('eg-intro-ext').value||30):null;
+  c.introExtension=introExtension;
   if(useLocalStorage){lsSave();}
-  else{await api('guests?id='+editGuestId,{method:'PUT',body:{name:c.name,type:c.type,tier:c.tier,contractStartDate:c.contractStartDate,assignedStaff:c.assignedStaff,welcomeEmailSent:c.welcomeEmailSent,agreementSigned:c.agreementSigned,notes:c.notes,compedSource,compedDetails,compedExpiresAt:compedExpires,returning:isReturning,returningType,firstVisitBack,returningNote}});await loadGuests();}
+  else{await api('guests?id='+editGuestId,{method:'PUT',body:{name:c.name,type:c.type,tier:c.tier,contractStartDate:c.contractStartDate,assignedStaff:c.assignedStaff,welcomeEmailSent:c.welcomeEmailSent,agreementSigned:c.agreementSigned,notes:c.notes,compedSource,compedDetails,compedExpiresAt:compedExpires,returning:isReturning,returningType,firstVisitBack,returningNote,introExtension}});await loadGuests();}
   closeModal('edit-guest-modal');renderGuests();
 }
 
@@ -6495,7 +6600,7 @@ async function saveEditChange(){
 let mId=null,mIdx=null;
 function openLog(cid,idx){
   mId=cid;mIdx=idx;
-  const c=guests.find(x=>x.id===cid),tp=getTPs(c.type)[idx];
+  const c=guests.find(x=>x.id===cid),tp=getTPs(c)[idx];
   const existing=c.logs?.[idx];
   document.getElementById('log-sub').textContent=`${c.name} · ${tp.label} · ${tp.window}${existing?' · editing':''}`;
   document.getElementById('log-notes').value=existing?.notes||'';
@@ -6592,7 +6697,7 @@ function downloadCSV(filename,rows){
 }
 function exportGuests(){
   const rows=[['Name','Type','Tier','Contract Start','Assigned Staff','Visit Status','Day','Status','Touchpoints Completed','Active']];
-  guests.forEach(c=>{const tps=getTPs(c.type);const done=tps.filter((_,i)=>tpStatus(c,i)==='completed').length;
+  guests.forEach(c=>{const tps=getTPs(c);const done=tps.filter((_,i)=>tpStatus(c,i)==='completed').length;
     rows.push([c.name,c.type,c.tier,toInputDate(c.contractStartDate),sName(c.assignedStaff),c.visitStatus,daysSince(c.contractStartDate),guestStatus(c),`${done}/${tps.length}`,c.deactivated?'Deactivated':'Active']);
   });
   downloadCSV('perspire-new-guests.csv',rows);
@@ -8878,7 +8983,7 @@ function computeEngagementForStaff(staffId,month){
   // Touchpoints overdue right now across active guests
   let overdueTps=0;
   activeMyGuests.forEach(g=>{
-    const tps=getTPs(g.type);
+    const tps=getTPs(g);
     tps.forEach((_,i)=>{if(tpStatus(g,i)==='overdue')overdueTps++;});
   });
   // Touchpoints logged this month (any log across any assigned guest)
