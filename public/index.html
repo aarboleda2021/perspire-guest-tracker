@@ -6873,7 +6873,7 @@ function staffOptions(selected){
 // activeStaff lists; here we inject her explicitly. She's still NOT required
 // to acknowledge notes — the per-staff ack tracking only loops active staff.
 function shiftNoteStaffOptions(selected){
-  const amandaOpt=`<option value="amanda" ${selected==='amanda'?'selected':''}>👑 Amanda (owner)</option>`;
+  const amandaOpt=`<option value="amanda" ${selected==='amanda'?'selected':''}>Amanda (owner)</option>`;
   const staffOpts=activeStaff().map(s=>`<option value="${s.id}" ${s.id===selected?'selected':''}>${s.name}</option>`).join('');
   return `<option value="">— Select —</option>${amandaOpt}${staffOpts}`;
 }
@@ -6966,7 +6966,7 @@ function populateWorkingAsPicker(){
   const cur=getWorkingAs();
   const staffOpts=activeStaff().map(s=>`<option value="${s.id}" ${s.id===cur?'selected':''}>👤 ${s.name}</option>`).join('');
   // Owner shortcut — always available even though Amanda isn't in the staff table
-  const ownerOpt=`<option value="amanda" ${cur==='amanda'?'selected':''}>👑 Amanda (owner)</option>`;
+  const ownerOpt=`<option value="amanda" ${cur==='amanda'?'selected':''}>Amanda (owner)</option>`;
   sel.innerHTML=`<option value="">👤 Pick your name…</option>${ownerOpt}${staffOpts}`;
   // If a saved value isn't recognizable anymore (staff deactivated, etc.), clear
   if(cur&&!isKnownWorkingAsId(cur)){localStorage.removeItem(WORKING_AS_KEY);sel.value='';}
@@ -7389,7 +7389,7 @@ function _renderNoteCard(n,me){
         ${ackUI}
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap;">
-        ${resolved?`<button class="btn btn-g btn-sm" onclick="unresolveNote('${n.id}')">Reopen</button>`:`<select id="resolve-by-${n.id}" class="fi" style="font-size:12px;padding:5px 8px;width:auto;"><option value="" ${me?'':'disabled selected'}>Your name</option><option value="amanda" ${me==='amanda'?'selected':''}>👑 Amanda (owner)</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===me?'selected':''}>${s.name}</option>`).join('')}</select><button class="btn btn-g btn-sm" onclick="resolveNote('${n.id}')">Resolve ✓</button>`}
+        ${resolved?`<button class="btn btn-g btn-sm" onclick="unresolveNote('${n.id}')">Reopen</button>`:`<select id="resolve-by-${n.id}" class="fi" style="font-size:12px;padding:5px 8px;width:auto;"><option value="" ${me?'':'disabled selected'}>Your name</option><option value="amanda" ${me==='amanda'?'selected':''}>Amanda (owner)</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===me?'selected':''}>${s.name}</option>`).join('')}</select><button class="btn btn-g btn-sm" onclick="resolveNote('${n.id}')">Resolve ✓</button>`}
         <button class="btn btn-sm btn-g" onclick="editNote('${n.id}')">Edit</button>
         ${(me==='mohogany'||me==='amanda')?`<button class="btn btn-sm btn-do" onclick="removeNote('${n.id}')">Delete</button>`:''}
       </div>
