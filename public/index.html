@@ -1575,6 +1575,36 @@
   </div>
 </div>
 
+<!-- AXLE SHIFT LOG MODAL -->
+<div class="modal-ov" id="axle-shift-modal">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-title">Axle shift — outreach log</div>
+    <div class="modal-sub" id="axle-shift-sub">Track just the Axle (outreach-only) portion of your shift. Your regular daily log should still reflect the full day total, including Axle calls/texts.</div>
+    <div class="fg"><label class="fl">Duration<span class="req">*</span></label>
+      <select class="fi" id="axle-duration" onchange="refreshAxleTargets()">
+        <option value="0.5">0.5 hour (30 min)</option>
+        <option value="1" selected>1 hour</option>
+        <option value="1.5">1.5 hours</option>
+        <option value="2">2 hours</option>
+        <option value="2.5">2.5 hours</option>
+        <option value="3">3 hours</option>
+      </select>
+    </div>
+    <div id="axle-target-line" style="background:var(--infop);border-left:3px solid var(--info);border-radius:6px;padding:10px 14px;margin:10px 0 14px;font-size:12px;color:var(--info);line-height:1.5;"></div>
+    <div class="frow">
+      <div class="fg"><label class="fl">Axle calls made</label><input type="number" min="0" class="fi" id="axle-calls" value="0" oninput="refreshAxleProgress()"></div>
+      <div class="fg"><label class="fl">Axle texts sent</label><input type="number" min="0" class="fi" id="axle-texts" value="0" oninput="refreshAxleProgress()"></div>
+    </div>
+    <div id="axle-progress-line" style="background:var(--sand);border-radius:6px;padding:10px 14px;margin-top:6px;font-size:12px;color:var(--mid);line-height:1.6;"></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5;">Count any outreach attempt — voicemails and no-answers count as calls. The target is a mix guide (any blend of calls + texts works).</div>
+    <div class="modal-actions">
+      <button class="btn btn-do" onclick="clearAxleShift()" style="margin-right:auto;" title="Remove the Axle entry for this shift (use if someone was accidentally marked as Axle)">Clear Axle entry</button>
+      <button class="btn btn-g" onclick="closeModal('axle-shift-modal')">Cancel</button>
+      <button class="btn btn-p" onclick="saveAxleShift()">Save ✓</button>
+    </div>
+  </div>
+</div>
+
 <!-- CINTAS SUPPLIES MODAL -->
 <div class="modal-ov" id="cintas-modal">
   <div class="modal" style="max-width:640px;">
@@ -6742,7 +6772,7 @@ async function exportDailyLogs(){
       return;
     }
     // Build CSV — one row per (staff, date) entry with all numeric metrics
-    const header=['Date','Staff','Green ⭐ Opportunities','First Visits Booked','Membership Sales','Package Sales','Outbound Calls','Pre-booked Guests','Contact Logs Done','Axle Follow-ups Done'];
+    const header=['Date','Staff','Green ⭐ Opportunities','First Visits Booked','Membership Sales','Package Sales','Outbound Calls','Pre-booked Guests','Contact Logs Done','Axle Follow-ups Done','Axle Shift Hours','Axle Shift Calls','Axle Shift Texts'];
     const rows=[header];
     // Sort by date asc, then staff name
     logs.sort((a,b)=>{
@@ -6760,7 +6790,10 @@ async function exportDailyLogs(){
         l.outboundCalls||0,
         l.preBooked||0,
         l.contactLogsDone?'Yes':'No',
-        l.axleFollowupsDone?'Yes':'No'
+        l.axleFollowupsDone?'Yes':'No',
+        l.axleShiftHours||'',
+        l.axleShiftCalls||'',
+        l.axleShiftTexts||''
       ]);
     });
     downloadCSV(`perspire-daily-logs-${from}-to-${to}.csv`,rows);
@@ -8263,6 +8296,12 @@ const CINTAS_ITEMS=['Toilet Paper','Paper Towel','Hand Soap (Bathroom)','Hand Sa
 
 // goalValue is the per-shift numeric target — used to check whether staff hit
 // the goal and to trigger the shift-end "add a why" reminder when they didn't.
+// Axle shift targets — per-hour expectations for outreach-only shift blocks.
+// Change these numbers if the baseline moves; everything downstream (modal
+// target line, progress %, summary cell) recalculates automatically.
+const AXLE_CALLS_PER_HOUR=20;
+const AXLE_TEXTS_PER_HOUR=45;
+
 const LOG_COLS=[
   {key:'opportunities',label:'Green ⭐ Opportunities',tip:'Log the total number of first-time guest visits you assisted during your shift (whether or not they purchased).'},
   {key:'firstVisitsBooked',label:'First Visits Booked',goal:'Goal: 3/shift',goalValue:3,tip:'Each MSA must book 3 first visits per shift. Visits do not need to occur that day, but they must be scheduled.'},
@@ -8444,11 +8483,20 @@ async function renderToday(){
     const cl=log.contactLogsDone,ax=log.axleFollowupsDone;
     const clCell=`<button class="dlg-cb-btn ${cl?'done':''}" onclick="toggleContactLogs('${s.id}')">${cl?'✓ Done':'Mark'}</button>`;
     const axCell=`<button class="dlg-cb-btn ${ax?'done':''}" onclick="toggleAxleFollowups('${s.id}')">${ax?'✓ Done':'Mark'}</button>`;
+    // Axle shift cell — shows "+ Log Axle shift" if nothing recorded, or a
+    // compact summary like "⚡ 2h · 35c · 12t" if they've logged. Click opens
+    // the modal to edit.
+    const axShiftHours=log.axleShiftHours, axShiftCalls=log.axleShiftCalls||0, axShiftTexts=log.axleShiftTexts||0;
+    const hasAxShift=axShiftHours!=null&&axShiftHours>0;
+    const axShiftCell=hasAxShift
+      ? `<button class="dlg-cb-btn done" style="min-width:110px;" onclick="openAxleShiftModal('${s.id}')" title="Click to edit">⚡ ${axShiftHours}h · ${axShiftCalls}c · ${axShiftTexts}t</button>`
+      : `<button class="dlg-cb-btn" style="min-width:110px;" onclick="openAxleShiftModal('${s.id}')">+ Log Axle shift</button>`;
     return`<tr>
       <td class="dlg-staff">${s.name}</td>
       ${cells}
       <td>${clCell}</td>
       <td>${axCell}</td>
+      <td>${axShiftCell}</td>
     </tr>`;
   }).join('');
   // Totals row
@@ -8458,11 +8506,20 @@ async function renderToday(){
   }).join('');
   const clDone=staff.filter(s=>{const log=dailyLogs.find(l=>l.staffId===s.id);return log&&log.contactLogsDone;}).length;
   const axDone=staff.filter(s=>{const log=dailyLogs.find(l=>l.staffId===s.id);return log&&log.axleFollowupsDone;}).length;
+  // Axle shift team totals — sum hours + calls + texts across everyone who logged one
+  const axShiftStaff=staff.filter(s=>{const log=dailyLogs.find(l=>l.staffId===s.id);return log&&log.axleShiftHours>0;});
+  const axShiftTotHours=axShiftStaff.reduce((sum,s)=>{const log=dailyLogs.find(l=>l.staffId===s.id);return sum+Number(log.axleShiftHours||0);},0);
+  const axShiftTotCalls=axShiftStaff.reduce((sum,s)=>{const log=dailyLogs.find(l=>l.staffId===s.id);return sum+Number(log.axleShiftCalls||0);},0);
+  const axShiftTotTexts=axShiftStaff.reduce((sum,s)=>{const log=dailyLogs.find(l=>l.staffId===s.id);return sum+Number(log.axleShiftTexts||0);},0);
+  const axShiftTotCell=axShiftStaff.length
+    ? `<td style="font-weight:700;background:var(--sand);">⚡ ${axShiftTotHours}h · ${axShiftTotCalls}c · ${axShiftTotTexts}t</td>`
+    : `<td style="font-weight:700;background:var(--sand);color:var(--muted);">—</td>`;
   const totalsRow=`<tr style="border-top:2px solid var(--border);">
     <td class="dlg-staff" style="font-weight:700;background:var(--sand);">Team total</td>
     ${totals}
     <td style="font-weight:700;background:var(--sand);">${clDone}/${staff.length}</td>
     <td style="font-weight:700;background:var(--sand);">${axDone}/${staff.length}</td>
+    ${axShiftTotCell}
   </tr>`;
 
   document.getElementById('today-daily-log').innerHTML=`<div class="sec-hdr"><div class="sec-title">Team daily log</div></div>
@@ -8479,6 +8536,7 @@ async function renderToday(){
         ${colsHeader}
         <th title="Mindbody contact logs have been added for all non-converted guests.">Contact logs completed for non-converted guests</th>
         <th title="Axle follow-ups scheduled for tomorrow for all non-converted guests.">Axle follow-ups scheduled for non-converted guests</th>
+        <th title="Dedicated outreach-only block (phone + text) layered on your shift. Only log here if you actually worked an Axle shift today.">Axle shift (outreach block)</th>
       </tr></thead>
       <tbody>${rows}${totalsRow}</tbody>
     </table></div>`;
@@ -8896,6 +8954,83 @@ async function toggleAxleFollowups(staffId){
     await api('daily?resource=logs&date='+d+'&staffId='+staffId,{method:'PUT',body:{axleFollowupsDone:log.axleFollowupsDone}});
   }
   renderToday();
+}
+
+// ── Axle shift (outreach block) tracking ───────────────────────────────────
+// Axle shift = dedicated outreach block (phone + text) layered on a regular
+// shift, 0.5-3h. Targets pulled from AXLE_CALLS_PER_HOUR / AXLE_TEXTS_PER_HOUR.
+// Staff log just the Axle portion here; the regular daily log fields still
+// reflect full-day totals (including the Axle calls/texts).
+let _axleModalStaffId=null;
+function openAxleShiftModal(staffId){
+  _axleModalStaffId=staffId;
+  const log=dailyLogs.find(l=>l.staffId===staffId)||{};
+  const staffName=sName(staffId);
+  const existingHrs=log.axleShiftHours!=null?String(log.axleShiftHours):'1';
+  document.getElementById('axle-shift-sub').textContent=`Logging for ${staffName}. Track just the Axle (outreach-only) portion of their shift — the regular daily log should still reflect full-day totals (including Axle calls/texts).`;
+  // Default to the saved duration, or 1h if none. If the saved value isn't in
+  // the dropdown options, add it so we don't silently change it.
+  const durSel=document.getElementById('axle-duration');
+  if(![...durSel.options].some(o=>o.value===existingHrs)){
+    const opt=document.createElement('option');opt.value=existingHrs;opt.textContent=`${existingHrs} hours (saved)`;durSel.appendChild(opt);
+  }
+  durSel.value=existingHrs;
+  document.getElementById('axle-calls').value=log.axleShiftCalls||0;
+  document.getElementById('axle-texts').value=log.axleShiftTexts||0;
+  refreshAxleTargets();
+  refreshAxleProgress();
+  document.getElementById('axle-shift-modal').classList.add('open');
+}
+function _axleCurrentTargets(){
+  const hours=Number(document.getElementById('axle-duration').value||1);
+  return {hours, callTarget:Math.round(hours*AXLE_CALLS_PER_HOUR), textTarget:Math.round(hours*AXLE_TEXTS_PER_HOUR)};
+}
+function refreshAxleTargets(){
+  const {hours,callTarget,textTarget}=_axleCurrentTargets();
+  document.getElementById('axle-target-line').innerHTML=`🎯 <strong>Target for ${hours}h:</strong> ${callTarget} calls <strong>OR</strong> ${textTarget} texts<br><span style="font-size:11px;opacity:.8;">Any mix works — 1 call ≈ 2 texts in effort.</span>`;
+  refreshAxleProgress();
+}
+function refreshAxleProgress(){
+  const {callTarget,textTarget}=_axleCurrentTargets();
+  const calls=Number(document.getElementById('axle-calls').value||0);
+  const texts=Number(document.getElementById('axle-texts').value||0);
+  const callPct=callTarget?Math.round((calls/callTarget)*100):0;
+  const textPct=textTarget?Math.round((texts/textTarget)*100):0;
+  const callColor=callPct>=100?'var(--ok)':callPct>=70?'var(--warn)':'var(--muted)';
+  const textColor=textPct>=100?'var(--ok)':textPct>=70?'var(--warn)':'var(--muted)';
+  document.getElementById('axle-progress-line').innerHTML=
+    `📞 Calls: <strong style="color:${callColor};">${calls} of ${callTarget}</strong> (${callPct}%)<br>`+
+    `💬 Texts: <strong style="color:${textColor};">${texts} of ${textTarget}</strong> (${textPct}%)`;
+}
+async function saveAxleShift(){
+  const staffId=_axleModalStaffId;if(!staffId)return;
+  const hours=Number(document.getElementById('axle-duration').value||0);
+  const calls=Number(document.getElementById('axle-calls').value||0);
+  const texts=Number(document.getElementById('axle-texts').value||0);
+  if(hours<=0){alert('Please pick a duration.');return;}
+  const d=getViewDate();
+  let log=dailyLogs.find(l=>l.staffId===staffId);
+  if(!log){log={staffId,date:d};dailyLogs.push(log);}
+  log.axleShiftHours=hours;log.axleShiftCalls=calls;log.axleShiftTexts=texts;
+  if(useLocalStorage){
+    localStorage.setItem('psp-v7-dlogs-'+d,JSON.stringify(dailyLogs));
+  } else {
+    await api('daily?resource=logs&date='+d+'&staffId='+staffId,{method:'PUT',body:{axleShiftHours:hours,axleShiftCalls:calls,axleShiftTexts:texts}});
+  }
+  closeModal('axle-shift-modal');_axleModalStaffId=null;renderToday();
+}
+async function clearAxleShift(){
+  const staffId=_axleModalStaffId;if(!staffId)return;
+  if(!confirm('Remove the Axle shift entry for this person? Their regular log is not affected.'))return;
+  const d=getViewDate();
+  let log=dailyLogs.find(l=>l.staffId===staffId);
+  if(log){log.axleShiftHours=null;log.axleShiftCalls=null;log.axleShiftTexts=null;}
+  if(useLocalStorage){
+    localStorage.setItem('psp-v7-dlogs-'+d,JSON.stringify(dailyLogs));
+  } else {
+    await api('daily?resource=logs&date='+d+'&staffId='+staffId,{method:'PUT',body:{axleShiftHours:null,axleShiftCalls:null,axleShiftTexts:null}});
+  }
+  closeModal('axle-shift-modal');_axleModalStaffId=null;renderToday();
 }
 
 // ── PERFORMANCE TAB ──────────────────────────────────────────────────────
@@ -9589,7 +9724,7 @@ function setMgrTab(tab){
 // Escape key closes modals
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
-    ['log-modal','edit-guest-modal','edit-change-modal','rassign-modal','tp-script-modal','deactivate-modal','milestone-modal','upload-modal','graduation-modal','task-complete-modal','cintas-modal','contact-log-template-modal','upload-instructions-modal','member-upload-modal','member-quickadd-modal','member-instructions-modal','help-modal','decline-deact-modal','redeem-modal','quick-redeem-modal','edit-nurture-modal'].forEach(id=>{
+    ['log-modal','edit-guest-modal','edit-change-modal','rassign-modal','tp-script-modal','deactivate-modal','milestone-modal','upload-modal','graduation-modal','task-complete-modal','cintas-modal','axle-shift-modal','contact-log-template-modal','upload-instructions-modal','member-upload-modal','member-quickadd-modal','member-instructions-modal','help-modal','decline-deact-modal','redeem-modal','quick-redeem-modal','edit-nurture-modal'].forEach(id=>{
       const el=document.getElementById(id);if(el&&el.classList.contains('open'))closeModal(id);
     });
   }

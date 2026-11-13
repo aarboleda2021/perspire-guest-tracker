@@ -228,6 +228,46 @@ module.exports = async function handler(req, res) {
       });
     });
   });
+  // ── AXLE SHIFT SECTION ──
+  // Who worked an outreach-only Axle block today, for how long, and how
+  // their calls/texts compare to target (20 calls/hr + 45 texts/hr).
+  const AXLE_CALLS_PER_HOUR = 20;
+  const AXLE_TEXTS_PER_HOUR = 45;
+  const axleRows = [];
+  staff.forEach(s => {
+    const log = logs.find(l => l.staff_id === s.id);
+    if (!log || !log.axle_shift_hours || Number(log.axle_shift_hours) <= 0) return;
+    const hrs = Number(log.axle_shift_hours);
+    const calls = Number(log.axle_shift_calls || 0);
+    const texts = Number(log.axle_shift_texts || 0);
+    const callTarget = Math.round(hrs * AXLE_CALLS_PER_HOUR);
+    const textTarget = Math.round(hrs * AXLE_TEXTS_PER_HOUR);
+    const callPct = callTarget ? Math.round((calls / callTarget) * 100) : 0;
+    const textPct = textTarget ? Math.round((texts / textTarget) * 100) : 0;
+    axleRows.push({ name: s.name, hrs, calls, texts, callTarget, textTarget, callPct, textPct });
+  });
+  const axleSection = axleRows.length
+    ? `<div style="font-size:11px;font-weight:600;color:#9A9A9A;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Axle Shifts — Outreach Blocks (${axleRows.length})</div>
+       <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:12px;">
+         <thead><tr style="background:#FAF7F2;border-bottom:2px solid #E8E0D8;">
+           <th style="padding:8px 10px;text-align:left;">Staff</th>
+           <th style="padding:8px 10px;text-align:left;">Hours</th>
+           <th style="padding:8px 10px;text-align:left;">Calls</th>
+           <th style="padding:8px 10px;text-align:left;">Texts</th>
+         </tr></thead>
+         <tbody>${axleRows.map(r => {
+           const callColor = r.callPct >= 100 ? '#3D7A4F' : r.callPct >= 70 ? '#B85C38' : '#9A9A9A';
+           const textColor = r.textPct >= 100 ? '#3D7A4F' : r.textPct >= 70 ? '#B85C38' : '#9A9A9A';
+           return `<tr>
+             <td style="padding:8px 10px;border-bottom:1px solid #E8E0D8;">${escapeHtml(r.name)}</td>
+             <td style="padding:8px 10px;border-bottom:1px solid #E8E0D8;">${r.hrs}h</td>
+             <td style="padding:8px 10px;border-bottom:1px solid #E8E0D8;color:${callColor};"><strong>${r.calls}</strong> / ${r.callTarget} (${r.callPct}%)</td>
+             <td style="padding:8px 10px;border-bottom:1px solid #E8E0D8;color:${textColor};"><strong>${r.texts}</strong> / ${r.textTarget} (${r.textPct}%)</td>
+           </tr>`;
+         }).join('')}</tbody>
+       </table>`
+    : '';
+
   const missedGoalsSection = missedGoalExplanations.length
     ? `<div style="font-size:11px;font-weight:600;color:#9A9A9A;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Why Goals Were Missed (${missedGoalExplanations.length})</div>
        <div style="margin-bottom:24px;">
@@ -287,6 +327,8 @@ module.exports = async function handler(req, res) {
           </tbody>
         </table>
       </div>
+
+      ${axleSection}
 
       ${missedGoalsSection}
 
