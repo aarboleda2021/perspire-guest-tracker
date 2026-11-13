@@ -993,6 +993,7 @@
           <select id="notes-filter" onchange="renderShiftNotes()" style="min-width:90px;">
             <option value="active">Active</option>
             <option value="urgent">Urgent only</option>
+            <option value="scheduled">📅 Scheduled for later</option>
             <option value="resolved">Resolved</option>
             <option value="all">All</option>
           </select>
@@ -1018,7 +1019,10 @@
             <div class="fg"><label class="fl">Assign to (optional)</label><select class="fi" id="note-assigned-to"><option value="">— No one specific —</option></select></div>
             <div class="fg"><label class="fl">Keep visible until (optional)</label><input type="date" class="fi" id="note-keep-until"></div>
           </div>
-          <div style="font-size:11px;color:var(--muted);margin-bottom:13px;">Notes auto-archive 48 hours after creation unless a "Keep visible until" date is set.</div>
+          <div class="fg"><label class="fl">Post on (optional)</label><input type="date" class="fi" id="note-scheduled-for">
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5;">Leave blank to post now. Pick a future date to schedule the note — it stays hidden until that day, then behaves like a normal note (48-hour window + ack tracking start on that day). Useful for "drop a reminder Monday about the holiday hours."</div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:13px;">Notes auto-archive 48 hours after they appear on the board unless a "Keep visible until" date is set.</div>
           <div style="display:flex;gap:10px;justify-content:flex-end;">
             <button class="btn btn-g" onclick="toggleAddNote()">Cancel</button>
             <button class="btn btn-p" onclick="addShiftNote()">Add note</button>
@@ -7030,13 +7034,13 @@ function countUnseenNotifs(){
     // the item was created AFTER they started tracking on this device.
     const trackingFrom=getTrackingFrom(me);
     const inRange=createdAt=>!trackingFrom||(createdAt&&new Date(createdAt)>=trackingFrom);
-    const newNotes=(shiftNotes||[]).filter(n=>!n.resolvedAt&&!(n.acknowledgments||{})[me]&&inRange(n.createdAt)).length;
+    const newNotes=(shiftNotes||[]).filter(n=>!n.resolvedAt&&!isNoteScheduled(n)&&!(n.acknowledgments||{})[me]&&inRange(n.createdAt)).length;
     const newAnnounce=(announcements||[]).filter(a=>!a.resolvedAt&&!(a.acknowledgments||{})[me]&&inRange(a.createdAt)).length;
     return {notes:newNotes,announce:newAnnounce,total:newNotes+newAnnounce,perStaff:true};
   }
   // Fallback: device-wide "newer than last seen"
   const since=_getLastSeen();
-  const newNotes=(shiftNotes||[]).filter(n=>!n.resolvedAt&&n.createdAt&&new Date(n.createdAt)>since).length;
+  const newNotes=(shiftNotes||[]).filter(n=>!n.resolvedAt&&!isNoteScheduled(n)&&n.createdAt&&new Date(n.createdAt)>since).length;
   const newAnnounce=(announcements||[]).filter(a=>!a.resolvedAt&&a.createdAt&&new Date(a.createdAt)>since).length;
   return {notes:newNotes,announce:newAnnounce,total:newNotes+newAnnounce,perStaff:false};
 }
@@ -7193,7 +7197,7 @@ async function unacknowledgeShiftNote(id){
 async function ackAllNewItems(){
   const me=getWorkingAs();
   if(!me){alert('Pick your name from the "Working as…" dropdown at the top first.');return;}
-  const unreadNotes=(shiftNotes||[]).filter(n=>!n.resolvedAt&&!(n.acknowledgments||{})[me]);
+  const unreadNotes=(shiftNotes||[]).filter(n=>!n.resolvedAt&&!isNoteScheduled(n)&&!(n.acknowledgments||{})[me]);
   const unreadAnn=(announcements||[]).filter(a=>!a.resolvedAt&&!(a.acknowledgments||{})[me]);
   const total=unreadNotes.length+unreadAnn.length;
   if(!total){return;}
@@ -7214,11 +7218,31 @@ async function ackAllNewItems(){
   renderShiftNotes();renderAnnouncements();updateNotifBadges();
 }
 
+// A note is "scheduled for later" when scheduledFor is set to a future date.
+// Scheduled notes are hidden from Active / Urgent / All filters until that
+// date arrives; they only surface in the "📅 Scheduled" filter so staff can
+// review / edit / cancel them before they go live.
+function isNoteScheduled(n){
+  if(!n.scheduledFor)return false;
+  const sf=parseDate(n.scheduledFor);
+  return sf&&sf>today();
+}
+// For a scheduled note, treat scheduledFor as the effective "creation date"
+// for the 48-hour auto-archive window + ack-tracking cutoffs. That way a note
+// scheduled for next Monday goes live Monday morning and auto-archives Wednesday.
+function noteEffectiveCreatedAt(n){
+  if(n.scheduledFor){
+    const sf=parseDate(n.scheduledFor);
+    if(sf)return sf;
+  }
+  return new Date(n.createdAt);
+}
 function isNoteActive(n){
   if(n.resolvedAt)return false;
-  const created=new Date(n.createdAt);
+  if(isNoteScheduled(n))return false; // not on the board yet
+  const effCreated=noteEffectiveCreatedAt(n);
   const now=new Date();
-  const hoursSince=(now-created)/3600000;
+  const hoursSince=(now-effCreated)/3600000;
   if(n.keepUntil){
     const ku=parseDate(n.keepUntil);
     if(ku&&ku>=today())return true;
@@ -7233,6 +7257,7 @@ function toggleAddNote(){
     document.getElementById('note-content').value='';
     document.getElementById('note-priority').value='fyi';
     document.getElementById('note-keep-until').value='';
+    document.getElementById('note-scheduled-for').value='';
     document.getElementById('note-author').innerHTML=shiftNoteStaffOptions(getWorkingAs()||'');
     document.getElementById('note-assigned-to').innerHTML=`<option value="">— No one specific —</option>`+activeStaff().map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
   }
@@ -7246,10 +7271,18 @@ async function addShiftNote(){
   const priority=document.getElementById('note-priority').value;
   const keepUntil=document.getElementById('note-keep-until').value||null;
   const assignedTo=document.getElementById('note-assigned-to').value||null;
+  const scheduledForRaw=document.getElementById('note-scheduled-for').value||null;
+  // A "post on" date that's today or in the past = post immediately; only
+  // store scheduledFor when it's genuinely a future date.
+  const scheduledFor=(scheduledForRaw&&parseDate(scheduledForRaw)>today())?scheduledForRaw:null;
   const id=Date.now().toString();
-  const rec={id,content,priority,createdBy:author,keepUntil,assignedTo,createdAt:new Date().toISOString(),resolvedAt:null,resolvedBy:null};
+  const rec={id,content,priority,createdBy:author,keepUntil,assignedTo,scheduledFor,createdAt:new Date().toISOString(),resolvedAt:null,resolvedBy:null};
   if(useLocalStorage){shiftNotes.unshift(rec);lsSave();}
   else{await api('shift-notes',{method:'POST',body:rec});await loadShiftNotes();}
+  if(scheduledFor){
+    const sfLabel=new Date(scheduledFor+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+    alert(`✅ Scheduled! This note will appear on the board on ${sfLabel}. You can find it under the "📅 Scheduled for later" filter until then.`);
+  }
   toggleAddNote();renderShiftNotes();
 }
 
@@ -7294,6 +7327,7 @@ function editNote(id){
     <div class="frow"><div class="fg" style="margin:0;"><label class="fl">Priority</label><select class="fi" id="en-prio-${id}">${prioOpts}</select></div>
     <div class="fg" style="margin:0;"><label class="fl">Keep visible until</label><input type="date" class="fi" id="en-keep-${id}" value="${n.keepUntil||''}"></div></div>
     <div class="fg" style="margin:0;"><label class="fl">Assign to</label><select class="fi" id="en-assigned-${id}">${assignOpts}</select></div>
+    <div class="fg" style="margin:0;"><label class="fl">Post on (leave blank to post now)</label><input type="date" class="fi" id="en-scheduled-${id}" value="${n.scheduledFor||''}"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-sm btn-g" onclick="renderShiftNotes()">Cancel</button><button class="btn btn-sm btn-p" onclick="saveNoteEdit('${id}')">Save</button></div>
   </div>`;
 }
@@ -7302,24 +7336,40 @@ async function saveNoteEdit(id){
   const priority=document.getElementById('en-prio-'+id).value;
   const keepUntil=document.getElementById('en-keep-'+id).value||null;
   const assignedTo=document.getElementById('en-assigned-'+id).value||null;
+  const scheduledRaw=document.getElementById('en-scheduled-'+id).value||null;
+  // Same rule as the add form: only store a scheduled_for when it's a genuine
+  // future date. Setting it to today / past clears the schedule → posts now.
+  const scheduledFor=(scheduledRaw&&parseDate(scheduledRaw)>today())?scheduledRaw:null;
   if(!content){alert('Please enter a note.');return;}
   const n=shiftNotes.find(x=>x.id===id);if(!n)return;
-  n.content=content;n.priority=priority;n.keepUntil=keepUntil;n.assignedTo=assignedTo;
+  n.content=content;n.priority=priority;n.keepUntil=keepUntil;n.assignedTo=assignedTo;n.scheduledFor=scheduledFor;
   if(useLocalStorage){lsSave();}
-  else{await api('shift-notes?id='+id,{method:'PUT',body:{content,priority,keepUntil,assignedTo}});}
+  else{await api('shift-notes?id='+id,{method:'PUT',body:{content,priority,keepUntil,assignedTo,scheduledFor}});}
   renderShiftNotes();
 }
 
 function renderShiftNotes(){
   const fil=document.getElementById('notes-filter').value;
   const sort=document.getElementById('notes-sort')?.value||'newest';
-  let list=shiftNotes;
-  if(fil==='active')list=shiftNotes.filter(n=>isNoteActive(n));
-  else if(fil==='urgent')list=shiftNotes.filter(n=>isNoteActive(n)&&n.priority==='urgent');
-  else if(fil==='resolved')list=shiftNotes.filter(n=>n.resolvedAt);
+  // Scheduled-for-later notes are hidden from every default view (they are
+  // "not on the board yet"). They only appear in the dedicated "scheduled"
+  // filter so staff can review / edit / delete them before they go live.
+  let list=shiftNotes.filter(n=>!isNoteScheduled(n));
+  if(fil==='active')list=list.filter(n=>isNoteActive(n));
+  else if(fil==='urgent')list=list.filter(n=>isNoteActive(n)&&n.priority==='urgent');
+  else if(fil==='resolved')list=list.filter(n=>n.resolvedAt);
+  else if(fil==='scheduled')list=shiftNotes.filter(n=>isNoteScheduled(n));
   // Primary sort: unresolved urgent notes always pinned to the top so the team
   // doesn't miss them. Secondary sort: by createdAt (newest/oldest per dropdown).
   list=[...list].sort((a,b)=>{
+    // Scheduled view sorts by scheduled-for date (earliest first) regardless
+    // of the user-selected sort, since "when will this go live" is what
+    // matters for a scheduling queue.
+    if(fil==='scheduled'){
+      const asf=parseDate(a.scheduledFor)||new Date(0);
+      const bsf=parseDate(b.scheduledFor)||new Date(0);
+      return asf-bsf;
+    }
     const aUrg=a.priority==='urgent'&&!a.resolvedAt?0:1;
     const bUrg=b.priority==='urgent'&&!b.resolvedAt?0:1;
     if(aUrg!==bUrg)return aUrg-bUrg;
@@ -7334,13 +7384,19 @@ function renderShiftNotes(){
   // banner nags her, and fall through to the ungrouped "simple list" render
   // below by excluding her from the useGrouping branch.
   const isOwnerView=me==='amanda';
-  const myUnreadCount=isOwnerView?0:(shiftNotes||[]).filter(n=>!n.resolvedAt&&me&&!(n.acknowledgments||{})[me]&&inTrackingRange(n.createdAt)).length
+  const myUnreadCount=isOwnerView?0:(shiftNotes||[]).filter(n=>!n.resolvedAt&&!isNoteScheduled(n)&&me&&!(n.acknowledgments||{})[me]&&inTrackingRange(n.createdAt)).length
     +(announcements||[]).filter(a=>!a.resolvedAt&&me&&!(a.acknowledgments||{})[me]&&inTrackingRange(a.createdAt)).length;
   let banner='';
   if(!me){
     banner=`<div style="background:var(--sand);border-left:3px solid var(--info);padding:10px 14px;border-radius:6px;font-size:12px;color:var(--mid);margin-bottom:12px;line-height:1.5;">👤 <strong>Pick your name in the "Working as…" dropdown</strong> at the top of the page so the app can track which notes & announcements YOU have read.</div>`;
   } else if(myUnreadCount>0){
     banner=`<div style="background:var(--infop);border-left:3px solid var(--info);padding:10px 14px;border-radius:6px;font-size:12px;color:var(--info);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><span>👤 <strong>${sName(me)}</strong>, you have <strong>${myUnreadCount} unread</strong> item${myUnreadCount!==1?'s':''} (notes + announcements).</span><button class="btn btn-p btn-sm" onclick="ackAllNewItems()">✓ Mark all as read</button></div>`;
+  }
+  // Small hint when there are scheduled notes queued and the user is on a
+  // non-scheduled filter — one click jumps them to the scheduled view.
+  const scheduledCount=shiftNotes.filter(n=>!n.resolvedAt&&isNoteScheduled(n)).length;
+  if(scheduledCount>0&&fil!=='scheduled'){
+    banner+=`<div style="background:#FAFCFE;border:1px dashed var(--info);padding:7px 12px;border-radius:6px;font-size:11px;color:var(--info);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><span>📅 <strong>${scheduledCount}</strong> note${scheduledCount!==1?'s':''} scheduled for a future date.</span><button class="btn btn-g btn-sm" style="font-size:11px;border-color:var(--info);color:var(--info);" onclick="document.getElementById('notes-filter').value='scheduled';renderShiftNotes();">View queue →</button></div>`;
   }
   if(!list.length){el.innerHTML=banner+`<div class="empty"><div class="empty-icon">○</div><p>No notes${fil==='active'?' — you\'re all caught up!':''}.</p></div>`;return;}
   // When signed in AND viewing the default "Active" filter, split notes into
@@ -7393,6 +7449,13 @@ function renderShiftNotes(){
 function _renderNoteCard(n,me){
   const urgent=n.priority==='urgent';
   const resolved=!!n.resolvedAt;
+  // A scheduled-for-later note isn't live yet — skip ack UI and the resolve
+  // control; show a clear "scheduled" banner at the top instead so there's
+  // no ambiguity about why it's not on the main board.
+  const scheduled=isNoteScheduled(n);
+  const scheduledBanner=scheduled
+    ? `<div style="background:var(--infop);border-left:3px solid var(--info);border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:var(--info);">📅 <strong>Scheduled to post on ${new Date(n.scheduledFor+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}</strong> — hidden from the board until then.</div>`
+    : '';
   const createdStr=new Date(n.createdAt).toLocaleString('en-US',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});
   const keepLbl=n.keepUntil?` · keeping until ${fmtDate(n.keepUntil)}`:'';
   const assignedLbl=n.assignedTo?`<span class="badge bm" style="margin-right:6px;">For: ${sName(n.assignedTo)}</span>`:'';
@@ -7400,7 +7463,7 @@ function _renderNoteCard(n,me){
   const ackedIds=Object.keys(acks);
   const readByMe=me&&acks[me];
   let ackUI='';
-  if(!resolved){
+  if(!resolved&&!scheduled){
     if(me&&readByMe){
       const when=new Date(acks[me]).toLocaleDateString('en-US',{month:'numeric',day:'numeric'});
       ackUI=`<div style="font-size:11px;color:var(--ok);margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span>✓ You read this on ${when}</span><button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 7px;border-color:var(--muted);color:var(--muted);" onclick="unacknowledgeShiftNote('${n.id}')">Undo</button></div>`;
@@ -7412,18 +7475,24 @@ function _renderNoteCard(n,me){
       ackUI+=`<div style="font-size:10px;color:var(--muted);margin-top:4px;">Read by: ${readers}</div>`;
     }
   }
-  return`<div class="mccard ${urgent&&!resolved?'isurg':''}" id="note-card-${n.id}" style="padding:14px 16px;margin-bottom:9px;${resolved?'opacity:.6;':''}">
+  // Scheduled notes get a lighter action row — no ack / resolve controls,
+  // just Edit (to tweak the content or reschedule) and Delete (to cancel it).
+  const actionRow=scheduled
+    ? `<button class="btn btn-sm btn-g" onclick="editNote('${n.id}')">Edit</button>${(me==='mohogany'||me==='amanda')?`<button class="btn btn-sm btn-do" onclick="removeNote('${n.id}')">Cancel</button>`:''}`
+    : `${resolved?`<button class="btn btn-g btn-sm" onclick="unresolveNote('${n.id}')">Reopen</button>`:`<select id="resolve-by-${n.id}" class="fi" style="font-size:12px;padding:5px 8px;width:auto;"><option value="" ${me?'':'disabled selected'}>Your name</option><option value="amanda" ${me==='amanda'?'selected':''}>Amanda (owner)</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===me?'selected':''}>${s.name}</option>`).join('')}</select><button class="btn btn-g btn-sm" onclick="resolveNote('${n.id}')">Resolve ✓</button>`}
+      <button class="btn btn-sm btn-g" onclick="editNote('${n.id}')">Edit</button>
+      ${(me==='mohogany'||me==='amanda')?`<button class="btn btn-sm btn-do" onclick="removeNote('${n.id}')">Delete</button>`:''}`;
+  return`<div class="mccard ${urgent&&!resolved?'isurg':''}" id="note-card-${n.id}" style="padding:14px 16px;margin-bottom:9px;${resolved?'opacity:.6;':''}${scheduled?'border:1.5px dashed var(--info);background:#FAFCFE;':''}">
+    ${scheduledBanner}
     <div style="display:flex;gap:10px;align-items:flex-start;">
       <div style="flex:1;">
         ${assignedLbl?`<div style="margin-bottom:6px;">${assignedLbl}</div>`:''}
         <div style="font-size:13px;white-space:pre-wrap;">${n.content}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:6px;">${urgent?'<span class="badge bURG">URGENT</span> ':''}${sName(n.createdBy)||'Unknown'} · ${createdStr}${keepLbl}${resolved?` · ✓ Resolved by ${sName(n.resolvedBy)||'?'}`:''}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;">${urgent?'<span class="badge bURG">URGENT</span> ':''}${sName(n.createdBy)||'Unknown'} · drafted ${createdStr}${keepLbl}${resolved?` · ✓ Resolved by ${sName(n.resolvedBy)||'?'}`:''}</div>
         ${ackUI}
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap;">
-        ${resolved?`<button class="btn btn-g btn-sm" onclick="unresolveNote('${n.id}')">Reopen</button>`:`<select id="resolve-by-${n.id}" class="fi" style="font-size:12px;padding:5px 8px;width:auto;"><option value="" ${me?'':'disabled selected'}>Your name</option><option value="amanda" ${me==='amanda'?'selected':''}>Amanda (owner)</option>${activeStaff().map(s=>`<option value="${s.id}" ${s.id===me?'selected':''}>${s.name}</option>`).join('')}</select><button class="btn btn-g btn-sm" onclick="resolveNote('${n.id}')">Resolve ✓</button>`}
-        <button class="btn btn-sm btn-g" onclick="editNote('${n.id}')">Edit</button>
-        ${(me==='mohogany'||me==='amanda')?`<button class="btn btn-sm btn-do" onclick="removeNote('${n.id}')">Delete</button>`:''}
+        ${actionRow}
       </div>
     </div>
   </div>`;

@@ -86,7 +86,10 @@ module.exports = async function handler(req, res) {
     supabase.from('daily_task_completions').select('*').eq('date', todayStr),
     supabase.from('daily_logs').select('*').eq('log_date', todayStr),
     supabase.from('staff').select('*').eq('active', true).order('name'),
-    supabase.from('shift_notes').select('*').gte('created_at', windowStart).lte('created_at', windowEnd),
+    // Pull both notes created in today's window AND notes scheduled to post
+    // today (regardless of when they were drafted). The post-filter below
+    // dedupes and picks the right ones.
+    supabase.from('shift_notes').select('*').or(`and(created_at.gte.${windowStart},created_at.lte.${windowEnd}),scheduled_for.eq.${todayStr}`),
     supabase.from('custom_tasks').select('*')
   ]);
 
@@ -105,10 +108,22 @@ module.exports = async function handler(req, res) {
   // Filter notes to only those whose created_at falls on the target ET date
   const notes = (notesRes.data || []).filter(n => {
     if (!n.created_at) return false;
-    const etDate = new Date(n.created_at).toLocaleDateString('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' });
-    // toLocaleDateString returns "MM/DD/YYYY" — convert to "YYYY-MM-DD"
-    const [mm, dd, yy] = etDate.split('/');
-    return `${yy}-${mm}-${dd}` === todayStr;
+    // Scheduled notes that are NOT yet live (scheduled_for is in the future
+    // relative to the recap's date) should not show up in the recap — they
+    // haven't appeared on the board yet. Also skip notes whose scheduled_for
+    // is still ahead of today, since those aren't on the board either.
+    if (n.scheduled_for && n.scheduled_for > todayStr) return false;
+    // "Which day does this note belong to in the recap?" If it's scheduled
+    // for a specific date, use that; otherwise use its creation date in ET.
+    let effectiveDate;
+    if (n.scheduled_for) {
+      effectiveDate = n.scheduled_for;
+    } else {
+      const etDate = new Date(n.created_at).toLocaleDateString('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' });
+      const [mm, dd, yy] = etDate.split('/');
+      effectiveDate = `${yy}-${mm}-${dd}`;
+    }
+    return effectiveDate === todayStr;
   });
 
   // ── BUILD STUDIO TASKS SECTION ──

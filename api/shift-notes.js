@@ -24,6 +24,7 @@ module.exports = async function handler(req, res) {
       resolvedAt: n.resolved_at,
       resolvedBy: n.resolved_by,
       assignedTo: n.assigned_to || null,
+      scheduledFor: n.scheduled_for || null,
       acknowledgments: n.acknowledgments || {}
     }));
 
@@ -40,7 +41,8 @@ module.exports = async function handler(req, res) {
       keep_until: b.keepUntil || null,
       resolved_at: null,
       resolved_by: null,
-      assigned_to: b.assignedTo || null
+      assigned_to: b.assignedTo || null,
+      scheduled_for: b.scheduledFor || null
     });
     if (error) return res.status(500).json({ error: error.message });
     return res.status(201).json({ ok: true });
@@ -56,6 +58,7 @@ module.exports = async function handler(req, res) {
     if (b.resolvedAt !== undefined) updates.resolved_at = b.resolvedAt;
     if (b.resolvedBy !== undefined) updates.resolved_by = b.resolvedBy;
     if (b.assignedTo !== undefined) updates.assigned_to = b.assignedTo;
+    if (b.scheduledFor !== undefined) updates.scheduled_for = b.scheduledFor;
     if (b.acknowledgments !== undefined) updates.acknowledgments = b.acknowledgments;
 
     const { error } = await supabase.from('shift_notes').update(updates).eq('id', id);
