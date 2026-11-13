@@ -503,7 +503,7 @@
         <div class="fg" style="margin:0;"><label class="fl">First visit back (optional)</label><input type="date" class="fi" id="ng-returning-first-visit"></div>
         <div class="fg" style="margin:0;"><label class="fl">What brought them back? (optional)</label><input type="text" class="fi" id="ng-returning-note" placeholder="e.g., responded to win-back email, friend referred"></div>
       </div>
-      <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;">Leave the date blank if they haven't booked yet — they'll show up on today's hub under "Returning — needs to book" so staff can help them schedule.</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;">Leave the date blank if they haven't booked yet. The returning tag is context for the assigned staff member — they'll see it on the client's card and tailor their nurture outreach accordingly.</div>
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
       <button class="btn btn-g" onclick="toggleAddGuest()">Cancel</button>
@@ -1171,7 +1171,6 @@
   <div id="daily-today" style="display:none;">
     <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Complete your daily studio tasks and log your shift numbers. Everyone fills in their own row.</div>
     <div id="today-header" style="margin-bottom:18px;"></div>
-    <div id="today-returning" style="margin-bottom:22px;"></div>
     <div id="today-studio-tasks"></div>
     <div id="today-daily-log" style="margin-top:26px;"></div>
   </div>
@@ -8418,39 +8417,6 @@ async function renderToday(){
       ${rightSide}
     </div>`;
   }).join('');
-  // Returning-client sections — "Welcome back today" (yesterday's first visit
-  // back → warm follow-up) and "Needs to book" (returning tag but no visit on
-  // the calendar yet → help them schedule). Package repurchases and member
-  // reactivations use the same two sections; the script changes slightly by
-  // type and whether they already visited.
-  const todayStr=viewDate;
-  const yStr=(()=>{const d=parseDate(viewDate);if(!d)return'';d.setDate(d.getDate()-1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;})();
-  const returningActive=guests.filter(g=>g.returning&&!g.deactivated);
-  const welcomeBack=returningActive.filter(g=>g.firstVisitBack===yStr);
-  const needsToBook=returningActive.filter(g=>!g.firstVisitBack || g.firstVisitBack>todayStr);
-  const rCard=(g,ctx)=>{
-    const typeLbl=g.returningType==='package'?'📦 Package repurchase':'🔁 Returning member';
-    const noteLine=g.returningNote?`<div style="font-size:11px;color:var(--muted);margin-top:3px;">💬 ${g.returningNote}</div>`:'';
-    const dateLine=g.firstVisitBack?`<div style="font-size:11px;color:var(--muted);margin-top:3px;">First visit back: ${new Date(g.firstVisitBack+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</div>`:(ctx==='book'?`<div style="font-size:11px;color:var(--err);margin-top:3px;">⚠ No visit booked yet</div>`:'');
-    return `<div class="stask" style="cursor:default;">
-      <div class="stask-chk" style="background:var(--info);border-color:var(--info);"><svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="2" fill="white"/></svg></div>
-      <div class="stask-body">
-        <div class="stask-lbl">${g.name} <span style="font-size:11px;color:var(--muted);font-weight:400;">— ${typeLbl}</span></div>
-        ${dateLine}
-        ${noteLine}
-      </div>
-      <button class="btn btn-g btn-sm" style="border-color:var(--info);color:var(--info);font-size:11px;" onclick="openReturningScript('${ctx}','${g.id}')">📞 View script</button>
-    </div>`;
-  };
-  let returningHtml='';
-  if(welcomeBack.length){
-    returningHtml+=`<div style="margin-bottom:14px;"><div class="sec-hdr"><div class="sec-title">👋 Welcome back today</div><div class="sec-ct">${welcomeBack.length}</div></div><div style="font-size:12px;color:var(--muted);margin:0 0 10px;">These clients had their first visit back yesterday. A short, warm follow-up text or call — no sales pitch, just "glad to see you back."</div>${welcomeBack.map(g=>rCard(g,'welcome')).join('')}</div>`;
-  }
-  if(needsToBook.length){
-    returningHtml+=`<div><div class="sec-hdr"><div class="sec-title">📅 Returning — needs to book</div><div class="sec-ct">${needsToBook.length}</div></div><div style="font-size:12px;color:var(--muted);margin:0 0 10px;">Tagged as returning / repurchasing but no first visit back on the calendar yet. Reach out and help them get a session scheduled.</div>${needsToBook.map(g=>rCard(g,'book')).join('')}</div>`;
-  }
-  document.getElementById('today-returning').innerHTML=returningHtml;
-
   document.getElementById('today-studio-tasks').innerHTML=`<div class="sec-hdr"><div class="sec-title">Studio tasks</div><div class="sec-ct">${applicable.length}</div></div>${tasksHtml||'<div class="empty"><p>No studio tasks for this day.</p></div>'}`;
 
   // Daily log grid — exclude Mohogany and Studio Assistants (SAs handle BOH,
@@ -8630,60 +8596,6 @@ function renderYFVScripts(channel){
 }
 function setYFVScenario(scenario,channel){_yfvActiveScenario=scenario;renderYFVScripts(channel);}
 function showYFVChannel(channel,btn){renderYFVScripts(channel);}
-
-// Returning / repurchase scripts — opened per-client from the "Welcome back
-// today" and "Returning — needs to book" sections on today's hub. Script copy
-// changes by context (ctx='welcome' after a first visit back, 'book' when
-// there's no visit on the calendar yet) and by returning type (member vs
-// repurchasing package holder).
-let _returningCtx='welcome';
-let _returningGuestId='';
-function openReturningScript(ctx,guestId){
-  _returningCtx=ctx; _returningGuestId=guestId;
-  const g=guests.find(x=>x.id===guestId); if(!g)return;
-  const title=ctx==='welcome'?`👋 Welcome back — ${g.name}`:`📅 Help ${g.name} get booked`;
-  const sub=ctx==='welcome'
-    ?'Short, warm, no sales pitch. The goal is to make them feel seen and glad they came back.'
-    :'The goal is one thing: get them on the schedule. Keep it light and offer to help them pick a time.';
-  document.getElementById('tp-script-title').textContent=title;
-  document.getElementById('tp-script-sub').textContent=sub;
-  renderReturningScript('text');
-  document.getElementById('tp-script-modal').classList.add('open');
-}
-function renderReturningScript(channel){
-  const g=guests.find(x=>x.id===_returningGuestId);
-  const name=g?g.name.split(' ')[0]:'[Name]';
-  const isPkg=g&&g.returningType==='package';
-  document.getElementById('tp-script-tabs').innerHTML=
-    `<button class="stab ${channel==='text'?'active':''}" onclick="renderReturningScript('text')">Text</button>`+
-    `<button class="stab ${channel==='call'?'active':''}" onclick="renderReturningScript('call')">Phone call</button>`+
-    `<button class="stab ${channel==='voicemail'?'active':''}" onclick="renderReturningScript('voicemail')">Voicemail</button>`;
-  let script='';
-  if(_returningCtx==='welcome'){
-    // Day-after follow-up: visit already happened.
-    if(channel==='text'){
-      script=isPkg
-        ?`Hi ${name}! It's [Your Name] from Perspire Peachtree Corners — so glad to have you back in the studio yesterday! Hope you felt right at home. If anything felt off or you have questions about your package, just text me back. Otherwise, see you at your next session! 🧖‍♀️`
-        :`Hi ${name}! It's [Your Name] from Perspire Peachtree Corners — so good to see you back with us yesterday! Welcome home 💛 If there's anything we can do to make this stretch feel even better than before, just let me know. Can't wait to see you at your next session!`;
-    } else if(channel==='call'){
-      script=`Hi ${name}, this is [Your Name] from Perspire Peachtree Corners — just wanted to personally welcome you back! We saw you come in yesterday and I didn't want to let the moment pass without saying how glad we are to have you with us again.\n\n[Pause for them to respond — let them share whatever's on their mind]\n\nIs there anything you'd like us to know this time around — anything that would make your experience even better? And is there anything I can help you with before your next session?`;
-    } else {
-      script=`Hi ${name}, this is [Your Name] from Perspire Peachtree Corners. I just wanted to say welcome back — we're so glad to have you with us again! No need to call me back, just wanted you to hear a friendly voice. See you at your next session!`;
-    }
-  } else {
-    // Needs to book: no visit on the calendar yet. The one goal is scheduling.
-    if(channel==='text'){
-      script=isPkg
-        ?`Hi ${name}! It's [Your Name] from Perspire Peachtree Corners — so excited to have you back with us! When were you thinking of coming in to kick off your package? Happy to help you grab a spot that fits your schedule.`
-        :`Hi ${name}! It's [Your Name] from Perspire Peachtree Corners — SO glad to have you back with us! When were you thinking of coming in for your first session back? Happy to help you grab a spot that works.`;
-    } else if(channel==='call'){
-      script=`Hi ${name}, this is [Your Name] from Perspire Peachtree Corners — I saw you're back with us and I had to call to say welcome home! We've missed you.\n\n[Pause — let them share what brought them back]\n\nI'd love to help you get your first session back on the calendar so we can see you in person. Do you have a day of the week or time of day that usually works best for you? I can look at what we have open and lock something in right now.`;
-    } else {
-      script=`Hi ${name}, this is [Your Name] from Perspire Peachtree Corners — just wanted to say welcome back! We're so glad to have you with us again. Give me a call back when you have a minute and I'll help you get your first session back on the schedule. Talk soon!`;
-    }
-  }
-  document.getElementById('tp-script-body').textContent=script;
-}
 
 // Daily cleaning list popup (view-only)
 function openCleaningList(){
